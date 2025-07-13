@@ -22,8 +22,16 @@ Para executar a aplicação em modo de desenvolvimento:
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+# Linux/Mac
 export FLASK_APP=backend.app:create_app
 flask run
+
+# Windows PowerShell
+# $env:FLASK_APP = 'backend.app:create_app'
+# flask run
+
+# Ou use diretamente a opção --app
+# flask --app backend.app:create_app run
 ```
 
 ## Backup
