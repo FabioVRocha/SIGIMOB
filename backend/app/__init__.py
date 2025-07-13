@@ -10,7 +10,7 @@ jwt = JWTManager()
 def create_app():
     app = Flask(__name__)
     app.config.from_mapping(
-        SQLALCHEMY_DATABASE_URI="postgresql://postgres:postgres@45.161.184.156:5433/sigimob_db",
+        SQLALCHEMY_DATABASE_URI="postgresql://postgres:postgres@45.161.184.156:5433/sigimob",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         JWT_SECRET_KEY="change-me",
     )
