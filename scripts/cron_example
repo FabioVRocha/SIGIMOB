@@ -1,0 +1,2 @@
+# Exemplo de entrada no crontab para backup diário às 2h
+0 2 * * * /caminho/para/scripts/backup.sh /caminho/para/destino >> /var/log/sigimob_backup.log 2>&1
