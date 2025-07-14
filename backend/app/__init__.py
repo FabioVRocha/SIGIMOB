@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
@@ -8,7 +9,8 @@ jwt = JWTManager()
 
 
 def create_app():
-    app = Flask(__name__)
+    static_folder = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend')
+    app = Flask(__name__, static_folder=static_folder, static_url_path='')
     app.config.from_mapping(
         SQLALCHEMY_DATABASE_URI="postgresql://postgres:postgres@45.161.184.156:5433/sigimob",
         SQLALCHEMY_TRACK_MODIFICATIONS=False,

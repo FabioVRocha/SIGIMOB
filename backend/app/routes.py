@@ -1,10 +1,24 @@
-from flask import Blueprint, jsonify, request
+import os
+from flask import Blueprint, jsonify, request, send_from_directory
 from flask_jwt_extended import create_access_token, jwt_required
 
 from .models import db, Person, Imovel, Usuario
 from .utils import validate_cpf_cnpj, hash_password, check_password
 
 bp = Blueprint('api', __name__)
+FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'frontend'))
+
+
+@bp.get('/')
+def index():
+    """Serve the login page."""
+    return send_from_directory(FRONTEND_DIR, 'index.html')
+
+
+@bp.get('/home')
+def home_page():
+    """Serve the home page."""
+    return send_from_directory(FRONTEND_DIR, 'home.html')
 
 
 @bp.post('/login')
