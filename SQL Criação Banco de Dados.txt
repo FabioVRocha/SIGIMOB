@@ -1,0 +1,240 @@
+-- Esquema do Banco de Dados PostgreSQL para o Sistema de Gestão de Imóveis e Aluguéis
+
+-- Tabela para Cadastro de Fornecedores e Clientes (Pessoas)
+CREATE TYPE tipo_pessoa_enum AS ENUM ('Fornecedor', 'Cliente');
+CREATE TYPE status_geral_enum AS ENUM ('Ativo', 'Inativo');
+
+CREATE TABLE pessoas (
+    id SERIAL PRIMARY KEY,
+    documento VARCHAR(20) UNIQUE NOT NULL, -- CPF ou CNPJ
+    razao_social_nome VARCHAR(255) NOT NULL, -- Razão Social (CNPJ) ou Nome (CPF)
+    nome_fantasia VARCHAR(255), -- Ativo para CNPJ, inativo para CPF
+    endereco VARCHAR(255),
+    bairro VARCHAR(100),
+    cidade VARCHAR(100),
+    estado CHAR(2),
+    cep VARCHAR(10),
+    telefone VARCHAR(20),
+    observacao TEXT,
+    tipo tipo_pessoa_enum NOT NULL,
+    status status_geral_enum NOT NULL DEFAULT 'Ativo',
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Cadastro de Imóveis
+CREATE TYPE destinacao_imovel_enum AS ENUM ('Residencial', 'Comercial', 'Misto');
+
+CREATE TABLE imoveis (
+    id SERIAL PRIMARY KEY,
+    tipo_imovel VARCHAR(50), -- Ex: "Casa", "Apartamento", "Comercial"
+    endereco VARCHAR(255) NOT NULL,
+    bairro VARCHAR(100),
+    cidade VARCHAR(100),
+    estado CHAR(2),
+    cep VARCHAR(10),
+    registro VARCHAR(100),
+    livro VARCHAR(50),
+    folha VARCHAR(50),
+    matricula VARCHAR(100),
+    inscricao_iptu VARCHAR(100) UNIQUE,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    data_aquisicao DATE,
+    valor_imovel NUMERIC(15,2),
+    valor_previsto_aluguel NUMERIC(15,2),
+    destinacao destinacao_imovel_enum,
+    observacao TEXT,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Anexos de Imóveis (arquivos e fotos)
+CREATE TABLE imovel_anexos (
+    id SERIAL PRIMARY KEY,
+    imovel_id INTEGER NOT NULL REFERENCES imoveis(id) ON DELETE CASCADE,
+    nome_arquivo VARCHAR(255) NOT NULL,
+    caminho_arquivo VARCHAR(500) NOT NULL, -- Caminho no sistema de arquivos local ou URL
+    tipo_anexo VARCHAR(50), -- Ex: 'foto', 'documento_contrato', 'planta'
+    data_upload TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Cadastro de Despesas
+CREATE TABLE despesas_cadastro (
+    id SERIAL PRIMARY KEY,
+    descricao VARCHAR(255) NOT NULL,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Cadastro de Origens (para Contas a Pagar/Receber)
+CREATE TABLE origens_cadastro (
+    id SERIAL PRIMARY KEY,
+    descricao VARCHAR(255) NOT NULL,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Cadastro de Receitas
+CREATE TABLE receitas_cadastro (
+    id SERIAL PRIMARY KEY,
+    descricao VARCHAR(255) NOT NULL,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Movimentações do Imóvel
+CREATE TYPE tipo_movimentacao_imovel_enum AS ENUM ('Compra', 'Venda');
+
+CREATE TABLE movimentacoes_imovel (
+    id SERIAL PRIMARY KEY,
+    imovel_id INTEGER NOT NULL REFERENCES imoveis(id) ON DELETE CASCADE,
+    tipo_movimentacao tipo_movimentacao_imovel_enum NOT NULL,
+    data_movimentacao DATE NOT NULL,
+    valor_movimentacao NUMERIC(15,2) NOT NULL,
+    observacao TEXT,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Contrato de Aluguel
+CREATE TYPE status_contrato_enum AS ENUM ('Ativo', 'Encerrado', 'Pendente');
+
+CREATE TABLE contratos_aluguel (
+    id SERIAL PRIMARY KEY,
+    imovel_id INTEGER NOT NULL REFERENCES imoveis(id),
+    cliente_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Cliente'
+    nome_inquilino VARCHAR(255), -- Preenchido automaticamente
+    endereco_inquilino VARCHAR(255), -- Preenchido automaticamente
+    bairro_inquilino VARCHAR(100), -- Preenchido automaticamente
+    cidade_inquilino VARCHAR(100), -- Preenchido automaticamente
+    estado_inquilino CHAR(2), -- Preenchido automaticamente
+    cep_inquilino VARCHAR(10), -- Preenchido automaticamente
+    telefone_inquilino VARCHAR(20), -- Preenchido automaticamente
+    data_inicio DATE NOT NULL,
+    data_fim DATE NOT NULL,
+    quantidade_parcelas INTEGER NOT NULL,
+    valor_parcela NUMERIC(10,2) NOT NULL,
+    status_contrato status_contrato_enum NOT NULL DEFAULT 'Ativo',
+    observacao TEXT,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Anexos de Contratos de Aluguel
+CREATE TABLE contrato_anexos (
+    id SERIAL PRIMARY KEY,
+    contrato_id INTEGER NOT NULL REFERENCES contratos_aluguel(id) ON DELETE CASCADE,
+    nome_arquivo VARCHAR(255) NOT NULL,
+    caminho_arquivo VARCHAR(500) NOT NULL, -- Caminho no sistema de arquivos local ou URL
+    tipo_anexo VARCHAR(50), -- Ex: 'contrato_assinado', 'documento_inquilino'
+    data_upload TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Reajuste de Contrato
+CREATE TABLE reajustes_contrato (
+    id SERIAL PRIMARY KEY,
+    contrato_id INTEGER NOT NULL REFERENCES contratos_aluguel(id) ON DELETE CASCADE,
+    data_alteracao DATE NOT NULL,
+    percentual_reajuste NUMERIC(5,2) NOT NULL,
+    novo_valor_parcela NUMERIC(10,2) NOT NULL,
+    observacao TEXT,
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Contas a Receber
+CREATE TYPE status_conta_enum AS ENUM ('Aberta', 'Paga', 'Vencida', 'Cancelada');
+
+CREATE TABLE contas_a_receber (
+    id SERIAL PRIMARY KEY,
+    contrato_id INTEGER REFERENCES contratos_aluguel(id), -- Pode ser NULO para outras receitas
+    receita_id INTEGER NOT NULL REFERENCES receitas_cadastro(id),
+    cliente_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Cliente'
+    parcela_numero INTEGER,
+    data_vencimento DATE NOT NULL,
+    valor_previsto NUMERIC(10,2) NOT NULL,
+    data_pagamento DATE,
+    valor_pago NUMERIC(10,2),
+    valor_desconto NUMERIC(10,2) DEFAULT 0.00,
+    valor_multa NUMERIC(10,2) DEFAULT 0.00,
+    valor_juros NUMERIC(10,2) DEFAULT 0.00,
+    observacao TEXT,
+    status_conta status_conta_enum NOT NULL DEFAULT 'Aberta',
+    origem_id INTEGER REFERENCES origens_cadastro(id),
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Contas a Pagar
+CREATE TABLE contas_a_pagar (
+    id SERIAL PRIMARY KEY,
+    despesa_id INTEGER NOT NULL REFERENCES despesas_cadastro(id),
+    fornecedor_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Fornecedor'
+    titulo VARCHAR(255) NOT NULL,
+    data_vencimento DATE NOT NULL,
+    valor_previsto NUMERIC(10,2) NOT NULL,
+    data_pagamento DATE,
+    valor_pago NUMERIC(10,2),
+    valor_desconto NUMERIC(10,2) DEFAULT 0.00,
+    valor_multa NUMERIC(10,2) DEFAULT 0.00,
+    valor_juros NUMERIC(10,2) DEFAULT 0.00,
+    observacao TEXT,
+    centro_custo VARCHAR(100), -- Ou FK para uma tabela de centros de custo
+    status_conta status_conta_enum NOT NULL DEFAULT 'Aberta',
+    origem_id INTEGER REFERENCES origens_cadastro(id),
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Cadastro de Usuários
+CREATE TYPE tipo_usuario_enum AS ENUM ('Master', 'Operador');
+
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    nome_usuario VARCHAR(100) UNIQUE NOT NULL,
+    senha_hash VARCHAR(255) NOT NULL, -- Armazenar hash e salt
+    tipo_usuario tipo_usuario_enum NOT NULL,
+    status status_geral_enum NOT NULL DEFAULT 'Ativo',
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Permissões de Usuários
+CREATE TYPE acao_permissao_enum AS ENUM ('Incluir', 'Editar', 'Consultar', 'Excluir', 'Bloquear');
+
+CREATE TABLE permissoes (
+    id SERIAL PRIMARY KEY,
+    usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    modulo VARCHAR(100) NOT NULL, -- Ex: 'Cadastro Fornecedores/Clientes', 'Cadastro Imóveis'
+    acao acao_permissao_enum NOT NULL,
+    UNIQUE (usuario_id, modulo, acao) -- Garante que uma permissão específica não se repita
+);
+
+-- Tabela para Cadastro de Empresa Licenciada
+CREATE TABLE empresa_licenciada (
+    id SERIAL PRIMARY KEY,
+    documento VARCHAR(20) UNIQUE NOT NULL, -- CNPJ ou CPF
+    razao_social_nome VARCHAR(255) NOT NULL,
+    nome_fantasia VARCHAR(255),
+    endereco VARCHAR(255),
+    bairro VARCHAR(100),
+    cidade VARCHAR(100),
+    estado CHAR(2),
+    cep VARCHAR(10),
+    telefone VARCHAR(20),
+    observacao TEXT,
+    status status_geral_enum NOT NULL DEFAULT 'Ativo',
+    data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Tabela para Histórico de Backups
+CREATE TABLE historico_backups (
+    id SERIAL PRIMARY KEY,
+    data_backup TIMESTAMP NOT NULL DEFAULT NOW(),
+    nome_arquivo VARCHAR(255) NOT NULL,
+    caminho_arquivo VARCHAR(500) NOT NULL,
+    status_backup VARCHAR(50) NOT NULL, -- Ex: 'Sucesso', 'Falha'
+    observacao TEXT,
+    usuario_id INTEGER REFERENCES usuarios(id) -- Quem gerou o backup
+);
+
+-- Índices para otimização de consultas
+CREATE INDEX idx_pessoas_documento ON pessoas(documento);
+CREATE INDEX idx_imoveis_inscricao_iptu ON imoveis(inscricao_iptu);
+CREATE INDEX idx_contratos_aluguel_imovel_id ON contratos_aluguel(imovel_id);
+CREATE INDEX idx_contratos_aluguel_cliente_id ON contratos_aluguel(cliente_id);
+CREATE INDEX idx_contas_a_receber_cliente_id ON contas_a_receber(cliente_id);
+CREATE INDEX idx_contas_a_receber_data_vencimento ON contas_a_receber(data_vencimento);
+CREATE INDEX idx_contas_a_pagar_fornecedor_id ON contas_a_pagar(fornecedor_id);
+CREATE INDEX idx_contas_a_pagar_data_vencimento ON contas_a_pagar(data_vencimento);
+CREATE INDEX idx_usuarios_nome_usuario ON usuarios(nome_usuario);

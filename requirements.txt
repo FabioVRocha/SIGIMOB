@@ -1,0 +1,4 @@
+Flask==2.3.2
+psycopg2-binary==2.9.9
+Werkzeug==2.3.7
+# validate-docbr==1.0.0 # Descomente se for usar a validação de CPF/CNPJ
