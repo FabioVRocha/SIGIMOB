@@ -387,286 +387,240 @@ def pessoas_delete(id):
         conn.close()
     return redirect(url_for('pessoas_list'))
 
-# 1.3. Cadastro de Despesas
-@app.route('/despesas')
+# --- Módulo de Gestão de Imóveis e Aluguéis ---
+
+# 1.2. Cadastro de Imóveis
+@app.route('/imoveis')
 @login_required
-@permission_required('Cadastro Despesas', 'Consultar')
-def despesas_list():
+@permission_required('Cadastro Imoveis', 'Consultar')
+def imoveis_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     search_query = request.args.get('search', '')
     if search_query:
         cur.execute("""
-            SELECT * FROM despesas_cadastro
-            WHERE descricao ILIKE %s
-            ORDER BY descricao
-        """, (f'%{search_query}%',))
+            SELECT * FROM imoveis
+            WHERE endereco ILIKE %s OR bairro ILIKE %s OR cidade ILIKE %s OR inscricao_iptu ILIKE %s
+            ORDER BY data_cadastro DESC
+        """, (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
     else:
-        cur.execute("SELECT * FROM despesas_cadastro ORDER BY descricao")
-    despesas = cur.fetchall()
+        cur.execute("SELECT * FROM imoveis ORDER BY data_cadastro DESC")
+    imoveis = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('despesas/list.html', despesas=despesas, search_query=search_query)
+    return render_template('imoveis/list.html', imoveis=imoveis, search_query=search_query)
 
-@app.route('/despesas/add', methods=['GET', 'POST'])
+@app.route('/imoveis/add', methods=['GET', 'POST'])
 @login_required
-@permission_required('Cadastro Despesas', 'Incluir')
-def despesas_add():
+@permission_required('Cadastro Imoveis', 'Incluir')
+def imoveis_add():
     if request.method == 'POST':
         try:
-            descricao = request.form['descricao']
+            tipo_imovel = request.form.get('tipo_imovel')
+            endereco = request.form['endereco']
+            bairro = request.form.get('bairro')
+            cidade = request.form.get('cidade')
+            estado = request.form.get('estado')
+            cep = request.form.get('cep')
+            registro = request.form.get('registro')
+            livro = request.form.get('livro')
+            folha = request.form.get('folha')
+            matricula = request.form.get('matricula')
+            inscricao_iptu = request.form.get('inscricao_iptu')
+            latitude = request.form.get('latitude')
+            longitude = request.form.get('longitude')
+            data_aquisicao_str = request.form.get('data_aquisicao')
+            valor_imovel = request.form.get('valor_imovel')
+            valor_previsto_aluguel = request.form.get('valor_previsto_aluguel')
+            destinacao = request.form.get('destinacao')
+            observacao = request.form.get('observacao')
+
+            data_aquisicao = datetime.strptime(data_aquisicao_str, '%Y-%m-%d').date() if data_aquisicao_str else None
+
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO despesas_cadastro (descricao) VALUES (%s)",
-                (descricao,)
+                """
+                INSERT INTO imoveis (tipo_imovel, endereco, bairro, cidade, estado, cep,
+                                     registro, livro, folha, matricula, inscricao_iptu,
+                                     latitude, longitude, data_aquisicao, valor_imovel,
+                                     valor_previsto_aluguel, destinacao, observacao)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                """,
+                (tipo_imovel, endereco, bairro, cidade, estado, cep,
+                 registro, livro, folha, matricula, inscricao_iptu,
+                 latitude, longitude, data_aquisicao, valor_imovel,
+                 valor_previsto_aluguel, destinacao, observacao)
             )
+            imovel_id = cur.fetchone()[0]
+
+            # Lidar com uploads de arquivos (anexos e fotos)
+            if 'anexos' in request.files:
+                files = request.files.getlist('anexos')
+                for file in files:
+                    if file and allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'imoveis_anexos', filename)
+                        file.save(filepath)
+                        cur.execute(
+                            "INSERT INTO imovel_anexos (imovel_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
+                            (imovel_id, filename, filepath, 'documento') # Ou 'foto' dependendo da lógica que você implementar para diferenciar
+                        )
+            
             conn.commit()
             cur.close()
             conn.close()
-            flash('Despesa cadastrada com sucesso!', 'success')
-            return redirect(url_for('despesas_list'))
+            flash('Imóvel cadastrado com sucesso!', 'success')
+            return redirect(url_for('imoveis_list'))
+        except psycopg2.errors.UniqueViolation:
+            flash('Erro: Inscrição IPTU já cadastrada.', 'danger')
+            conn.rollback()
+            return render_template('imoveis/add_edit.html', imovel=request.form)
         except Exception as e:
-            flash(f'Erro ao cadastrar despesa: {e}', 'danger')
-            return render_template('despesas/add_edit.html', despesa=request.form)
-    return render_template('despesas/add_edit.html', despesa={})
+            flash(f'Erro ao cadastrar imóvel: {e}', 'danger')
+            return render_template('imoveis/add_edit.html', imovel=request.form)
+    return render_template('imoveis/add_edit.html', imovel={})
 
-@app.route('/despesas/edit/<int:id>', methods=['GET', 'POST'])
+@app.route('/imoveis/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
-@permission_required('Cadastro Despesas', 'Editar')
-def despesas_edit(id):
+@permission_required('Cadastro Imoveis', 'Editar')
+def imoveis_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
     if request.method == 'POST':
         try:
-            descricao = request.form['descricao']
+            tipo_imovel = request.form.get('tipo_imovel')
+            endereco = request.form['endereco']
+            bairro = request.form.get('bairro')
+            cidade = request.form.get('cidade')
+            estado = request.form.get('estado')
+            cep = request.form.get('cep')
+            registro = request.form.get('registro')
+            livro = request.form.get('livro')
+            folha = request.form.get('folha')
+            matricula = request.form.get('matricula')
+            inscricao_iptu = request.form.get('inscricao_iptu')
+            latitude = request.form.get('latitude')
+            longitude = request.form.get('longitude')
+            data_aquisicao_str = request.form.get('data_aquisicao')
+            valor_imovel = request.form.get('valor_imovel')
+            valor_previsto_aluguel = request.form.get('valor_previsto_aluguel')
+            destinacao = request.form.get('destinacao')
+            observacao = request.form.get('observacao')
+
+            data_aquisicao = datetime.strptime(data_aquisicao_str, '%Y-%m-%d').date() if data_aquisicao_str else None
+
             cur.execute(
-                "UPDATE despesas_cadastro SET descricao = %s WHERE id = %s",
-                (descricao, id)
+                """
+                UPDATE imoveis
+                SET tipo_imovel = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s,
+                    registro = %s, livro = %s, folha = %s, matricula = %s, inscricao_iptu = %s,
+                    latitude = %s, longitude = %s, data_aquisicao = %s, valor_imovel = %s,
+                    valor_previsto_aluguel = %s, destinacao = %s, observacao = %s
+                WHERE id = %s
+                """,
+                (tipo_imovel, endereco, bairro, cidade, estado, cep,
+                 registro, livro, folha, matricula, inscricao_iptu,
+                 latitude, longitude, data_aquisicao, valor_imovel,
+                 valor_previsto_aluguel, destinacao, observacao, id)
             )
+
+            # Lidar com novos uploads de arquivos
+            if 'anexos' in request.files:
+                files = request.files.getlist('anexos')
+                for file in files:
+                    if file and allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'imoveis_anexos', filename)
+                        file.save(filepath)
+                        cur.execute(
+                            "INSERT INTO imovel_anexos (imovel_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
+                            (id, filename, filepath, 'documento') # Ou 'foto'
+                        )
+            
             conn.commit()
-            flash('Despesa atualizada com sucesso!', 'success')
-            return redirect(url_for('despesas_list'))
+            flash('Imóvel atualizado com sucesso!', 'success')
+            return redirect(url_for('imoveis_list'))
+        except psycopg2.errors.UniqueViolation:
+            flash('Erro: Inscrição IPTU já cadastrada para outro imóvel.', 'danger')
+            conn.rollback()
+            # Recarrega os dados do imóvel para preencher o formulário novamente
+            cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
+            imovel = cur.fetchone()
+            cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
+            anexos = cur.fetchall()
+            return render_template('imoveis/add_edit.html', imovel=imovel, anexos=anexos)
         except Exception as e:
-            flash(f'Erro ao atualizar despesa: {e}', 'danger')
-            cur.execute("SELECT * FROM despesas_cadastro WHERE id = %s", (id,))
-            despesa = cur.fetchone()
-            return render_template('despesas/add_edit.html', despesa=despesa)
+            flash(f'Erro ao atualizar imóvel: {e}', 'danger')
+            # Recarrega os dados do imóvel para preencher o formulário novamente
+            cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
+            imovel = cur.fetchone()
+            cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
+            anexos = cur.fetchall()
+            return render_template('imoveis/add_edit.html', imovel=imovel, anexos=anexos)
     
-    cur.execute("SELECT * FROM despesas_cadastro WHERE id = %s", (id,))
-    despesa = cur.fetchone()
+    cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
+    imovel = cur.fetchone()
+    cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
+    anexos = cur.fetchall()
     cur.close()
     conn.close()
-    if despesa is None:
-        flash('Despesa não encontrada.', 'danger')
-        return redirect(url_for('despesas_list'))
-    return render_template('despesas/add_edit.html', despesa=despesa)
+    if imovel is None:
+        flash('Imóvel não encontrado.', 'danger')
+        return redirect(url_for('imoveis_list'))
+    return render_template('imoveis/add_edit.html', imovel=imovel, anexos=anexos)
 
-@app.route('/despesas/delete/<int:id>', methods=['POST'])
+@app.route('/imoveis/delete/<int:id>', methods=['POST'])
 @login_required
-@permission_required('Cadastro Despesas', 'Excluir')
-def despesas_delete(id):
+@permission_required('Cadastro Imoveis', 'Excluir')
+def imoveis_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM despesas_cadastro WHERE id = %s", (id,))
+        # Primeiro, exclua os anexos relacionados para evitar violação de chave estrangeira
+        cur.execute("DELETE FROM imovel_anexos WHERE imovel_id = %s", (id,))
+        cur.execute("DELETE FROM imoveis WHERE id = %s", (id,))
         conn.commit()
-        flash('Despesa excluída com sucesso!', 'success')
+        flash('Imóvel excluído com sucesso!', 'success')
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao excluir despesa: {e}', 'danger')
+        flash(f'Erro ao excluir imóvel: {e}', 'danger')
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('despesas_list'))
+    return redirect(url_for('imoveis_list'))
 
-# 1.4. Cadastro de Origens
-@app.route('/origens')
+@app.route('/imoveis/anexo/delete/<int:anexo_id>', methods=['POST'])
 @login_required
-@permission_required('Cadastro Origens', 'Consultar')
-def origens_list():
+@permission_required('Cadastro Imoveis', 'Editar') # Permissão para editar imóvel inclui exclusão de anexos
+def imovel_anexo_delete(anexo_id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    search_query = request.args.get('search', '')
-    if search_query:
-        cur.execute("""
-            SELECT * FROM origens_cadastro
-            WHERE descricao ILIKE %s
-            ORDER BY descricao
-        """, (f'%{search_query}%',))
-    else:
-        cur.execute("SELECT * FROM origens_cadastro ORDER BY descricao")
-    origens = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('origens/list.html', origens=origens, search_query=search_query)
-
-@app.route('/origens/add', methods=['GET', 'POST'])
-@login_required
-@permission_required('Cadastro Origens', 'Incluir')
-def origens_add():
-    if request.method == 'POST':
-        try:
-            descricao = request.form['descricao']
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO origens_cadastro (descricao) VALUES (%s)",
-                (descricao,)
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash('Origem cadastrada com sucesso!', 'success')
-            return redirect(url_for('origens_list'))
-        except Exception as e:
-            flash(f'Erro ao cadastrar origem: {e}', 'danger')
-            return render_template('origens/add_edit.html', origem=request.form)
-    return render_template('origens/add_edit.html', origem={})
-
-@app.route('/origens/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-@permission_required('Cadastro Origens', 'Editar')
-def origens_edit(id):
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    if request.method == 'POST':
-        try:
-            descricao = request.form['descricao']
-            cur.execute(
-                "UPDATE origens_cadastro SET descricao = %s WHERE id = %s",
-                (descricao, id)
-            )
-            conn.commit()
-            flash('Origem atualizada com sucesso!', 'success')
-            return redirect(url_for('origens_list'))
-        except Exception as e:
-            flash(f'Erro ao atualizar origem: {e}', 'danger')
-            cur.execute("SELECT * FROM origens_cadastro WHERE id = %s", (id,))
-            origem = cur.fetchone()
-            return render_template('origens/add_edit.html', origem=origem)
-    
-    cur.execute("SELECT * FROM origens_cadastro WHERE id = %s", (id,))
-    origem = cur.fetchone()
-    cur.close()
-    conn.close()
-    if origem is None:
-        flash('Origem não encontrada.', 'danger')
-        return redirect(url_for('origens_list'))
-    return render_template('origens/add_edit.html', origem=origem)
-
-@app.route('/origens/delete/<int:id>', methods=['POST'])
-@login_required
-@permission_required('Cadastro Origens', 'Excluir')
-def origens_delete(id):
-    conn = get_db_connection()
-    cur = conn.cursor()
     try:
-        cur.execute("DELETE FROM origens_cadastro WHERE id = %s", (id,))
-        conn.commit()
-        flash('Origem excluída com sucesso!', 'success')
+        cur.execute("SELECT caminho_arquivo, imovel_id FROM imovel_anexos WHERE id = %s", (anexo_id,))
+        anexo = cur.fetchone()
+        
+        if anexo:
+            # Tenta remover o arquivo físico
+            if os.path.exists(anexo['caminho_arquivo']):
+                os.remove(anexo['caminho_arquivo'])
+            
+            cur.execute("DELETE FROM imovel_anexos WHERE id = %s", (anexo_id,))
+            conn.commit()
+            flash('Anexo removido com sucesso!', 'success')
+            return redirect(url_for('imoveis_edit', id=anexo['imovel_id']))
+        else:
+            flash('Anexo não encontrado.', 'danger')
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao excluir origem: {e}', 'danger')
+        flash(f'Erro ao remover anexo: {e}', 'danger')
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('origens_list'))
+    return redirect(url_for('imoveis_list')) # Redireciona para a lista caso não encontre o anexo ou erro
 
-# 1.5. Cadastro de Receitas
-@app.route('/receitas')
-@login_required
-@permission_required('Cadastro Receitas', 'Consultar')
-def receitas_list():
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    search_query = request.args.get('search', '')
-    if search_query:
-        cur.execute("""
-            SELECT * FROM receitas_cadastro
-            WHERE descricao ILIKE %s
-            ORDER BY descricao
-        """, (f'%{search_query}%',))
-    else:
-        cur.execute("SELECT * FROM receitas_cadastro ORDER BY descricao")
-    receitas = cur.fetchall()
-    cur.close()
-    conn.close()
-    return render_template('receitas/list.html', receitas=receitas, search_query=search_query)
-
-@app.route('/receitas/add', methods=['GET', 'POST'])
-@login_required
-@permission_required('Cadastro Receitas', 'Incluir')
-def receitas_add():
-    if request.method == 'POST':
-        try:
-            descricao = request.form['descricao']
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute(
-                "INSERT INTO receitas_cadastro (descricao) VALUES (%s)",
-                (descricao,)
-            )
-            conn.commit()
-            cur.close()
-            conn.close()
-            flash('Receita cadastrada com sucesso!', 'success')
-            return redirect(url_for('receitas_list'))
-        except Exception as e:
-            flash(f'Erro ao cadastrar receita: {e}', 'danger')
-            return render_template('receitas/add_edit.html', receita=request.form)
-    return render_template('receitas/add_edit.html', receita={})
-
-@app.route('/receitas/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-@permission_required('Cadastro Receitas', 'Editar')
-def receitas_edit(id):
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    if request.method == 'POST':
-        try:
-            descricao = request.form['descricao']
-            cur.execute(
-                "UPDATE receitas_cadastro SET descricao = %s WHERE id = %s",
-                (descricao, id)
-            )
-            conn.commit()
-            flash('Receita atualizada com sucesso!', 'success')
-            return redirect(url_for('receitas_list'))
-        except Exception as e:
-            flash(f'Erro ao atualizar receita: {e}', 'danger')
-            cur.execute("SELECT * FROM receitas_cadastro WHERE id = %s", (id,))
-            receita = cur.fetchone()
-            return render_template('receitas/add_edit.html', receita=receita)
-    
-    cur.execute("SELECT * FROM receitas_cadastro WHERE id = %s", (id,))
-    receita = cur.fetchone()
-    cur.close()
-    conn.close()
-    if receita is None:
-        flash('Receita não encontrada.', 'danger')
-        return redirect(url_for('receitas_list'))
-    return render_template('receitas/add_edit.html', receita=receita)
-
-@app.route('/receitas/delete/<int:id>', methods=['POST'])
-@login_required
-@permission_required('Cadastro Receitas', 'Excluir')
-def receitas_delete(id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("DELETE FROM receitas_cadastro WHERE id = %s", (id,))
-        conn.commit()
-        flash('Receita excluída com sucesso!', 'success')
-    except Exception as e:
-        conn.rollback()
-        flash(f'Erro ao excluir receita: {e}', 'danger')
-    finally:
-        cur.close()
-        conn.close()
-    return redirect(url_for('receitas_list'))
-
-# --- Módulo de Gestão de Imóveis e Aluguéis (Imóveis já está aqui) ---
+# --- Rotas para outros módulos (placeholders existentes) ---
 @app.route('/contratos')
 @login_required
 @permission_required('Gestao Contratos', 'Consultar')
@@ -770,6 +724,68 @@ def backup_db():
     cur.close()
     conn.close()
     return render_template('admin/backup.html', historico=historico)
+
+@app.route('/admin/backup/restore', methods=['POST'])
+@login_required
+@permission_required('Administracao Sistema', 'Bloquear') # Ação de restaurar é mais restritiva
+def restore_db():
+    if request.method == 'POST':
+        backup_id = request.form.get('backup_id')
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cur.execute("SELECT caminho_arquivo FROM historico_backups WHERE id = %s", (backup_id,))
+        backup_record = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not backup_record:
+            flash('Backup não encontrado.', 'danger')
+            return redirect(url_for('backup_db'))
+
+        backup_path = backup_record['caminho_arquivo']
+        
+        try:
+            # Extrai informações do DATABASE_URL para psql
+            db_url_parts = DATABASE_URL.split('://')[1].split('@')
+            user_pass = db_url_parts[0].split(':')
+            host_port_db = db_url_parts[1].split('/')
+            
+            db_user = user_pass[0]
+            db_password = user_pass[1] if len(user_pass) > 1 else ''
+            db_host = host_port_db[0].split(':')[0]
+            db_port = host_port_db[0].split(':')[1] if len(host_port_db[0].split(':')) > 1 else '5432'
+            db_name = host_port_db[1]
+
+            # Comando psql para restaurar
+            # Atenção: Isso irá apagar e recriar o banco de dados. Tenha certeza do que está fazendo.
+            # Para restaurar, o banco de dados não pode ter conexões ativas.
+            # Em um cenário real, você precisaria de um script mais complexo para desconectar usuários,
+            # dropar o banco, recriar e então restaurar.
+            # Este é um exemplo simplificado.
+            command = [
+                'psql',
+                '-h', db_host,
+                '-p', db_port,
+                '-U', db_user,
+                '-d', db_name,
+                '-f', backup_path
+            ]
+
+            env = os.environ.copy()
+            env['PGPASSWORD'] = db_password
+
+            result = subprocess.run(command, capture_output=True, text=True, env=env)
+
+            if result.returncode == 0:
+                flash('Banco de dados restaurado com sucesso!', 'success')
+            else:
+                flash(f'Erro ao restaurar banco de dados: {result.stderr}', 'danger')
+
+        except Exception as e:
+            flash(f'Erro inesperado ao restaurar banco de dados: {e}', 'danger')
+    
+    return redirect(url_for('backup_db'))
 
 
 @app.route('/usuarios')
