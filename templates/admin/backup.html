@@ -1,0 +1,51 @@
+<!-- templates/admin/backup.html -->
+{% extends "base.html" %}
+
+{% block title %}Backup do Banco{% endblock %}
+
+{% block page_title %}Backup do Banco{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{{ url_for('backup_db') }}" method="POST" class="mb-6">
+        <div class="form-group">
+            <label for="backup_filename" class="form-label">Nome do Arquivo:</label>
+            <input type="text" id="backup_filename" name="backup_filename" class="form-input" placeholder="Opcional" />
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" class="btn-primary"><i class="fas fa-database mr-2"></i>Gerar Backup</button>
+        </div>
+    </form>
+
+    <h2 class="text-xl font-semibold text-dark-blue mb-4">Histórico</h2>
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Data</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Arquivo</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in historico %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ item.data_backup.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ item.nome_arquivo }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ item.status_backup }}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <form action="{{ url_for('restore_db') }}" method="POST" class="inline-block" onsubmit="return confirm('Restaurar este backup?');">
+                            <input type="hidden" name="backup_id" value="{{ item.id }}">
+                            <button type="submit" class="text-blue-600 hover:text-blue-800" title="Restaurar">
+                                <i class="fas fa-undo"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
