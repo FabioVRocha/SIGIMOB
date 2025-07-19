@@ -1347,7 +1347,7 @@ def usuarios_list():
     usuarios = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template("usuarios/list.html", usuarios=usuarios)
+    return render_template("admin/usuarios/list.html", usuarios=usuarios)
 
 
 @app.route("/usuarios/add", methods=["GET", "POST"])
@@ -1381,7 +1381,7 @@ def usuarios_add():
         finally:
             cur.close()
             conn.close()
-    return render_template("usuarios/add_list.html", usuario={})
+    return render_template("admin/usuarios/add_list.html", usuario={})
 
 
 @app.route("/usuarios/edit/<int:id>", methods=["GET", "POST"])
@@ -1423,7 +1423,7 @@ def usuarios_edit(id):
     if usuario is None:
         flash("Usuário não encontrado.", "danger")
         return redirect(url_for("usuarios_list"))
-    return render_template("usuarios/add_list.html", usuario=usuario)
+    return render_template("admin/usuarios/add_list.html", usuario=usuario)
 
 
 @app.route("/usuarios/delete/<int:id>", methods=["POST"])
@@ -1474,7 +1474,7 @@ def usuarios_permissoes(id):
         flash("Usuário não encontrado.", "danger")
         return redirect(url_for("usuarios_list"))
     return render_template(
-        "usuarios/permissoes.html",
+        "admin/usuarios/permissoes.html",
         usuario=usuario,
         existing=existing,
         modules=MODULES,
