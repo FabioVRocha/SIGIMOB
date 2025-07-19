@@ -1,0 +1,68 @@
+<!-- templates/imoveis/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Cadastro de Imóveis{% endblock %}
+
+{% block page_title %}Cadastro de Imóveis{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Imóveis</h2>
+        <a href="{{ url_for('imoveis_add') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Novo Imóvel
+        </a>
+    </div>
+
+    <form action="{{ url_for('imoveis_list') }}" method="GET" class="mb-6">
+        <div class="flex items-center space-x-2">
+            <input type="text" name="search" placeholder="Buscar por endereço, bairro, cidade ou IPTU..." class="form-input flex-grow" value="{{ search_query }}">
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+        </div>
+    </form>
+
+    {% if imoveis %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Tipo</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Endereço</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Cidade/Estado</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">IPTU</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor Aluguel Previsto</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for imovel in imoveis %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.tipo_imovel | default('N/A') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.cidade }}/{{ imovel.estado }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.inscricao_iptu | default('N/A') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f" | format(imovel.valor_previsto_aluguel | default(0.00)) }}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <a href="{{ url_for('imoveis_edit', id=imovel.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('imoveis_delete', id=imovel.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este imóvel e todos os seus anexos?');">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhum imóvel encontrado.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,479 @@
+Para desenvolver um sistema completo de controle de imóveis e aluguéis para sua imobiliária, focado em PostgreSQL 9.3 como banco de dados local, Python com Flask para o backend, e HTML para o frontend, podemos seguir um guia detalhado. A ideia é construir um sistema modular, intuitivo e com uma interface moderna.
+
+🎯 Objetivo Geral do Sistema
+
+Desenvolver um sistema robusto e intuitivo para a gestão completa de imóveis e aluguéis, englobando cadastro de partes interessadas (clientes e fornecedores), controle de propriedades, gestão de contratos, movimentações financeiras (contas a pagar e a receber), e administração do próprio sistema (usuários, backups). O sistema deve ser acessível via navegador web, hospedado em um servidor local.
+
+🧱 Estrutura Tecnológica
+
+Backend: Python 🐍 (com Flask para o framework web)
+
+Banco de Dados: PostgreSQL 9.3 (local)
+
+Frontend: HTML5, CSS3 (com um framework CSS moderno como Bootstrap 5 ou Tailwind CSS para um visual atraente), JavaScript (para interatividade)
+
+Conexão DB: psycopg2 (biblioteca Python para PostgreSQL)
+
+Validação de CPF/CNPJ: Uma biblioteca Python específica para validação de documentos brasileiros (ex: validate-docbr)
+
+🚀 Módulos e Funcionalidades Detalhadas
+
+O sistema será dividido em módulos principais para facilitar a organização e a navegação.
+
+1. Módulo de Cadastros Essenciais
+
+1.1. Cadastro de Fornecedores e Clientes (Pessoas) 👥
+
+Campos:
+
+id (PK, SERIAL)
+
+documento (VARCHAR, UNIQUE, not null) - CPF ou CNPJ, com validação da Receita Federal.
+
+razao_social_nome (VARCHAR, not null) - Razão Social (CNPJ) ou Nome (CPF).
+
+nome_fantasia (VARCHAR) - Ativo para CNPJ, inativo para CPF.
+
+endereco (VARCHAR)
+
+bairro (VARCHAR)
+
+cidade (VARCHAR)
+
+estado (CHAR(2))
+
+cep (VARCHAR)
+
+telefone (VARCHAR)
+
+observacao (TEXT)
+
+tipo (ENUM: 'Fornecedor', 'Cliente', not null)
+
+status (ENUM: 'Ativo', 'Inativo', not null, padrão 'Ativo')
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Interface: Tela intuitiva com campos de entrada, máscaras para CPF/CNPJ e CEP.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar. Campo de busca rápida.
+
+Validação: Implementar a lógica de validação de CPF e CNPJ (dígitos verificadores).
+
+1.2. Cadastro de Imóveis 🏡
+
+Campos:
+
+id (PK, SERIAL)
+
+tipo_imovel (VARCHAR, ex: "Casa", "Apartamento", "Comercial", etc.)
+
+endereco (VARCHAR, not null)
+
+bairro (VARCHAR)
+
+cidade (VARCHAR)
+
+estado (CHAR(2))
+
+cep (VARCHAR)
+
+Informações de Registro:
+
+registro (VARCHAR)
+
+livro (VARCHAR)
+
+folha (VARCHAR)
+
+matricula (VARCHAR)
+
+inscricao_iptu (VARCHAR, UNIQUE)
+
+latitude (DECIMAL)
+
+longitude (DECIMAL)
+
+data_aquisicao (DATE)
+
+valor_imovel (NUMERIC(15,2))
+
+valor_previsto_aluguel (NUMERIC(15,2))
+
+destinacao (VARCHAR, ex: "Residencial", "Comercial", "Misto")
+
+observacao (TEXT)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Anexos:
+
+Arquivos: Possibilidade de anexar múltiplos arquivos (contratos de compra, documentos, etc.). Armazenar o caminho para o arquivo no sistema de arquivos local ou um serviço de armazenamento.
+
+Fotos: Galeria de fotos do imóvel. Armazenar caminhos para as imagens.
+
+Interface: Layout visual com campos bem definidos. Upload de múltiplos arquivos e fotos.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+1.3. Cadastro de Despesas 💸
+
+Campos:
+
+id (PK, SERIAL)
+
+descricao (VARCHAR, not null)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+1.4. Cadastro de Origens 🏷️
+
+Campos:
+
+id (PK, SERIAL)
+
+descricao (VARCHAR, not null)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+1.5. Cadastro de Receitas 💰
+
+Campos:
+
+id (PK, SERIAL)
+
+descricao (VARCHAR, not null)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+2. Módulo de Gestão de Imóveis e Aluguéis
+
+2.1. Movimentações do Imóvel 🔄
+
+Campos:
+
+id (PK, SERIAL)
+
+imovel_id (FK para Cadastro de Imóveis, not null)
+
+tipo_movimentacao (ENUM: 'Compra', 'Venda', not null)
+
+data_movimentacao (DATE, not null)
+
+valor_movimentacao (NUMERIC(15,2), not null)
+
+observacao (TEXT)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Interface: Seleção de imóvel, campos para tipo, data, valor e observação.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+2.2. Contrato de Aluguel 📝
+
+Campos:
+
+id (PK, SERIAL)
+
+imovel_id (FK para Cadastro de Imóveis, not null)
+
+cliente_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Cliente', not null)
+
+nome_inquilino (VARCHAR, preenchido automaticamente do cliente_id)
+
+endereco_inquilino (VARCHAR, preenchido automaticamente)
+
+bairro_inquilino (VARCHAR, preenchido automaticamente)
+
+cidade_inquilino (VARCHAR, preenchido automaticamente)
+
+estado_inquilino (CHAR(2), preenchido automaticamente)
+
+cep_inquilino (VARCHAR, preenchido automaticamente)
+
+telefone_inquilino (VARCHAR, preenchido automaticamente)
+
+data_inicio (DATE, not null)
+
+data_fim (DATE, not null)
+
+quantidade_parcelas (INTEGER, not null)
+
+valor_parcela (NUMERIC(10,2), not null)
+
+status_contrato (ENUM: 'Ativo', 'Encerrado', 'Pendente', not null, padrão 'Ativo')
+
+observacao (TEXT)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Anexos:
+
+Arquivos: Possibilidade de anexar múltiplos arquivos (contrato assinado, etc.).
+
+Interface: Seleção de imóvel e cliente, preenchimento automático de dados do inquilino, campos para datas, valores e anexos.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+2.3. Reajuste de Contrato 📈
+
+Campos:
+
+id (PK, SERIAL)
+
+contrato_id (FK para Contrato de Aluguel, not null)
+
+data_alteracao (DATE, not null)
+
+percentual_reajuste (NUMERIC(5,2), not null)
+
+novo_valor_parcela (NUMERIC(10,2), calculado automaticamente)
+
+observacao (TEXT)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Interface: Ao digitar o id do contrato, puxar automaticamente as informações do contrato de aluguel. Campos para data e percentual de reajuste. Calcular e exibir o novo valor da parcela.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+3. Módulo Financeiro
+
+3.1. Contas a Receber 💰
+
+Campos:
+
+id (PK, SERIAL)
+
+contrato_id (FK para Contrato de Aluguel, para contas de aluguel; pode ser NULO para outras receitas)
+
+receita_id (FK para Cadastro de Receitas, not null)
+
+cliente_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Cliente', not null)
+
+parcela_numero (INTEGER)
+
+data_vencimento (DATE, not null)
+
+valor_previsto (NUMERIC(10,2), not null)
+
+data_pagamento (DATE)
+
+valor_pago (NUMERIC(10,2))
+
+valor_desconto (NUMERIC(10,2), padrão 0.00)
+
+valor_multa (NUMERIC(10,2), padrão 0.00)
+
+valor_juros (NUMERIC(10,2), padrão 0.00)
+
+observacao (TEXT)
+
+status_conta (ENUM: 'Aberta', 'Paga', 'Vencida', 'Cancelada', not null, padrão 'Aberta')
+
+origem_id (FK para Cadastro de Origens)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Interface: Lançamento manual ou geração automática a partir de contratos de aluguel. Campos para todos os valores, datas e status.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar. Cálculos automáticos de juros e multas baseados em regras configuráveis (Opcional: tela de configuração de regras de juros e multas).
+
+3.2. Contas a Pagar 💸
+
+Campos:
+
+id (PK, SERIAL)
+
+despesa_id (FK para Cadastro de Despesas, not null)
+
+fornecedor_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Fornecedor', not null)
+
+titulo (VARCHAR, not null)
+
+data_vencimento (DATE, not null)
+
+valor_previsto (NUMERIC(10,2), not null)
+
+data_pagamento (DATE)
+
+valor_pago (NUMERIC(10,2))
+
+valor_desconto (NUMERIC(10,2), padrão 0.00)
+
+valor_multa (NUMERIC(10,2), padrão 0.00)
+
+valor_juros (NUMERIC(10,2), padrão 0.00)
+
+observacao (TEXT)
+
+centro_custo (VARCHAR, ou FK para tabela de Centros de Custo - Recomendado para relatórios futuros)
+
+status_conta (ENUM: 'Aberta', 'Paga', 'Vencida', 'Cancelada', not null, padrão 'Aberta')
+
+origem_id (FK para Cadastro de Origens)
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Interface: Lançamento manual de despesas.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar. Cálculos automáticos de juros e multas.
+
+4. Módulo de Administração do Sistema
+
+4.1. Cadastro de Usuário 👤
+
+Campos:
+
+id (PK, SERIAL)
+
+nome_usuario (VARCHAR, UNIQUE, not null)
+
+senha_hash (VARCHAR, not null - Armazenar senhas com hash e salt, NUNCA em texto puro)
+
+tipo_usuario (ENUM: 'Master', 'Operador', not null)
+
+status (ENUM: 'Ativo', 'Inativo', not null, padrão 'Ativo')
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Controle de Acesso (Permissões):
+
+Tabela Permissoes (ou similar) que relacione usuario_id, modulo (ex: 'Cadastro Fornecedores/Clientes', 'Cadastro Imóveis', etc.), acao (ENUM: 'Incluir', 'Editar', 'Consultar', 'Excluir', 'Bloquear').
+
+Interface para configurar permissões para cada usuário/tipo de usuário, por rotina e ação.
+
+Interface: Tela para criação e gerenciamento de usuários, com um painel intuitivo para definir permissões.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+4.2. Cadastro de Empresa Licenciada 🏢
+
+Campos:
+
+id (PK, SERIAL)
+
+documento (VARCHAR, UNIQUE, not null) - CNPJ ou CPF, com validação da Receita Federal.
+
+razao_social_nome (VARCHAR, not null)
+
+nome_fantasia (VARCHAR) - Inativo para CPF.
+
+endereco (VARCHAR)
+
+bairro (VARCHAR)
+
+cidade (VARCHAR)
+
+estado (CHAR(2))
+
+cep (VARCHAR)
+
+telefone (VARCHAR)
+
+observacao (TEXT)
+
+status (ENUM: 'Ativo', 'Inativo', not null, padrão 'Ativo')
+
+data_cadastro (TIMESTAMP, padrão NOW())
+
+Interface: Similar ao cadastro de Pessoas, mas focado na própria empresa que utiliza o sistema.
+
+Ações: Botões de Incluir, Alterar, Excluir, Consultar.
+
+4.3. Rotina de Backup 💾
+
+Funcionalidade: Permitir ao usuário gerar backups do banco de dados PostgreSQL.
+
+Interface:
+
+Campo para escolher o nome do arquivo de backup (sugestão: nome padrão com timestamp).
+
+Campo para escolher o local de destino do arquivo (diretório local no servidor).
+
+Grid com histórico de backups: Exibir data, nome do arquivo e status (sucesso/falha) dos backups anteriores. Botão para restaurar (apenas para usuários Master).
+
+Execução: Botão "Gerar Backup". No backend, utilizar o comando pg_dump do PostgreSQL via subprocesso Python.
+
+✨ Recursos Adicionais para um Sistema "Mais Completo Possível"
+
+1. Relatórios e Dashboards 📊
+
+Financeiros:
+
+Fluxo de Caixa (contas a pagar vs. a receber)
+
+Contas a Receber por Status (vencidas, a vencer, pagas)
+
+Contas a Pagar por Status
+
+Demonstrativo de Resultados (receitas - despesas)
+
+Imóveis:
+
+Imóveis disponíveis para aluguel
+
+Imóveis alugados
+
+Imóveis por tipo, cidade, bairro
+
+Contratos:
+
+Contratos próximos do vencimento
+
+Contratos reajustados
+
+Visualização: Utilizar bibliotecas Python para gráficos (ex: Matplotlib, Plotly, Chart.js no frontend).
+
+2. Notificações e Lembretes 🔔
+
+Contratos Próximos do Vencimento: Notificações automáticas via email ou painel do sistema.
+
+Parcelas a Vencer: Lembretes para contas a receber e a pagar.
+
+Reajustes Pendentes: Alertas para contratos que precisam ser reajustados.
+
+3. Integrações (Opcional, para o futuro) 🔗
+
+APIs de Mapas: Integração com Google Maps ou OpenStreetMap para visualização de imóveis no mapa (utilizando Latitude/Longitude).
+
+API de SMS/Email: Para envio de notificações automatizadas.
+
+Gateway de Pagamento: Para recebimento online de aluguéis (complexo, para uma fase posterior).
+
+4. Geração de Documentos 📄
+
+Gerar contratos de aluguel em PDF preenchidos automaticamente.
+
+Gerar recibos de pagamento.
+
+5. Auditoria (Log de Atividades) 🕵️‍♀️
+
+Registrar quem fez o quê, quando e em qual módulo (ex: "Usuário X alterou o contrato Y em Z data").
+
+🎨 Design e Usabilidade (UX/UI)
+
+Layout Responsivo: O sistema deve ser utilizável em diferentes tamanhos de tela (desktops, tablets).
+
+Navegação Intuitiva: Menu claro e bem organizado, possivelmente um menu lateral com ícones e nomes de módulos.
+
+Estilo Moderno: Utilizar um framework CSS como Bootstrap 5 ou Tailwind CSS.
+
+Cores neutras com um toque de cor para realçar elementos importantes.
+
+Fontes legíveis.
+
+Ícones visuais para facilitar a identificação de funcionalidades.
+
+Cards para organizar informações, tabelas com paginação e busca.
+
+Feedbacks Visuais: Mensagens de sucesso/erro claras após cada operação.
+
+Modais: Usar modais para confirmar exclusões ou para formulários rápidos.

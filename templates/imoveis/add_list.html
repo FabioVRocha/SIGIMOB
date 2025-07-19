@@ -1,0 +1,134 @@
+<!-- templates/imoveis/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if imovel.id %}Editar Imóvel{% else %}Adicionar Novo Imóvel{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if imovel.id %}Editar Imóvel{% else %}Adicionar Novo Imóvel{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if imovel.id %}{{ url_for('imoveis_edit', id=imovel.id) }}{% else %}{{ url_for('imoveis_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div class="form-group">
+                <label for="tipo_imovel" class="form-label">Tipo de Imóvel:</label>
+                <input type="text" id="tipo_imovel" name="tipo_imovel" class="form-input" value="{{ imovel.tipo_imovel | default('') }}" placeholder="Ex: Casa, Apartamento, Comercial">
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="endereco" class="form-label">Endereço:</label>
+                <input type="text" id="endereco" name="endereco" class="form-input" value="{{ imovel.endereco | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="bairro" class="form-label">Bairro:</label>
+                <input type="text" id="bairro" name="bairro" class="form-input" value="{{ imovel.bairro | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="cidade" class="form-label">Cidade:</label>
+                <input type="text" id="cidade" name="cidade" class="form-input" value="{{ imovel.cidade | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="estado" class="form-label">Estado (UF):</label>
+                <input type="text" id="estado" name="estado" maxlength="2" class="form-input" value="{{ imovel.estado | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="cep" class="form-label">CEP:</label>
+                <input type="text" id="cep" name="cep" class="form-input" value="{{ imovel.cep | default('') }}">
+            </div>
+
+            <div class="lg:col-span-3">
+                <h3 class="text-lg font-semibold text-dark-blue mb-4">Informações de Registro</h3>
+            </div>
+            <div class="form-group">
+                <label for="registro" class="form-label">Registro:</label>
+                <input type="text" id="registro" name="registro" class="form-input" value="{{ imovel.registro | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="livro" class="form-label">Livro:</label>
+                <input type="text" id="livro" name="livro" class="form-input" value="{{ imovel.livro | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="folha" class="form-label">Folha:</label>
+                <input type="text" id="folha" name="folha" class="form-input" value="{{ imovel.folha | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="matricula" class="form-label">Matrícula:</label>
+                <input type="text" id="matricula" name="matricula" class="form-input" value="{{ imovel.matricula | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="inscricao_iptu" class="form-label">Inscrição IPTU:</label>
+                <input type="text" id="inscricao_iptu" name="inscricao_iptu" class="form-input" value="{{ imovel.inscricao_iptu | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="latitude" class="form-label">Latitude:</label>
+                <input type="text" id="latitude" name="latitude" class="form-input" value="{{ imovel.latitude | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="longitude" class="form-label">Longitude:</label>
+                <input type="text" id="longitude" name="longitude" class="form-input" value="{{ imovel.longitude | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="data_aquisicao" class="form-label">Data de Aquisição:</label>
+                <input type="date" id="data_aquisicao" name="data_aquisicao" class="form-input" value="{{ imovel.data_aquisicao | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_imovel" class="form-label">Valor do Imóvel:</label>
+                <input type="number" step="0.01" id="valor_imovel" name="valor_imovel" class="form-input" value="{{ imovel.valor_imovel | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_previsto_aluguel" class="form-label">Valor Previsto de Aluguel:</label>
+                <input type="number" step="0.01" id="valor_previsto_aluguel" name="valor_previsto_aluguel" class="form-input" value="{{ imovel.valor_previsto_aluguel | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="destinacao" class="form-label">Destinação:</label>
+                <select id="destinacao" name="destinacao" class="form-select">
+                    <option value="">Selecione...</option>
+                    <option value="Residencial" {% if imovel.destinacao == 'Residencial' %}selected{% endif %}>Residencial</option>
+                    <option value="Comercial" {% if imovel.destinacao == 'Comercial' %}selected{% endif %}>Comercial</option>
+                    <option value="Misto" {% if imovel.destinacao == 'Misto' %}selected{% endif %}>Misto</option>
+                </select>
+            </div>
+            <div class="form-group lg:col-span-3">
+                <label for="observacao" class="form-label">Observação:</label>
+                <textarea id="observacao" name="observacao" rows="3" class="form-textarea">{{ imovel.observacao | default('') }}</textarea>
+            </div>
+
+            <div class="lg:col-span-3">
+                <h3 class="text-lg font-semibold text-dark-blue mb-4">Anexos (Documentos e Fotos)</h3>
+                <div class="form-group">
+                    <label for="anexos" class="form-label">Selecionar Arquivos:</label>
+                    <input type="file" id="anexos" name="anexos" class="form-input" multiple>
+                    <p class="text-xs text-gray-500 mt-1">Tipos permitidos: .png, .jpg, .jpeg, .gif, .pdf, .doc, .docx, .sql</p>
+                </div>
+
+                {% if anexos %}
+                <div class="mt-4">
+                    <h4 class="text-md font-medium text-gray-700 mb-2">Anexos Atuais:</h4>
+                    <ul class="list-disc list-inside space-y-1">
+                        {% for anexo in anexos %}
+                        <li class="flex items-center justify-between text-sm text-gray-700">
+                            <span><i class="fas fa-file mr-2"></i> {{ anexo.nome_arquivo }}</span>
+                            <form action="{{ url_for('imovel_anexo_delete', anexo_id=anexo.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja remover este anexo?');">
+                                <button type="submit" class="text-red-600 hover:text-red-800 ml-3" title="Remover Anexo">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{{ url_for('imoveis_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">
+                {% if imovel.id %}Atualizar Imóvel{% else %}Cadastrar Imóvel{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

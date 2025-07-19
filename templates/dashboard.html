@@ -1,0 +1,96 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block page_title %}Visão Geral{% endblock %}
+
+{% block content %}
+<div id="dashboard-content" class="content-section">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="dashboard-card alert-card">
+            <div class="dashboard-card-header">
+                <i class="fas fa-exclamation-triangle"></i> Alertas
+            </div>
+            <p class="text-sm text-gray-700">
+                Exames vencidos: {{ exames_vencidos }}<br>
+                Exames a vencer em até 7 dias: {{ exames_proximos }}
+            </p>
+        </div>
+
+        <div class="dashboard-card notice-card">
+            <div class="dashboard-card-header">
+                <i class="fas fa-info-circle"></i> Avisos
+            </div>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li class="flex items-center">
+                    <span class="w-2 h-2 bg-gray-500 rounded-full mr-2"></span> Há 10 minutos: Atualização da política de férias
+                </li>
+                <li class="flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span> Há 2 horas: Relatório de desempenho disponível
+                </li>
+            </ul>
+        </div>
+
+        <div class="dashboard-card new-enrollment-card">
+            <div class="dashboard-card-header">
+                <i class="fas fa-chart-bar"></i> Contratações x Demissões (Últimos 12 meses)
+            </div>
+            <div class="mt-4">
+                <canvas id="hireFireChart" class="w-full h-32"></canvas>
+            </div>
+        </div>
+
+        <!-- Novo Card: Funcionários Ativos -->
+        <div class="dashboard-card active-employees-card">
+            <div class="dashboard-card-header">
+                <i class="fas fa-user-check"></i> Funcionários Ativos
+            </div>
+            <p class="text-3xl font-bold text-dark-blue">{{ total_funcionarios_ativos }}</p>
+            <p class="text-sm text-gray-700">Total de funcionários ativos no sistema.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const months = {{ meses_labels | tojson }};
+        const hires = {{ contratacoes | tojson }};
+        const fires = {{ demissoes | tojson }};
+        const chartEl = document.getElementById('hireFireChart');
+        if (chartEl) {
+            new Chart(chartEl, {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: 'Contratações',
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            data: hires
+                        },
+                        {
+                            label: 'Demissões',
+                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            data: fires
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+<!-- templates/receitas/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if receita.id %}Editar Receita{% else %}Adicionar Nova Receita{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if receita.id %}Editar Receita{% else %}Adicionar Nova Receita{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if receita.id %}{{ url_for('receitas_edit', id=receita.id) }}{% else %}{{ url_for('receitas_add') }}{% endif %}" method="POST">
+        <div class="form-group">
+            <label for="descricao" class="form-label">Descrição:</label>
+            <input type="text" id="descricao" name="descricao" class="form-input" value="{{ receita.descricao | default('') }}" required>
+        </div>
+        
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{{ url_for('receitas_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">
+                {% if receita.id %}Atualizar Receita{% else %}Cadastrar Receita{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,117 @@
+<!-- templates/register.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGIMOB - Registrar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Definição da Paleta de Cores como Variáveis CSS */
+        :root {
+            --clr-dark-blue: #1F3A5F;
+            --clr-light-blue: #4F83CC;
+            --clr-light-gray: #F4F6F8;
+            --clr-medium-gray: #A0AAB4;
+            --clr-white: #FFFFFF;
+            --clr-success: #27AE60;
+            --clr-attention: #F1C40F;
+            --clr-error: #E74C3C;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--clr-light-gray);
+        }
+        .flash-message {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+        }
+        .flash-message.success {
+            background-color: var(--clr-success);
+            color: var(--clr-white);
+            border: 1px solid var(--clr-success);
+        }
+        .flash-message.danger {
+            background-color: var(--clr-error);
+            color: var(--clr-white);
+            border: 1px solid var(--clr-error);
+        }
+        .flash-message.warning {
+            background-color: var(--clr-attention);
+            color: var(--clr-dark-blue);
+            border: 1px solid var(--clr-attention);
+        }
+        .flash-message.info {
+            background-color: var(--clr-light-blue);
+            color: var(--clr-white);
+            border: 1px solid var(--clr-light-blue);
+        }
+
+        .bg-blue-600 { background-color: var(--clr-light-blue); }
+        .hover\:bg-blue-700:hover { background-color: var(--clr-dark-blue); }
+        .bg-gray-500 { background-color: var(--clr-medium-gray); }
+        .hover\:bg-gray-600:hover { background-color: var(--clr-dark-blue); }
+        .text-gray-800 { color: var(--clr-dark-blue); }
+        .text-gray-700 { color: var(--clr-dark-blue); }
+        .text-gray-600 { color: var(--clr-medium-gray); }
+        .text-blue-600 { color: var(--clr-light-blue); }
+        .hover\:text-blue-800:hover { color: var(--clr-dark-blue); }
+        .bg-white { background-color: var(--clr-white); }
+        .border-gray-300 { border-color: var(--clr-medium-gray); }
+        .focus\:ring-blue-500:focus { --tw-ring-color: var(--clr-light-blue); }
+        .focus\:border-blue-500:focus { border-color: var(--clr-light-blue); }
+    </style>
+</head>
+<body class="bg-light-gray min-h-screen flex items-center justify-center p-6">
+    <div class="max-w-md w-full bg-white p-8 rounded-lg shadow-lg">
+        <div class="text-center mb-6">
+            <img src="{{ url_for('static', filename='Logo.png') }}" onerror="this.onerror=null;this.src='https://placehold.co/128x128/A0AAB4/FFFFFF?text=Logo';" alt="Logo da Empresa" class="h-32 w-32 mb-4 rounded-full mx-auto">
+        </div>
+
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Registrar Novo Usuário</h2>
+        
+        <!-- Mensagens Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('register') }}" method="POST" class="space-y-4">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700">Usuário</label>
+                <input type="text" id="username" name="username" required
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Senha</label>
+                <input type="password" id="password" name="password" required
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <label for="confirm_password" class="block text-sm font-medium text-gray-700">Confirmar Senha</label>
+                <input type="password" id="confirm_password" name="confirm_password" required
+                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+            </div>
+            <div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                    Registrar
+                </button>
+            </div>
+            <div class="text-center text-sm mt-4">
+                Já tem uma conta? <a href="{{ url_for('login') }}" class="text-blue-600 hover:underline">Faça login aqui</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

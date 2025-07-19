@@ -1,0 +1,472 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGIMOB - {% block title %}{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Definição da Paleta de Cores como Variáveis CSS */
+        :root {
+            --clr-dark-blue: #1F3A5F;
+            --clr-light-blue: #4F83CC;
+            --clr-light-gray: #F4F6F8;
+            --clr-medium-gray: #A0AAB4;
+            --clr-white: #FFFFFF;
+            --clr-success: #27AE60;
+            --clr-attention: #F1C40F;
+            --clr-error: #E74C3C;
+            --clr-purple: #8A2BE2;
+            --clr-orange: #FF8C00;
+            --clr-yellow: #F1C40F;
+            --clr-teal: #008080;
+            --clr-indigo: #4B0082;
+            --clr-pink: #FF69B4;
+            --clr-dashboard-bg: #F0F2F5; /* Cor de fundo do painel principal, similar à imagem */
+            --clr-sidebar-bg: #1F3A5F; /* Cor de fundo da sidebar, azul escuro */
+            --clr-card-bg: #FFFFFF; /* Cor de fundo dos cards */
+            --clr-text-main: #333333; /* Cor principal do texto */
+            --clr-text-secondary: #666666; /* Cor secundária do texto */
+            --clr-border: #E0E0E0; /* Cor da borda para elementos */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--clr-dashboard-bg); /* Fundo geral */
+        }
+
+        .flash-message { padding: 1rem; margin-bottom: 1rem; border-radius: 0.5rem; font-weight: 600; }
+        .flash-message.success { background-color: var(--clr-success); color: var(--clr-white); border: 1px solid var(--clr-success); }
+        .flash-message.danger { background-color: var(--clr-error); color: var(--clr-white); border: 1px solid var(--clr-error); }
+        .flash-message.warning { background-color: var(--clr-attention); color: var(--clr-dark-blue); border: 1px solid var(--clr-attention); }
+        .flash-message.info { background-color: var(--clr-light-blue); color: var(--clr-white); border: 1px solid var(--clr-light-blue); }
+
+
+        /* Estilos da Sidebar */
+        .sidebar {
+            background-color: var(--clr-sidebar-bg);
+            color: var(--clr-white);
+            width: 280px; /* Largura da sidebar */
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            position: fixed; /* Fixa a sidebar na tela */
+            height: 100vh; /* Altura total da viewport */
+            overflow-y: auto; /* Adiciona scroll se o conteúdo for maior que a tela */
+        }
+
+        .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar-nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.5rem;
+            color: var(--clr-white);
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .sidebar-nav-item:hover, .sidebar-nav-item.active {
+            background-color: var(--clr-light-blue); /* Cor de hover/ativo */
+            color: var(--clr-white);
+        }
+
+        .sidebar-nav-item i {
+            margin-right: 1rem;
+            font-size: 1.25rem;
+        }
+
+        /* Estilos do Conteúdo Principal */
+        .main-content {
+            margin-left: 280px; /* Margem para acomodar a sidebar */
+            padding: 2rem;
+            flex-grow: 1;
+            background-color: var(--clr-dashboard-bg);
+        }
+
+        .main-header {
+            background-color: var(--clr-card-bg);
+            padding: 1.5rem 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .main-header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--clr-dark-blue);
+        }
+
+        .main-header .search-bar {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--clr-border);
+            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+            background-color: var(--clr-light-gray);
+        }
+
+        .main-header .search-bar input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 1rem;
+            color: var(--clr-text-main);
+        }
+
+        .main-header .search-bar i {
+            color: var(--clr-medium-gray);
+            margin-right: 0.5rem;
+        }
+
+        /* Cards do Dashboard */
+        .dashboard-card {
+            background-color: var(--clr-card-bg);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+        }
+
+        .dashboard-card-header {
+            display: flex;
+            align-items: center;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--clr-dark-blue);
+            margin-bottom: 1rem;
+        }
+
+        .dashboard-card-header i {
+            margin-right: 0.75rem;
+            font-size: 1.5rem;
+        }
+
+        .alert-card .dashboard-card-header i { color: var(--clr-error); } /* Ícone de alerta vermelho */
+        .notice-card .dashboard-card-header i { color: var(--clr-attention); } /* Ícone de aviso amarelo */
+        .new-enrollment-card .dashboard-card-header i { color: var(--clr-dark-blue); } /* Ícone de novas inscrições azul escuro */
+        .active-employees-card .dashboard-card-header i { color: var(--clr-success); } /* Ícone de funcionários ativos verde */
+
+
+        /* Estilos para as categorias expansíveis existentes */
+        .category-header {
+            background-color: var(--clr-light-blue); /* Alterado para combinar mais com a sidebar */
+            color: var(--clr-white);
+            padding: 1rem 1.5rem; /* Ajustado padding */
+            border-radius: 0.75rem;
+            margin-bottom: 1rem; /* Ajustado margin */
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.25rem; /* Ajustado tamanho da fonte */
+            font-weight: 600; /* Ajustado peso da fonte */
+        }
+        .category-header:hover { background-color: color-mix(in srgb, var(--clr-light-blue) 80%, black); } /* Darker on hover */
+        .category-header .arrow-icon { transition: transform 0.2s; }
+        .category-header.expanded .arrow-icon { transform: rotate(90deg); }
+        .category-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(200px,1fr));
+            gap: 1.5rem;
+            margin-top: -0.5rem; /* Ajustado para sobrepor um pouco */
+            padding: 1.5rem; /* Ajustado padding */
+            border-bottom-left-radius: 0.75rem;
+            border-bottom-right-radius: 0.75rem;
+            background-color: var(--clr-card-bg); /* Cor de fundo dos cards */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+        .category-content.hidden { display: none; }
+
+        .card {
+            background-color: var(--clr-light-gray); /* Fundo dos cards internos */
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+            transition: transform 0.2s ease-in-out;
+            border: 1px solid var(--clr-border); /* Borda sutil */
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+        }
+
+        .card h2 {
+            color: var(--clr-dark-blue);
+        }
+
+        .card p {
+            color: var(--clr-text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Cores dos ícones dos cards */
+        .text-icon-blue { color: var(--clr-light-blue); }
+        .text-icon-green { color: var(--clr-success); }
+        .text-icon-purple { color: var(--clr-purple); }
+        .text-icon-orange { color: var(--clr-orange); }
+        .text-icon-error { color: var(--clr-error); }
+        .text-icon-yellow { color: var(--clr-yellow); }
+        .text-icon-teal { color: var(--clr-teal); }
+        .text-icon-indigo { color: var(--clr-indigo); }
+        .text-icon-pink { color: var(--clr-pink); }
+        .text-icon-gray { color: var(--clr-medium-gray); }
+
+        .btn-primary {
+            @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
+        }
+        .btn-secondary {
+            background-color: var(--clr-medium-gray);
+            color: var(--clr-white);
+            @apply font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
+        }
+        .btn-secondary:hover {
+            background-color: color-mix(in srgb, var(--clr-medium-gray) 80%, black);
+        }
+        .btn-danger {
+            @apply bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
+        }
+
+        /* Estilos para o modal de confirmação */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 90%;
+            max-width: 500px;
+            @apply p-6 bg-white rounded-lg shadow-xl;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Formulários */
+        .form-group {
+            @apply mb-4;
+        }
+        .form-label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+        .form-input, .form-select, .form-textarea {
+            @apply mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm;
+        }
+        .form-input[type="file"] {
+            @apply p-0 border-none shadow-none;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--clr-light-blue);
+            box-shadow: 0 0 0 2px rgba(79, 131, 204, 0.25);
+        }
+    </style>
+</head>
+<body class="flex flex-col md:flex-row min-h-screen">
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-building mr-3 text-2xl"></i> SIGIMOB
+        </div>
+        <nav>
+            <ul>
+                <li>
+                    <a href="{{ url_for('dashboard') }}" class="sidebar-nav-item">
+                        <i class="fas fa-home"></i> Visão Geral
+                    </a>
+                </li>
+                <li>
+                    <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="cadastros-essenciais-toggle">
+                        <span><i class="fas fa-users"></i> Cadastros Essenciais</span>
+                        <i class="fas fa-chevron-right arrow-icon"></i>
+                    </div>
+                    <ul id="cadastros-essenciais-submenu" class="ml-6 mt-1 hidden">
+                        <li><a href="{{ url_for('pessoas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-user-friends"></i> Pessoas</a></li>
+                        <li><a href="{{ url_for('despesas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-money-bill-alt"></i> Despesas</a></li>
+                        <li><a href="{{ url_for('origens_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-tags"></i> Origens</a></li>
+                        <li><a href="{{ url_for('receitas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-dollar-sign"></i> Receitas</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="{{ url_for('imoveis_list') }}" class="sidebar-nav-item">
+                        <i class="fas fa-house-user"></i> Imóveis
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('contratos_list') }}" class="sidebar-nav-item">
+                        <i class="fas fa-file-contract"></i> Contratos de Aluguel
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('contas_a_receber_list') }}" class="sidebar-nav-item">
+                        <i class="fas fa-hand-holding-usd"></i> Contas a Receber
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('contas_a_pagar_list') }}" class="sidebar-nav-item">
+                        <i class="fas fa-money-bill-wave"></i> Contas a Pagar
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('backup_db') }}" class="sidebar-nav-item">
+                        <i class="fas fa-database"></i> Backup
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('usuarios_list') }}" class="sidebar-nav-item">
+                        <i class="fas fa-user-shield"></i> Usuários
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('empresa_licenciada') }}" class="sidebar-nav-item">
+                        <i class="fas fa-building"></i> Empresa
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        <div class="flex justify-end mt-8">
+            <a href="{{ url_for('logout') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
+                <i class="fas fa-sign-out-alt mr-2"></i> Sair
+            </a>
+        </div>
+        <div class="mt-4 text-xs text-center text-white">Versão {{ system_version }} / Usuário: {{ usuario_logado }}</div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Main Header -->
+        <div class="main-header">
+            <h1>{% block page_title %}{% endblock %}</h1>
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Pesquisar...">
+            </div>
+        </div>
+
+        <!-- Mensagens Flash -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-6">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}
+        <!-- Conteúdo específico de cada página será inserido aqui -->
+        {% endblock %}
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
+            const currentPath = window.location.pathname;
+
+            // Função para ativar o item da sidebar
+            const activateSidebarItem = (path) => {
+                sidebarItems.forEach(item => {
+                    item.classList.remove('active');
+                });
+
+                let foundActive = false;
+                sidebarItems.forEach(item => {
+                    const href = item.getAttribute('href');
+                    if (href === path || (path.startsWith(href + '/') && href !== '/')) {
+                        item.classList.add('active');
+                        foundActive = true;
+                    }
+                });
+
+                // Lógica para o menu expansível "Cadastros Essenciais"
+                const cadastrosToggle = document.getElementById('cadastros-essenciais-toggle');
+                const cadastrosSubmenu = document.getElementById('cadastros-essenciais-submenu');
+                const cadastrosSubmenuItems = cadastrosSubmenu ? cadastrosSubmenu.querySelectorAll('.sidebar-nav-item') : [];
+
+                let isSubmenuActive = false;
+                cadastrosSubmenuItems.forEach(item => {
+                    const href = item.getAttribute('href');
+                    if (href === path || (path.startsWith(href + '/') && href !== '/')) {
+                        item.classList.add('active');
+                        isSubmenuActive = true;
+                    }
+                });
+
+                if (isSubmenuActive) {
+                    cadastrosSubmenu.classList.remove('hidden');
+                    cadastrosToggle.querySelector('.arrow-icon').classList.add('rotate-90');
+                    cadastrosToggle.classList.add('active'); // Opcional: para destacar o toggle também
+                } else {
+                    cadastrosSubmenu.classList.add('hidden');
+                    cadastrosToggle.querySelector('.arrow-icon').classList.remove('rotate-90');
+                    cadastrosToggle.classList.remove('active');
+                }
+
+                // Ativa o dashboard se nenhuma outra rota for ativa
+                if (!foundActive && currentPath === '{{ url_for("dashboard") }}') {
+                    const dashboardItem = document.querySelector('a[href="{{ url_for("dashboard") }}"]');
+                    if (dashboardItem) {
+                        dashboardItem.classList.add('active');
+                    }
+                }
+            };
+
+            // Event listener para o toggle do menu "Cadastros Essenciais"
+            const cadastrosToggle = document.getElementById('cadastros-essenciais-toggle');
+            if (cadastrosToggle) {
+                cadastrosToggle.addEventListener('click', () => {
+                    const submenu = document.getElementById('cadastros-essenciais-submenu');
+                    const arrowIcon = cadastrosToggle.querySelector('.arrow-icon');
+                    submenu.classList.toggle('hidden');
+                    arrowIcon.classList.toggle('rotate-90');
+                });
+            }
+
+            // Ativa o item da sidebar na carga da página
+            activateSidebarItem(currentPath);
+        });
+    </script>
+    {% block scripts %}
+    <!-- Scripts específicos de cada página serão inseridos aqui -->
+    {% endblock %}
+</body>
+</html>

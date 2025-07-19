@@ -1,0 +1,28 @@
+<!-- templates/despesas/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if despesa.id %}Editar Despesa{% else %}Adicionar Nova Despesa{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if despesa.id %}Editar Despesa{% else %}Adicionar Nova Despesa{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if despesa.id %}{{ url_for('despesas_edit', id=despesa.id) }}{% else %}{{ url_for('despesas_add') }}{% endif %}" method="POST">
+        <div class="form-group">
+            <label for="descricao" class="form-label">Descrição:</label>
+            <input type="text" id="descricao" name="descricao" class="form-input" value="{{ despesa.descricao | default('') }}" required>
+        </div>
+        
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{{ url_for('despesas_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">
+                {% if despesa.id %}Atualizar Despesa{% else %}Cadastrar Despesa{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
