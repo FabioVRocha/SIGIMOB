@@ -10,132 +10,175 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import subprocess
 import json
-from werkzeug.utils import secure_filename # Para lidar com nomes de arquivos de upload
+from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
 
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = SECRET_KEY
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config["SECRET_KEY"] = SECRET_KEY
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 # Cria as pastas de uploads se elas não existirem
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
-    os.makedirs(os.path.join(UPLOAD_FOLDER, 'backups'), exist_ok=True)
-    os.makedirs(os.path.join(UPLOAD_FOLDER, 'imoveis_anexos'), exist_ok=True) # Pasta para anexos de imóveis
+    os.makedirs(os.path.join(UPLOAD_FOLDER, "backups"), exist_ok=True)
+    os.makedirs(
+        os.path.join(UPLOAD_FOLDER, "imoveis_anexos"), exist_ok=True
+    )  # Pasta para anexos de imóveis
 
 
 # Variáveis globais para o sistema (exemplo)
 SYSTEM_VERSION = "1.0"
+
+# Módulos disponíveis no sistema para configuração de permissões
+MODULES = [
+    "Cadastro Fornecedores/Clientes",
+    "Cadastro Imoveis",
+    "Cadastro Despesas",
+    "Cadastro Origens",
+    "Cadastro Receitas",
+    "Gestao Contratos",
+    "Financeiro",
+    "Administracao Sistema",
+]
+
+# Ações possíveis
+ACTIONS = ["Incluir", "Editar", "Consultar", "Excluir", "Bloquear"]
+
 
 # Função para conectar ao banco de dados
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
 
+
 # Função auxiliar para verificar extensões de arquivo permitidas
 def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # Decorador para verificar se o usuário está logado
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            flash('Você precisa estar logado para acessar esta página.', 'info')
-            return redirect(url_for('login'))
+        if "user_id" not in session:
+            flash("Você precisa estar logado para acessar esta página.", "info")
+            return redirect(url_for("login"))
         return f(*args, **kwargs)
+
     return decorated_function
+
 
 # Decorador para verificar permissões
 def permission_required(module, action):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if 'user_id' not in session:
-                flash('Você precisa estar logado para acessar esta página.', 'info')
-                return redirect(url_for('login'))
+            if "user_id" not in session:
+                flash("Você precisa estar logado para acessar esta página.", "info")
+                return redirect(url_for("login"))
 
-            user_id = session['user_id']
+            user_id = session["user_id"]
             conn = get_db_connection()
             cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             
             # Verifica se o usuário é Master (tem acesso total)
             cur.execute("SELECT tipo_usuario FROM usuarios WHERE id = %s", (user_id,))
             user = cur.fetchone()
-            if user and user['tipo_usuario'] == 'Master':
+            if user and user["tipo_usuario"] == "Master":
                 cur.close()
                 conn.close()
                 return f(*args, **kwargs)
 
             # Verifica permissões específicas para o módulo e ação
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*) FROM permissoes
                 WHERE usuario_id = %s AND modulo = %s AND acao = %s
-            """, (user_id, module, action))
+            """,
+                (user_id, module, action),
+            )
             has_permission = cur.fetchone()[0] > 0
             
             cur.close()
             conn.close()
 
             if not has_permission:
-                flash(f'Você não tem permissão para realizar esta ação no módulo {module}.', 'danger')
-                return redirect(url_for('dashboard')) # Ou outra página de erro/acesso negado
+                flash(
+                    f"Você não tem permissão para realizar esta ação no módulo {module}.",
+                    "danger",
+                )
+                return redirect(
+                    url_for("dashboard")
+                )  # Ou outra página de erro/acesso negado
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator
+
 
 # Context processor para injetar variáveis em todos os templates
 @app.context_processor
 def inject_global_vars():
     return {
-        'system_version': SYSTEM_VERSION,
-        'usuario_logado': session.get('username', 'Convidado')
+        "system_version": SYSTEM_VERSION,
+        "usuario_logado": session.get("username", "Convidado"),
     }
 
+
 # --- Rotas de Autenticação ---
-@app.route('/login', methods=['GET', 'POST'])
+@app.route("/login", methods=["GET", "POST"])
 def login():
     # Se o usuário já estiver logado, redireciona para o dashboard
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
 
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+    
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT id, nome_usuario, senha_hash, status FROM usuarios WHERE nome_usuario = %s", (username,))
+        cur.execute(
+            "SELECT id, nome_usuario, senha_hash, status FROM usuarios WHERE nome_usuario = %s",
+            (username,),
+        )
         user = cur.fetchone()
         cur.close()
         conn.close()
 
-        if user and user['status'] == 'Ativo' and check_password_hash(user['senha_hash'], password):
-            session['user_id'] = user['id']
-            session['username'] = user['nome_usuario']
-            flash('Login realizado com sucesso!', 'success')
-            return redirect(url_for('dashboard')) # Redireciona para o dashboard após o login
+        if (
+            user
+            and user["status"] == "Ativo"
+            and check_password_hash(user["senha_hash"], password)
+        ):
+            session["user_id"] = user["id"]
+            session["username"] = user["nome_usuario"]
+            flash("Login realizado com sucesso!", "success")
+            return redirect(
+                url_for("dashboard")
+            )  # Redireciona para o dashboard após o login
         else:
-            flash('Usuário ou senha inválidos, ou usuário inativo.', 'danger')
-    return render_template('login.html')
+            flash("Usuário ou senha inválidos, ou usuário inativo.", "danger")
+    return render_template("login.html")
 
-@app.route('/register', methods=['GET', 'POST'])
+
+@app.route("/register", methods=["GET", "POST"])
 def register():
     # Se o usuário já estiver logado, redireciona para o dashboard
-    if 'user_id' in session:
-        return redirect(url_for('dashboard'))
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
 
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
 
         if password != confirm_password:
-            flash('As senhas não coincidem.', 'danger')
-            return render_template('register.html')
+            flash("As senhas não coincidem.", "danger")
+            return render_template("register.html")
 
         # Hash da senha antes de armazenar
         hashed_password = generate_password_hash(password)
@@ -143,142 +186,177 @@ def register():
         conn = get_db_connection()
         cur = conn.cursor()
         try:
-            # Insere o novo usuário com tipo 'Operador' por padrão
+            # Insere o novo usuário com tipo "Operador" por padrão
             cur.execute(
                 "INSERT INTO usuarios (nome_usuario, senha_hash, tipo_usuario, status) VALUES (%s, %s, %s, %s) RETURNING id",
-                (username, hashed_password, 'Operador', 'Ativo')
+                (username, hashed_password, "Operador", "Ativo")
             )
             new_user_id = cur.fetchone()[0]
             conn.commit()
 
-            # Opcional: Atribuir permissões básicas para o novo usuário 'Operador'
+            # Opcional: Atribuir permissões básicas para o novo usuário "Operador"
             # Isso pode ser feito de forma mais sofisticada, mas aqui é um exemplo básico.
             # Por exemplo, dar permissão de consulta para alguns módulos.
             modules_to_grant_access = [
-                'Cadastro Fornecedores/Clientes',
-                'Cadastro Imoveis',
-                'Gestao Contratos',
-                'Financeiro',
-                'Cadastro Despesas', # Nova permissão
-                'Cadastro Origens',  # Nova permissão
-                'Cadastro Receitas'  # Nova permissão
+                "Cadastro Fornecedores/Clientes",
+                "Cadastro Imoveis",
+                "Gestao Contratos",
+                "Financeiro",
+                "Cadastro Despesas",  # Nova permissão
+                "Cadastro Origens",  # Nova permissão
+                "Cadastro Receitas",  # Nova permissão
             ]
             for module in modules_to_grant_access:
                 cur.execute(
                     "INSERT INTO permissoes (usuario_id, modulo, acao) VALUES (%s, %s, %s)",
-                    (new_user_id, module, 'Consultar')
+                    (new_user_id, module, "Consultar")
                 )
             conn.commit()
 
-            flash('Usuário cadastrado com sucesso! Você já pode fazer login.', 'success')
-            return redirect(url_for('login'))
+            flash(
+                "Usuário cadastrado com sucesso! Você já pode fazer login.", "success"
+            )
+            return redirect(url_for("login"))
         except psycopg2.errors.UniqueViolation:
-            flash('Nome de usuário já existe. Por favor, escolha outro.', 'danger')
+            flash("Nome de usuário já existe. Por favor, escolha outro.", "danger")
             conn.rollback()
         except Exception as e:
-            flash(f'Erro ao cadastrar usuário: {e}', 'danger')
+            flash(f"Erro ao cadastrar usuário: {e}", "danger")
             conn.rollback()
         finally:
             cur.close()
             conn.close()
-    return render_template('register.html')
+    return render_template("register.html")
 
 
-@app.route('/logout')
+@app.route("/logout")
 @login_required
 def logout():
-    session.pop('user_id', None)
-    session.pop('username', None)
-    flash('Você foi desconectado.', 'info')
-    return redirect(url_for('login'))
+    session.pop("user_id", None)
+    session.pop("username", None)
+    flash("Você foi desconectado.", "info")
+    return redirect(url_for("login"))
+
 
 # --- Rota Principal (Dashboard) ---
-@app.route('/') # Redireciona a raiz para o login
+@app.route("/") # Redireciona a raiz para o login
 def index():
-    return redirect(url_for('login'))
+    return redirect(url_for("login"))
 
-@app.route('/dashboard')
+
+@app.route("/dashboard")
 @login_required
 def dashboard():
     # Dados de exemplo para o dashboard
     exames_vencidos = 2
     exames_proximos = 0
     total_funcionarios_ativos = 5
-    meses_labels = ["Ago", "Set", "Out", "Nov", "Dez", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul"]
+    meses_labels = [
+        "Ago",
+        "Set",
+        "Out",
+        "Nov",
+        "Dez",
+        "Jan",
+        "Fev",
+        "Mar",
+        "Abr",
+        "Mai",
+        "Jun",
+        "Jul",
+    ]
     contratacoes = [2, 3, 1, 4, 2, 3, 1, 2, 4, 3, 2, 1]
     demissoes = [1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1]
 
-    return render_template('dashboard.html', 
-                           exames_vencidos=exames_vencidos,
-                           exames_proximos=exames_proximos,
-                           total_funcionarios_ativos=total_funcionarios_ativos,
-                           meses_labels=meses_labels,
-                           contratacoes=contratacoes,
-                           demissoes=demissoes)
+    return render_template(
+        "dashboard.html",
+        exames_vencidos=exames_vencidos,
+        exames_proximos=exames_proximos,
+        total_funcionarios_ativos=total_funcionarios_ativos,
+        meses_labels=meses_labels,
+        contratacoes=contratacoes,
+        demissoes=demissoes,
+    )
+
 
 # --- Módulo de Cadastros Essenciais ---
 
+
 # 1.1. Cadastro de Fornecedores e Clientes (Pessoas)
-@app.route('/pessoas')
+@app.route("/pessoas")
 @login_required
-@permission_required('Cadastro Fornecedores/Clientes', 'Consultar')
+@permission_required("Cadastro Fornecedores/Clientes", "Consultar")
 def pessoas_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    search_query = request.args.get('search', '')
+    search_query = request.args.get("search", "")
     if search_query:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT * FROM pessoas
             WHERE documento ILIKE %s OR razao_social_nome ILIKE %s OR nome_fantasia ILIKE %s
             ORDER BY data_cadastro DESC
-        """, (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
+        """,
+            (f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"),
+        )
     else:
         cur.execute("SELECT * FROM pessoas ORDER BY data_cadastro DESC")
     pessoas = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('pessoas/list.html', pessoas=pessoas, search_query=search_query)
+    return render_template(
+        "pessoas/list.html", pessoas=pessoas, search_query=search_query
+    )
 
-@app.route('/pessoas/add', methods=['GET', 'POST'])
+
+@app.route("/pessoas/add", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Fornecedores/Clientes', 'Incluir')
+@permission_required("Cadastro Fornecedores/Clientes", "Incluir")
 def pessoas_add():
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
-            documento = request.form['documento'].replace('.', '').replace('/', '').replace('-', '')
-            razao_social_nome = request.form['razao_social_nome']
-            nome_fantasia = request.form.get('nome_fantasia')
-            endereco = request.form.get('endereco')
-            bairro = request.form.get('bairro')
-            cidade = request.form.get('cidade')
-            estado = request.form.get('estado')
-            cep = request.form.get('cep', '').replace('-', '')
-            telefone = request.form.get('telefone')
-            observacao = request.form.get('observacao')
-            tipo = request.form['tipo']
-            status = request.form['status']
+            documento = (
+                request.form["documento"]
+                .replace(".", "")
+                .replace("/", "")
+                .replace("-", "")
+            )
+            razao_social_nome = request.form["razao_social_nome"]
+            nome_fantasia = request.form.get("nome_fantasia")
+            endereco = request.form.get("endereco")
+            bairro = request.form.get("bairro")
+            cidade = request.form.get("cidade")
+            estado = request.form.get("estado")
+            cep = request.form.get("cep", "").replace("-", "")
+            telefone = request.form.get("telefone")
+            observacao = request.form.get("observacao")
+            tipo = request.form["tipo"]
+            status = request.form["status"]
 
-            # Validação de CPF/CNPJ (simplificada, você precisaria de uma biblioteca real como 'validate-docbr')
+            # Validação de CPF/CNPJ (simplificada, você precisaria de uma biblioteca real como "validate-docbr")
             if len(documento) == 11 and not documento.isdigit():
-                 flash('CPF inválido. Deve conter apenas números.', 'danger')
-                 return render_template('pessoas/add_edit.html', pessoa={})
+                 flash("CPF inválido. Deve conter apenas números.", "danger")
+                 return render_template("pessoas/add_edit.html", pessoa={})
             elif len(documento) == 14 and not documento.isdigit():
-                 flash('CNPJ inválido. Deve conter apenas números.', 'danger')
-                 return render_template('pessoas/add_edit.html', pessoa={})
+                 flash("CNPJ inválido. Deve conter apenas números.", "danger")
+                 return render_template("pessoas/add_edit.html", pessoa={})
             elif len(documento) != 11 and len(documento) != 14:
-                flash('Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).', 'danger')
-                return render_template('pessoas/add_edit.html', pessoa={})
+                flash(
+                    "Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).",
+                    "danger",
+                )
+                return render_template("pessoas/add_edit.html", pessoa={})
             
             # Exemplo de uso de validate-docbr (necessita instalação: pip install validate-docbr)
             # from validate_docbr import CPF, CNPJ
             # if len(documento) == 11:
             #     if not CPF().validate(documento):
-            #         flash('CPF inválido.', 'danger')
-            #         return render_template('pessoas/add_edit.html', pessoa={})
+            #         flash("CPF inválido.", "danger")
+            #         return render_template("pessoas/add_edit.html", pessoa={})
             # elif len(documento) == 14:
             #     if not CNPJ().validate(documento):
-            #         flash('CNPJ inválido.', 'danger')
-            #         return render_template('pessoas/add_edit.html', pessoa={})
+            #         flash("CNPJ inválido.", "danger")
+            #         return render_template("pessoas/add_edit.html", pessoa={})
 
             conn = get_db_connection()
             cur = conn.cursor()
@@ -287,53 +365,75 @@ def pessoas_add():
                 INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, observacao, tipo, status)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, observacao, tipo, status)
+                (
+                    documento,
+                    razao_social_nome,
+                    nome_fantasia,
+                    endereco,
+                    bairro,
+                    cidade,
+                    estado,
+                    cep,
+                    telefone,
+                    observacao,
+                    tipo,
+                    status,
+                ),
             )
             conn.commit()
             cur.close()
             conn.close()
-            flash('Pessoa cadastrada com sucesso!', 'success')
-            return redirect(url_for('pessoas_list'))
+            flash("Pessoa cadastrada com sucesso!", "success")
+            return redirect(url_for("pessoas_list"))
         except psycopg2.errors.UniqueViolation:
-            flash('Erro: Documento (CPF/CNPJ) já cadastrado.', 'danger')
-            conn.rollback() # Garante que a transação seja desfeita em caso de erro
-            return render_template('pessoas/add_edit.html', pessoa=request.form)
+            flash("Erro: Documento (CPF/CNPJ) já cadastrado.", "danger")
+            conn.rollback()  # Garante que a transação seja desfeita em caso de erro
+            return render_template("pessoas/add_edit.html", pessoa=request.form)
         except Exception as e:
-            flash(f'Erro ao cadastrar pessoa: {e}', 'danger')
-            return render_template('pessoas/add_edit.html', pessoa=request.form)
-    return render_template('pessoas/add_edit.html', pessoa={})
+            flash(f"Erro ao cadastrar pessoa: {e}", "danger")
+            return render_template("pessoas/add_edit.html", pessoa=request.form)
+    return render_template("pessoas/add_edit.html", pessoa={})
 
-@app.route('/pessoas/edit/<int:id>', methods=['GET', 'POST'])
+
+@app.route("/pessoas/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Fornecedores/Clientes', 'Editar')
+@permission_required("Cadastro Fornecedores/Clientes", "Editar")
 def pessoas_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
-            documento = request.form['documento'].replace('.', '').replace('/', '').replace('-', '')
-            razao_social_nome = request.form['razao_social_nome']
-            nome_fantasia = request.form.get('nome_fantasia')
-            endereco = request.form.get('endereco')
-            bairro = request.form.get('bairro')
-            cidade = request.form.get('cidade')
-            estado = request.form.get('estado')
-            cep = request.form.get('cep', '').replace('-', '')
-            telefone = request.form.get('telefone')
-            observacao = request.form.get('observacao')
-            tipo = request.form['tipo']
-            status = request.form['status']
+            documento = (
+                request.form["documento"]
+                .replace(".", "")
+                .replace("/", "")
+                .replace("-", "")
+            )
+            razao_social_nome = request.form["razao_social_nome"]
+            nome_fantasia = request.form.get("nome_fantasia")
+            endereco = request.form.get("endereco")
+            bairro = request.form.get("bairro")
+            cidade = request.form.get("cidade")
+            estado = request.form.get("estado")
+            cep = request.form.get("cep", "").replace("-", "")
+            telefone = request.form.get("telefone")
+            observacao = request.form.get("observacao")
+            tipo = request.form["tipo"]
+            status = request.form["status"]
 
             # Validação de CPF/CNPJ (simplificada)
             if len(documento) == 11 and not documento.isdigit():
-                 flash('CPF inválido. Deve conter apenas números.', 'danger')
-                 return render_template('pessoas/add_edit.html', pessoa=request.form)
+                 flash("CPF inválido. Deve conter apenas números.", "danger")
+                 return render_template("pessoas/add_edit.html", pessoa=request.form)
             elif len(documento) == 14 and not documento.isdigit():
-                 flash('CNPJ inválido. Deve conter apenas números.', 'danger')
-                 return render_template('pessoas/add_edit.html', pessoa={})
+                 flash("CNPJ inválido. Deve conter apenas números.", "danger")
+                 return render_template("pessoas/add_edit.html", pessoa={})
             elif len(documento) != 11 and len(documento) != 14:
-                flash('Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).', 'danger')
-                return render_template('pessoas/add_edit.html', pessoa={})
+                flash(
+                    "Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).",
+                    "danger",
+                )
+                return render_template("pessoas/add_edit.html", pessoa={})
 
             cur.execute(
                 """
@@ -341,101 +441,135 @@ def pessoas_edit(id):
                 SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, observacao = %s, tipo = %s, status = %s
                 WHERE id = %s
                 """,
-                (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, observacao, tipo, status, id)
+                (
+                    documento,
+                    razao_social_nome,
+                    nome_fantasia,
+                    endereco,
+                    bairro,
+                    cidade,
+                    estado,
+                    cep,
+                    telefone,
+                    observacao,
+                    tipo,
+                    status,
+                    id,
+                ),
             )
             conn.commit()
-            flash('Pessoa atualizada com sucesso!', 'success')
-            return redirect(url_for('pessoas_list'))
+            flash("Pessoa atualizada com sucesso!", "success")
+            return redirect(url_for("pessoas_list"))
         except psycopg2.errors.UniqueViolation:
-            flash('Erro: Documento (CPF/CNPJ) já cadastrado para outra pessoa.', 'danger')
+            flash(
+                "Erro: Documento (CPF/CNPJ) já cadastrado para outra pessoa.", "danger"
+            )
             conn.rollback()
             # Recarrega os dados da pessoa para preencher o formulário novamente
             cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
             pessoa = cur.fetchone()
-            return render_template('pessoas/add_edit.html', pessoa=pessoa)
+            return render_template("pessoas/add_edit.html", pessoa=pessoa)
         except Exception as e:
-            flash(f'Erro ao atualizar pessoa: {e}', 'danger')
+            flash(f"Erro ao atualizar pessoa: {e}", "danger")
             # Recarrega os dados da pessoa para preencher o formulário novamente
             cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
             pessoa = cur.fetchone()
-            return render_template('pessoas/add_edit.html', pessoa=pessoa)
-    
+            return render_template("pessoas/add_edit.html", pessoa=pessoa)
+
     cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
     pessoa = cur.fetchone()
     cur.close()
     conn.close()
     if pessoa is None:
-        flash('Pessoa não encontrada.', 'danger')
-        return redirect(url_for('pessoas_list'))
-    return render_template('pessoas/add_edit.html', pessoa=pessoa)
+        flash("Pessoa não encontrada.", "danger")
+        return redirect(url_for("pessoas_list"))
+    return render_template("pessoas/add_edit.html", pessoa=pessoa)
 
-@app.route('/pessoas/delete/<int:id>', methods=['POST'])
+
+@app.route("/pessoas/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required('Cadastro Fornecedores/Clientes', 'Excluir')
+@permission_required("Cadastro Fornecedores/Clientes", "Excluir")
 def pessoas_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM pessoas WHERE id = %s", (id,))
         conn.commit()
-        flash('Pessoa excluída com sucesso!', 'success')
+        flash("Pessoa excluída com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao excluir pessoa: {e}', 'danger')
+        flash(f"Erro ao excluir pessoa: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('pessoas_list'))
+    return redirect(url_for("pessoas_list"))
+
 
 # --- Módulo de Gestão de Imóveis e Aluguéis ---
 
+
 # 1.2. Cadastro de Imóveis
-@app.route('/imoveis')
+@app.route("/imoveis")
 @login_required
-@permission_required('Cadastro Imoveis', 'Consultar')
+@permission_required("Cadastro Imoveis", "Consultar")
 def imoveis_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    search_query = request.args.get('search', '')
+    search_query = request.args.get("search", "")
     if search_query:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT * FROM imoveis
             WHERE endereco ILIKE %s OR bairro ILIKE %s OR cidade ILIKE %s OR inscricao_iptu ILIKE %s
             ORDER BY data_cadastro DESC
-        """, (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
+        """,
+            (
+                f"%{search_query}%",
+                f"%{search_query}%",
+                f"%{search_query}%",
+                f"%{search_query}%",
+            ),
+        )
     else:
         cur.execute("SELECT * FROM imoveis ORDER BY data_cadastro DESC")
     imoveis = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('imoveis/list.html', imoveis=imoveis, search_query=search_query)
+    return render_template(
+        "imoveis/list.html", imoveis=imoveis, search_query=search_query
+    )
 
-@app.route('/imoveis/add', methods=['GET', 'POST'])
+
+@app.route("/imoveis/add", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Imoveis', 'Incluir')
+@permission_required("Cadastro Imoveis", "Incluir")
 def imoveis_add():
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
-            tipo_imovel = request.form.get('tipo_imovel')
-            endereco = request.form['endereco']
-            bairro = request.form.get('bairro')
-            cidade = request.form.get('cidade')
-            estado = request.form.get('estado')
-            cep = request.form.get('cep')
-            registro = request.form.get('registro')
-            livro = request.form.get('livro')
-            folha = request.form.get('folha')
-            matricula = request.form.get('matricula')
-            inscricao_iptu = request.form.get('inscricao_iptu')
-            latitude = request.form.get('latitude')
-            longitude = request.form.get('longitude')
-            data_aquisicao_str = request.form.get('data_aquisicao')
-            valor_imovel = request.form.get('valor_imovel')
-            valor_previsto_aluguel = request.form.get('valor_previsto_aluguel')
-            destinacao = request.form.get('destinacao')
-            observacao = request.form.get('observacao')
+            tipo_imovel = request.form.get("tipo_imovel")
+            endereco = request.form["endereco"]
+            bairro = request.form.get("bairro")
+            cidade = request.form.get("cidade")
+            estado = request.form.get("estado")
+            cep = request.form.get("cep")
+            registro = request.form.get("registro")
+            livro = request.form.get("livro")
+            folha = request.form.get("folha")
+            matricula = request.form.get("matricula")
+            inscricao_iptu = request.form.get("inscricao_iptu")
+            latitude = request.form.get("latitude")
+            longitude = request.form.get("longitude")
+            data_aquisicao_str = request.form.get("data_aquisicao")
+            valor_imovel = request.form.get("valor_imovel")
+            valor_previsto_aluguel = request.form.get("valor_previsto_aluguel")
+            destinacao = request.form.get("destinacao")
+            observacao = request.form.get("observacao")
 
-            data_aquisicao = datetime.strptime(data_aquisicao_str, '%Y-%m-%d').date() if data_aquisicao_str else None
+            data_aquisicao = (
+                datetime.strptime(data_aquisicao_str, "%Y-%m-%d").date()
+                if data_aquisicao_str
+                else None
+            )
 
             conn = get_db_connection()
             cur = conn.cursor()
@@ -447,69 +581,97 @@ def imoveis_add():
                                      valor_previsto_aluguel, destinacao, observacao)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
-                (tipo_imovel, endereco, bairro, cidade, estado, cep,
-                 registro, livro, folha, matricula, inscricao_iptu,
-                 latitude, longitude, data_aquisicao, valor_imovel,
-                 valor_previsto_aluguel, destinacao, observacao)
+                (
+                    tipo_imovel,
+                    endereco,
+                    bairro,
+                    cidade,
+                    estado,
+                    cep,
+                    registro,
+                    livro,
+                    folha,
+                    matricula,
+                    inscricao_iptu,
+                    latitude,
+                    longitude,
+                    data_aquisicao,
+                    valor_imovel,
+                    valor_previsto_aluguel,
+                    destinacao,
+                    observacao,
+                ),
             )
             imovel_id = cur.fetchone()[0]
 
             # Lidar com uploads de arquivos (anexos e fotos)
-            if 'anexos' in request.files:
-                files = request.files.getlist('anexos')
+            if "anexos" in request.files:
+                files = request.files.getlist("anexos")
                 for file in files:
                     if file and allowed_file(file.filename):
                         filename = secure_filename(file.filename)
-                        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'imoveis_anexos', filename)
+                        filepath = os.path.join(
+                            app.config["UPLOAD_FOLDER"], "imoveis_anexos", filename
+                        )
                         file.save(filepath)
                         cur.execute(
                             "INSERT INTO imovel_anexos (imovel_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
-                            (imovel_id, filename, filepath, 'documento') # Ou 'foto' dependendo da lógica que você implementar para diferenciar
+                            (
+                                imovel_id,
+                                filename,
+                                filepath,
+                                "documento",
+                            ),  # Ou "foto" dependendo da lógica que você implementar para diferenciar
                         )
             
             conn.commit()
             cur.close()
             conn.close()
-            flash('Imóvel cadastrado com sucesso!', 'success')
-            return redirect(url_for('imoveis_list'))
+            flash("Imóvel cadastrado com sucesso!", "success")
+            return redirect(url_for("imoveis_list"))
         except psycopg2.errors.UniqueViolation:
-            flash('Erro: Inscrição IPTU já cadastrada.', 'danger')
+            flash("Erro: Inscrição IPTU já cadastrada.", "danger")
             conn.rollback()
-            return render_template('imoveis/add_edit.html', imovel=request.form)
+            return render_template("imoveis/add_edit.html", imovel=request.form)
         except Exception as e:
-            flash(f'Erro ao cadastrar imóvel: {e}', 'danger')
-            return render_template('imoveis/add_edit.html', imovel=request.form)
-    return render_template('imoveis/add_edit.html', imovel={})
+            flash(f"Erro ao cadastrar imóvel: {e}", "danger")
+            return render_template("imoveis/add_edit.html", imovel=request.form)
+    return render_template("imoveis/add_edit.html", imovel={})
 
-@app.route('/imoveis/edit/<int:id>', methods=['GET', 'POST'])
+
+@app.route("/imoveis/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Imoveis', 'Editar')
+@permission_required("Cadastro Imoveis", "Editar")
 def imoveis_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    if request.method == 'POST':
+    if request.method == "POST":
         try:
-            tipo_imovel = request.form.get('tipo_imovel')
-            endereco = request.form['endereco']
-            bairro = request.form.get('bairro')
-            cidade = request.form.get('cidade')
-            estado = request.form.get('estado')
-            cep = request.form.get('cep')
-            registro = request.form.get('registro')
-            livro = request.form.get('livro')
-            folha = request.form.get('folha')
-            matricula = request.form.get('matricula')
-            inscricao_iptu = request.form.get('inscricao_iptu')
-            latitude = request.form.get('latitude')
-            longitude = request.form.get('longitude')
-            data_aquisicao_str = request.form.get('data_aquisicao')
-            valor_imovel = request.form.get('valor_imovel')
-            valor_previsto_aluguel = request.form.get('valor_previsto_aluguel')
-            destinacao = request.form.get('destinacao')
-            observacao = request.form.get('observacao')
+            tipo_imovel = request.form.get("tipo_imovel")
+            endereco = request.form["endereco"]
+            bairro = request.form.get("bairro")
+            cidade = request.form.get("cidade")
+            estado = request.form.get("estado")
+            cep = request.form.get("cep")
+            registro = request.form.get("registro")
+            livro = request.form.get("livro")
+            folha = request.form.get("folha")
+            matricula = request.form.get("matricula")
+            inscricao_iptu = request.form.get("inscricao_iptu")
+            latitude = request.form.get("latitude")
+            longitude = request.form.get("longitude")
+            data_aquisicao_str = request.form.get("data_aquisicao")
+            valor_imovel = request.form.get("valor_imovel")
+            valor_previsto_aluguel = request.form.get("valor_previsto_aluguel")
+            destinacao = request.form.get("destinacao")
+            observacao = request.form.get("observacao")
 
-            data_aquisicao = datetime.strptime(data_aquisicao_str, '%Y-%m-%d').date() if data_aquisicao_str else None
+            data_aquisicao = (
+                datetime.strptime(data_aquisicao_str, "%Y-%m-%d").date()
+                if data_aquisicao_str
+                else None
+            )
 
             cur.execute(
                 """
@@ -520,46 +682,69 @@ def imoveis_edit(id):
                     valor_previsto_aluguel = %s, destinacao = %s, observacao = %s
                 WHERE id = %s
                 """,
-                (tipo_imovel, endereco, bairro, cidade, estado, cep,
-                 registro, livro, folha, matricula, inscricao_iptu,
-                 latitude, longitude, data_aquisicao, valor_imovel,
-                 valor_previsto_aluguel, destinacao, observacao, id)
+                (
+                    tipo_imovel,
+                    endereco,
+                    bairro,
+                    cidade,
+                    estado,
+                    cep,
+                    registro,
+                    livro,
+                    folha,
+                    matricula,
+                    inscricao_iptu,
+                    latitude,
+                    longitude,
+                    data_aquisicao,
+                    valor_imovel,
+                    valor_previsto_aluguel,
+                    destinacao,
+                    observacao,
+                    id,
+                ),
             )
 
             # Lidar com novos uploads de arquivos
-            if 'anexos' in request.files:
-                files = request.files.getlist('anexos')
+            if "anexos" in request.files:
+                files = request.files.getlist("anexos")
                 for file in files:
                     if file and allowed_file(file.filename):
                         filename = secure_filename(file.filename)
-                        filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'imoveis_anexos', filename)
+                        filepath = os.path.join(
+                            app.config["UPLOAD_FOLDER"], "imoveis_anexos", filename
+                        )
                         file.save(filepath)
                         cur.execute(
                             "INSERT INTO imovel_anexos (imovel_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
-                            (id, filename, filepath, 'documento') # Ou 'foto'
+                            (id, filename, filepath, "documento"),  # Ou "foto"
                         )
             
             conn.commit()
-            flash('Imóvel atualizado com sucesso!', 'success')
-            return redirect(url_for('imoveis_list'))
+            flash("Imóvel atualizado com sucesso!", "success")
+            return redirect(url_for("imoveis_list"))
         except psycopg2.errors.UniqueViolation:
-            flash('Erro: Inscrição IPTU já cadastrada para outro imóvel.', 'danger')
+            flash("Erro: Inscrição IPTU já cadastrada para outro imóvel.", "danger")
             conn.rollback()
             # Recarrega os dados do imóvel para preencher o formulário novamente
             cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
             imovel = cur.fetchone()
             cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
             anexos = cur.fetchall()
-            return render_template('imoveis/add_edit.html', imovel=imovel, anexos=anexos)
+            return render_template(
+                "imoveis/add_edit.html", imovel=imovel, anexos=anexos
+            )
         except Exception as e:
-            flash(f'Erro ao atualizar imóvel: {e}', 'danger')
+            flash(f"Erro ao atualizar imóvel: {e}", "danger")
             # Recarrega os dados do imóvel para preencher o formulário novamente
             cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
             imovel = cur.fetchone()
             cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
             anexos = cur.fetchall()
-            return render_template('imoveis/add_edit.html', imovel=imovel, anexos=anexos)
-    
+            return render_template(
+                "imoveis/add_edit.html", imovel=imovel, anexos=anexos
+            )
+
     cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
     imovel = cur.fetchone()
     cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
@@ -567,13 +752,14 @@ def imoveis_edit(id):
     cur.close()
     conn.close()
     if imovel is None:
-        flash('Imóvel não encontrado.', 'danger')
-        return redirect(url_for('imoveis_list'))
-    return render_template('imoveis/add_edit.html', imovel=imovel, anexos=anexos)
+        flash("Imóvel não encontrado.", "danger")
+        return redirect(url_for("imoveis_list"))
+    return render_template("imoveis/add_edit.html", imovel=imovel, anexos=anexos)
 
-@app.route('/imoveis/delete/<int:id>', methods=['POST'])
+
+@app.route("/imoveis/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required('Cadastro Imoveis', 'Excluir')
+@permission_required("Cadastro Imoveis", "Excluir")
 def imoveis_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -582,363 +768,404 @@ def imoveis_delete(id):
         cur.execute("DELETE FROM imovel_anexos WHERE imovel_id = %s", (id,))
         cur.execute("DELETE FROM imoveis WHERE id = %s", (id,))
         conn.commit()
-        flash('Imóvel excluído com sucesso!', 'success')
+        flash("Imóvel excluído com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao excluir imóvel: {e}', 'danger')
+        flash(f"Erro ao excluir imóvel: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('imoveis_list'))
+    return redirect(url_for("imoveis_list"))
 
-@app.route('/imoveis/anexo/delete/<int:anexo_id>', methods=['POST'])
+
+@app.route("/imoveis/anexo/delete/<int:anexo_id>", methods=["POST"])
 @login_required
-@permission_required('Cadastro Imoveis', 'Editar') # Permissão para editar imóvel inclui exclusão de anexos
+@permission_required(
+    "Cadastro Imoveis", "Editar"
+)  # Permissão para editar imóvel inclui exclusão de anexos
 def imovel_anexo_delete(anexo_id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
-        cur.execute("SELECT caminho_arquivo, imovel_id FROM imovel_anexos WHERE id = %s", (anexo_id,))
+        cur.execute(
+            "SELECT caminho_arquivo, imovel_id FROM imovel_anexos WHERE id = %s",
+            (anexo_id,),
+        )
         anexo = cur.fetchone()
         
         if anexo:
             # Tenta remover o arquivo físico
-            if os.path.exists(anexo['caminho_arquivo']):
-                os.remove(anexo['caminho_arquivo'])
-            
+            if os.path.exists(anexo["caminho_arquivo"]):
+                os.remove(anexo["caminho_arquivo"])
+
             cur.execute("DELETE FROM imovel_anexos WHERE id = %s", (anexo_id,))
             conn.commit()
-            flash('Anexo removido com sucesso!', 'success')
-            return redirect(url_for('imoveis_edit', id=anexo['imovel_id']))
+            flash("Anexo removido com sucesso!", "success")
+            return redirect(url_for("imoveis_edit", id=anexo["imovel_id"]))
         else:
-            flash('Anexo não encontrado.', 'danger')
+            flash("Anexo não encontrado.", "danger")
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao remover anexo: {e}', 'danger')
+        flash(f"Erro ao remover anexo: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('imoveis_list')) # Redireciona para a lista caso não encontre o anexo ou erro
+    return redirect(
+        url_for("imoveis_list")
+    )  # Redireciona para a lista caso não encontre o anexo ou erro
+
 
 # --- 1.3. Cadastro de Despesas ---
-@app.route('/despesas')
+@app.route("/despesas")
 @login_required
-@permission_required('Cadastro Despesas', 'Consultar')
+@permission_required("Cadastro Despesas", "Consultar")
 def despesas_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    search_query = request.args.get('search', '')
+    search_query = request.args.get("search", "")
     if search_query:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT * FROM despesas_cadastro
             WHERE descricao ILIKE %s
             ORDER BY data_cadastro DESC
-        """, (f'%{search_query}%',))
+        """,
+            (f"%{search_query}%",),
+        )
     else:
         cur.execute("SELECT * FROM despesas_cadastro ORDER BY data_cadastro DESC")
     despesas = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('despesas/list.html', despesas=despesas, search_query=search_query)
+    return render_template(
+        "despesas/list.html", despesas=despesas, search_query=search_query
+    )
 
-@app.route('/despesas/add', methods=['GET', 'POST'])
+
+@app.route("/despesas/add", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Despesas', 'Incluir')
+@permission_required("Cadastro Despesas", "Incluir")
 def despesas_add():
-    if request.method == 'POST':
-        descricao = request.form['descricao']
+    if request.method == "POST":
+        descricao = request.form["descricao"]
         conn = get_db_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO despesas_cadastro (descricao) VALUES (%s)",
-                (descricao,)
+                "INSERT INTO despesas_cadastro (descricao) VALUES (%s)", (descricao,)
             )
             conn.commit()
-            flash('Despesa cadastrada com sucesso!', 'success')
-            return redirect(url_for('despesas_list'))
+            flash("Despesa cadastrada com sucesso!", "success")
+            return redirect(url_for("despesas_list"))
         except Exception as e:
             conn.rollback()
-            flash(f'Erro ao cadastrar despesa: {e}', 'danger')
-            return render_template('despesas/add_list.html', despesa=request.form)
+            flash(f"Erro ao cadastrar despesa: {e}", "danger")
+            return render_template("despesas/add_list.html", despesa=request.form)
         finally:
             cur.close()
             conn.close()
-    return render_template('despesas/add_list.html', despesa={})
+    return render_template("despesas/add_list.html", despesa={})
 
-@app.route('/despesas/edit/<int:id>', methods=['GET', 'POST'])
+
+@app.route("/despesas/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Despesas', 'Editar')
+@permission_required("Cadastro Despesas", "Editar")
 def despesas_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    if request.method == 'POST':
-        descricao = request.form['descricao']
+    if request.method == "POST":
+        descricao = request.form["descricao"]
         try:
             cur.execute(
                 "UPDATE despesas_cadastro SET descricao = %s WHERE id = %s",
-                (descricao, id)
+                (descricao, id),
             )
             conn.commit()
-            flash('Despesa atualizada com sucesso!', 'success')
-            return redirect(url_for('despesas_list'))
+            flash("Despesa atualizada com sucesso!", "success")
+            return redirect(url_for("despesas_list"))
         except Exception as e:
             conn.rollback()
-            flash(f'Erro ao atualizar despesa: {e}', 'danger')
+            flash(f"Erro ao atualizar despesa: {e}", "danger")
             cur.execute("SELECT * FROM despesas_cadastro WHERE id = %s", (id,))
             despesa = cur.fetchone()
-            return render_template('despesas/add_list.html', despesa=despesa)
+            return render_template("despesas/add_list.html", despesa=despesa)
     cur.execute("SELECT * FROM despesas_cadastro WHERE id = %s", (id,))
     despesa = cur.fetchone()
     cur.close()
     conn.close()
     if despesa is None:
-        flash('Despesa não encontrada.', 'danger')
-        return redirect(url_for('despesas_list'))
-    return render_template('despesas/add_list.html', despesa=despesa)
+        flash("Despesa não encontrada.", "danger")
+        return redirect(url_for("despesas_list"))
+    return render_template("despesas/add_list.html", despesa=despesa)
 
-@app.route('/despesas/delete/<int:id>', methods=['POST'])
+
+@app.route("/despesas/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required('Cadastro Despesas', 'Excluir')
+@permission_required("Cadastro Despesas", "Excluir")
 def despesas_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM despesas_cadastro WHERE id = %s", (id,))
         conn.commit()
-        flash('Despesa excluída com sucesso!', 'success')
+        flash("Despesa excluída com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao excluir despesa: {e}', 'danger')
+        flash(f"Erro ao excluir despesa: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('despesas_list'))
+    return redirect(url_for("despesas_list"))
+
 
 # --- 1.4. Cadastro de Origens ---
-@app.route('/origens')
+@app.route("/origens")
 @login_required
-@permission_required('Cadastro Origens', 'Consultar')
+@permission_required("Cadastro Origens", "Consultar")
 def origens_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    search_query = request.args.get('search', '')
+    search_query = request.args.get("search", "")
     if search_query:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT * FROM origens_cadastro
             WHERE descricao ILIKE %s
             ORDER BY data_cadastro DESC
-        """, (f'%{search_query}%',))
+        """,
+            (f"%{search_query}%",),
+        )
     else:
         cur.execute("SELECT * FROM origens_cadastro ORDER BY data_cadastro DESC")
     origens = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('origens/list.html', origens=origens, search_query=search_query)
+    return render_template(
+        "origens/list.html", origens=origens, search_query=search_query
+    )
 
-@app.route('/origens/add', methods=['GET', 'POST'])
+
+@app.route("/origens/add", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Origens', 'Incluir')
+@permission_required("Cadastro Origens", "Incluir")
 def origens_add():
-    if request.method == 'POST':
-        descricao = request.form['descricao']
+    if request.method == "POST":
+        descricao = request.form["descricao"]
         conn = get_db_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO origens_cadastro (descricao) VALUES (%s)",
-                (descricao,)
+                "INSERT INTO origens_cadastro (descricao) VALUES (%s)", (descricao,)
             )
             conn.commit()
-            flash('Origem cadastrada com sucesso!', 'success')
-            return redirect(url_for('origens_list'))
+            flash("Origem cadastrada com sucesso!", "success")
+            return redirect(url_for("origens_list"))
         except Exception as e:
             conn.rollback()
-            flash(f'Erro ao cadastrar origem: {e}', 'danger')
-            return render_template('origens/add_list.html', origem=request.form)
+            flash(f"Erro ao cadastrar origem: {e}", "danger")
+            return render_template("origens/add_list.html", origem=request.form)
         finally:
             cur.close()
             conn.close()
-    return render_template('origens/add_list.html', origem={})
+    return render_template("origens/add_list.html", origem={})
 
-@app.route('/origens/edit/<int:id>', methods=['GET', 'POST'])
+
+@app.route("/origens/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Origens', 'Editar')
+@permission_required("Cadastro Origens", "Editar")
 def origens_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    if request.method == 'POST':
-        descricao = request.form['descricao']
+    if request.method == "POST":
+        descricao = request.form["descricao"]
         try:
             cur.execute(
                 "UPDATE origens_cadastro SET descricao = %s WHERE id = %s",
-                (descricao, id)
+                (descricao, id),
             )
             conn.commit()
-            flash('Origem atualizada com sucesso!', 'success')
-            return redirect(url_for('origens_list'))
+            flash("Origem atualizada com sucesso!", "success")
+            return redirect(url_for("origens_list"))
         except Exception as e:
             conn.rollback()
-            flash(f'Erro ao atualizar origem: {e}', 'danger')
+            flash(f"Erro ao atualizar origem: {e}", "danger")
             cur.execute("SELECT * FROM origens_cadastro WHERE id = %s", (id,))
             origem = cur.fetchone()
-            return render_template('origens/add_list.html', origem=origem)
+            return render_template("origens/add_list.html", origem=origem)
     cur.execute("SELECT * FROM origens_cadastro WHERE id = %s", (id,))
     origem = cur.fetchone()
     cur.close()
     conn.close()
     if origem is None:
-        flash('Origem não encontrada.', 'danger')
-        return redirect(url_for('origens_list'))
-    return render_template('origens/add_list.html', origem=origem)
+        flash("Origem não encontrada.", "danger")
+        return redirect(url_for("origens_list"))
+    return render_template("origens/add_list.html", origem=origem)
 
-@app.route('/origens/delete/<int:id>', methods=['POST'])
+
+@app.route("/origens/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required('Cadastro Origens', 'Excluir')
+@permission_required("Cadastro Origens", "Excluir")
 def origens_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM origens_cadastro WHERE id = %s", (id,))
         conn.commit()
-        flash('Origem excluída com sucesso!', 'success')
+        flash("Origem excluída com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao excluir origem: {e}', 'danger')
+        flash(f"Erro ao excluir origem: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('origens_list'))
+    return redirect(url_for("origens_list"))
+
 
 # --- 1.5. Cadastro de Receitas ---
-@app.route('/receitas')
+@app.route("/receitas")
 @login_required
-@permission_required('Cadastro Receitas', 'Consultar')
+@permission_required("Cadastro Receitas", "Consultar")
 def receitas_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    search_query = request.args.get('search', '')
+    search_query = request.args.get("search", "")
     if search_query:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT * FROM receitas_cadastro
             WHERE descricao ILIKE %s
             ORDER BY data_cadastro DESC
-        """, (f'%{search_query}%',))
+        """,
+            (f"%{search_query}%",),
+        )
     else:
         cur.execute("SELECT * FROM receitas_cadastro ORDER BY data_cadastro DESC")
     receitas = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('receitaas/list.html', receitas=receitas, search_query=search_query)
+    return render_template(
+        "receitaas/list.html", receitas=receitas, search_query=search_query
+    )
 
-@app.route('/receitas/add', methods=['GET', 'POST'])
+
+@app.route("/receitas/add", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Receitas', 'Incluir')
+@permission_required("Cadastro Receitas", "Incluir")
 def receitas_add():
-    if request.method == 'POST':
-        descricao = request.form['descricao']
+    if request.method == "POST":
+        descricao = request.form["descricao"]
         conn = get_db_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO receitas_cadastro (descricao) VALUES (%s)",
-                (descricao,)
+                "INSERT INTO receitas_cadastro (descricao) VALUES (%s)", (descricao,)
             )
             conn.commit()
-            flash('Receita cadastrada com sucesso!', 'success')
-            return redirect(url_for('receitas_list'))
+            flash("Receita cadastrada com sucesso!", "success")
+            return redirect(url_for("receitas_list"))
         except Exception as e:
             conn.rollback()
-            flash(f'Erro ao cadastrar receita: {e}', 'danger')
-            return render_template('receitaas/add_list.html', receita=request.form)
+            flash(f"Erro ao cadastrar receita: {e}", "danger")
+            return render_template("receitaas/add_list.html", receita=request.form)
         finally:
             cur.close()
             conn.close()
-    return render_template('receitaas/add_list.html', receita={})
+    return render_template("receitaas/add_list.html", receita={})
 
-@app.route('/receitas/edit/<int:id>', methods=['GET', 'POST'])
+
+@app.route("/receitas/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required('Cadastro Receitas', 'Editar')
+@permission_required("Cadastro Receitas", "Editar")
 def receitas_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    if request.method == 'POST':
-        descricao = request.form['descricao']
+    if request.method == "POST":
+        descricao = request.form["descricao"]
         try:
             cur.execute(
                 "UPDATE receitas_cadastro SET descricao = %s WHERE id = %s",
-                (descricao, id)
+                (descricao, id),
             )
             conn.commit()
-            flash('Receita atualizada com sucesso!', 'success')
-            return redirect(url_for('receitas_list'))
+            flash("Receita atualizada com sucesso!", "success")
+            return redirect(url_for("receitas_list"))
         except Exception as e:
             conn.rollback()
-            flash(f'Erro ao atualizar receita: {e}', 'danger')
+            flash(f"Erro ao atualizar receita: {e}", "danger")
             cur.execute("SELECT * FROM receitas_cadastro WHERE id = %s", (id,))
             receita = cur.fetchone()
-            return render_template('receitaas/add_list.html', receita=receita)
+            return render_template("receitaas/add_list.html", receita=receita)
     cur.execute("SELECT * FROM receitas_cadastro WHERE id = %s", (id,))
     receita = cur.fetchone()
     cur.close()
     conn.close()
     if receita is None:
-        flash('Receita não encontrada.', 'danger')
-        return redirect(url_for('receitas_list'))
-    return render_template('receitaas/add_list.html', receita=receita)
+        flash("Receita não encontrada.", "danger")
+        return redirect(url_for("receitas_list"))
+    return render_template("receitaas/add_list.html", receita=receita)
 
-@app.route('/receitas/delete/<int:id>', methods=['POST'])
+
+@app.route("/receitas/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required('Cadastro Receitas', 'Excluir')
+@permission_required("Cadastro Receitas", "Excluir")
 def receitas_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM receitas_cadastro WHERE id = %s", (id,))
         conn.commit()
-        flash('Receita excluída com sucesso!', 'success')
+        flash("Receita excluída com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f'Erro ao excluir receita: {e}', 'danger')
+        flash(f"Erro ao excluir receita: {e}", "danger")
     finally:
         cur.close()
         conn.close()
-    return redirect(url_for('receitas_list'))
+    return redirect(url_for("receitas_list"))
+
 
 # --- Rotas para outros módulos (placeholders existentes) ---
-@app.route('/contratos')
+@app.route("/contratos")
 @login_required
-@permission_required('Gestao Contratos', 'Consultar')
+@permission_required("Gestao Contratos", "Consultar")
 def contratos_list():
     # Lógica para listar contratos
-    return render_template('contratos/list.html')
+    return render_template("contratos/list.html")
+
 
 # --- Módulo Financeiro ---
-@app.route('/contas-a-receber')
+@app.route("/contas-a-receber")
 @login_required
-@permission_required('Financeiro', 'Consultar')
+@permission_required("Financeiro", "Consultar")
 def contas_a_receber_list():
     # Lógica para listar contas a receber
-    return render_template('financeiro/contas_a_receber.html')
+    return render_template("financeiro/contas_a_receber.html")
 
-@app.route('/contas-a-pagar')
+
+@app.route("/contas-a-pagar")
 @login_required
-@permission_required('Financeiro', 'Consultar')
+@permission_required("Financeiro", "Consultar")
 def contas_a_pagar_list():
     # Lógica para listar contas a pagar
-    return render_template('financeiro/contas_a_pagar.html')
+    return render_template("financeiro/contas_a_pagar.html")
+
 
 # --- Módulo de Administração do Sistema ---
-@app.route('/admin/backup', methods=['GET', 'POST'])
+@app.route("/admin/backup", methods=["GET", "POST"])
 @login_required
-@permission_required('Administracao Sistema', 'Incluir') # Permissão para gerar backup
+@permission_required("Administracao Sistema", "Incluir") # Permissão para gerar backup
 def backup_db():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    
-    if request.method == 'POST':
-        backup_filename = request.form.get('backup_filename', f"imobiliaria_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql")
-        backup_path = os.path.join(app.config['UPLOAD_FOLDER'], 'backups', backup_filename)
+
+    if request.method == "POST":
+        backup_filename = request.form.get(
+            "backup_filename",
+            f"imobiliaria_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql",
+        )
+        backup_path = os.path.join(
+            app.config["UPLOAD_FOLDER"], "backups", backup_filename
+        )
         
         # Garante que o diretório de backups exista
         os.makedirs(os.path.dirname(backup_path), exist_ok=True)
@@ -946,60 +1173,83 @@ def backup_db():
         try:
             # Extrai informações do DATABASE_URL para pg_dump
             # Ex: postgresql://user:password@host:port/dbname
-            db_url_parts = DATABASE_URL.split('://')[1].split('@')
-            user_pass = db_url_parts[0].split(':')
-            host_port_db = db_url_parts[1].split('/')
+            db_url_parts = DATABASE_URL.split("://")[1].split("@")
+            user_pass = db_url_parts[0].split(":")
+            host_port_db = db_url_parts[1].split("/")
             
             db_user = user_pass[0]
-            db_password = user_pass[1] if len(user_pass) > 1 else ''
-            db_host = host_port_db[0].split(':')[0]
-            db_port = host_port_db[0].split(':')[1] if len(host_port_db[0].split(':')) > 1 else '5432'
+            db_password = user_pass[1] if len(user_pass) > 1 else ""
+            db_host = host_port_db[0].split(":")[0]
+            db_port = (
+                host_port_db[0].split(":")[1]
+                if len(host_port_db[0].split(":")) > 1
+                else "5433"
+            )
             db_name = host_port_db[1]
 
             # Comando pg_dump
             # Atenção: O pg_dump precisa estar no PATH do sistema onde o Flask está rodando.
             # Em produção, considere um método mais robusto e seguro para backups.
             command = [
-                'pg_dump',
-                '-h', db_host,
-                '-p', db_port,
-                '-U', db_user,
-                '-F', 'p', # Formato plain-text SQL
-                '-f', backup_path,
-                db_name
+                "pg_dump",
+                "-h",
+                db_host,
+                "-p",
+                db_port,
+                "-U",
+                db_user,
+                "-F",
+                "p",  # Formato plain-text SQL
+                "-f",
+                backup_path,
+                db_name,
             ]
             
             # Define a variável de ambiente PGPASSWORD para pg_dump
             env = os.environ.copy()
-            env['PGPASSWORD'] = db_password
+            env["PGPASSWORD"] = db_password
 
             # Executa o comando
             result = subprocess.run(command, capture_output=True, text=True, env=env)
 
             if result.returncode == 0:
-                status = 'Sucesso'
-                message = 'Backup gerado com sucesso!'
-                flash(message, 'success')
+                status = "Sucesso"
+                message = "Backup gerado com sucesso!"
+                flash(message, "success")
             else:
-                status = 'Falha'
-                message = f'Erro ao gerar backup: {result.stderr}'
-                flash(message, 'danger')
+                status = "Falha"
+                message = f"Erro ao gerar backup: {result.stderr}"
+                flash(message, "danger")
             
             # Registra no histórico
             cur.execute(
                 "INSERT INTO historico_backups (data_backup, nome_arquivo, caminho_arquivo, status_backup, observacao, usuario_id) VALUES (%s, %s, %s, %s, %s, %s)",
-                (datetime.now(), backup_filename, backup_path, status, message, session['user_id'])
+                (
+                    datetime.now(),
+                    backup_filename,
+                    backup_path,
+                    status,
+                    message,
+                    session["user_id"],
+                ),
             )
             conn.commit()
 
         except Exception as e:
             conn.rollback()
-            status = 'Falha'
-            message = f'Erro inesperado ao gerar backup: {e}'
-            flash(message, 'danger')
+            status = "Falha"
+            message = f"Erro inesperado ao gerar backup: {e}"
+            flash(message, "danger")
             cur.execute(
                 "INSERT INTO historico_backups (data_backup, nome_arquivo, caminho_arquivo, status_backup, observacao, usuario_id) VALUES (%s, %s, %s, %s, %s, %s)",
-                (datetime.now(), backup_filename, backup_path, status, message, session['user_id'])
+                (
+                    datetime.now(),
+                    backup_filename,
+                    backup_path,
+                    status,
+                    message,
+                    session["user_id"],
+                ),
             )
             conn.commit()
         
@@ -1008,38 +1258,47 @@ def backup_db():
     historico = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('admin/backup.html', historico=historico)
+    return render_template("admin/backup.html", historico=historico)
 
-@app.route('/admin/backup/restore', methods=['POST'])
+
+@app.route("/admin/backup/restore", methods=["POST"])
 @login_required
-@permission_required('Administracao Sistema', 'Bloquear') # Ação de restaurar é mais restritiva
+@permission_required(
+    "Administracao Sistema", "Bloquear"
+)  # Ação de restaurar é mais restritiva
 def restore_db():
-    if request.method == 'POST':
-        backup_id = request.form.get('backup_id')
+    if request.method == "POST":
+        backup_id = request.form.get("backup_id")
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        
-        cur.execute("SELECT caminho_arquivo FROM historico_backups WHERE id = %s", (backup_id,))
+
+        cur.execute(
+            "SELECT caminho_arquivo FROM historico_backups WHERE id = %s", (backup_id,)
+        )
         backup_record = cur.fetchone()
         cur.close()
         conn.close()
 
         if not backup_record:
-            flash('Backup não encontrado.', 'danger')
-            return redirect(url_for('backup_db'))
+            flash("Backup não encontrado.", "danger")
+            return redirect(url_for("backup_db"))
 
-        backup_path = backup_record['caminho_arquivo']
-        
+        backup_path = backup_record["caminho_arquivo"]
+
         try:
             # Extrai informações do DATABASE_URL para psql
-            db_url_parts = DATABASE_URL.split('://')[1].split('@')
-            user_pass = db_url_parts[0].split(':')
-            host_port_db = db_url_parts[1].split('/')
+            db_url_parts = DATABASE_URL.split("://")[1].split("@")
+            user_pass = db_url_parts[0].split(":")
+            host_port_db = db_url_parts[1].split("/")
             
             db_user = user_pass[0]
-            db_password = user_pass[1] if len(user_pass) > 1 else ''
-            db_host = host_port_db[0].split(':')[0]
-            db_port = host_port_db[0].split(':')[1] if len(host_port_db[0].split(':')) > 1 else '5432'
+            db_password = user_pass[1] if len(user_pass) > 1 else ""
+            db_host = host_port_db[0].split(":")[0]
+            db_port = (
+                host_port_db[0].split(":")[1]
+                if len(host_port_db[0].split(":")) > 1
+                else "5433"
+            )
             db_name = host_port_db[1]
 
             # Comando psql para restaurar
@@ -1049,99 +1308,187 @@ def restore_db():
             # dropar o banco, recriar e então restaurar.
             # Este é um exemplo simplificado.
             command = [
-                'psql',
-                '-h', db_host,
-                '-p', db_port,
-                '-U', db_user,
-                '-d', db_name,
-                '-f', backup_path
+                "psql",
+                "-h",
+                db_host,
+                "-p",
+                db_port,
+                "-U",
+                db_user,
+                "-d",
+                db_name,
+                "-f",
+                backup_path,
             ]
 
             env = os.environ.copy()
-            env['PGPASSWORD'] = db_password
+            env["PGPASSWORD"] = db_password
 
             result = subprocess.run(command, capture_output=True, text=True, env=env)
 
             if result.returncode == 0:
-                flash('Banco de dados restaurado com sucesso!', 'success')
+                flash("Banco de dados restaurado com sucesso!", "success")
             else:
-                flash(f'Erro ao restaurar banco de dados: {result.stderr}', 'danger')
+                flash(f"Erro ao restaurar banco de dados: {result.stderr}", "danger")
 
         except Exception as e:
-            flash(f'Erro inesperado ao restaurar banco de dados: {e}', 'danger')
+            flash(f"Erro inesperado ao restaurar banco de dados: {e}", "danger")
     
-    return redirect(url_for('backup_db'))
+    return redirect(url_for("backup_db"))
 
 
-@app.route('/usuarios')
+@app.route("/usuarios")
 @login_required
-@permission_required('Administracao Sistema', 'Consultar')
+@permission_required("Administracao Sistema", "Consultar")
 def usuarios_list():
-    # Lógica para listar usuários
-    return render_template('admin/usuarios.html')
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM usuarios ORDER BY id")
+    usuarios = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("usuarios/list.html", usuarios=usuarios)
 
-@app.route('/empresa')
+
+@app.route("/usuarios/add", methods=["GET", "POST"])
 @login_required
-@permission_required('Administracao Sistema', 'Consultar')
+@permission_required("Administracao Sistema", "Incluir")
+def usuarios_add():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
+        tipo = request.form.get("tipo_usuario", "Operador")
+        status = request.form.get("status", "Ativo")
+
+        hashed_password = generate_password_hash(password)
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO usuarios (nome_usuario, senha_hash, tipo_usuario, status) VALUES (%s, %s, %s, %s)",
+                (username, hashed_password, tipo, status),
+            )
+            conn.commit()
+            flash("Usuário cadastrado com sucesso!", "success")
+            return redirect(url_for("usuarios_list"))
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            flash("Nome de usuário já existe.", "danger")
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao cadastrar usuário: {e}", "danger")
+        finally:
+            cur.close()
+            conn.close()
+    return render_template("usuarios/add_list.html", usuario={})
+
+
+@app.route("/usuarios/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def usuarios_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form.get("password")
+        tipo = request.form.get("tipo_usuario")
+        status = request.form.get("status")
+        try:
+            if password:
+                hashed_password = generate_password_hash(password)
+                cur.execute(
+                    "UPDATE usuarios SET nome_usuario = %s, senha_hash = %s, tipo_usuario = %s, status = %s WHERE id = %s",
+                    (username, hashed_password, tipo, status, id),
+                )
+            else:
+                cur.execute(
+                    "UPDATE usuarios SET nome_usuario = %s, tipo_usuario = %s, status = %s WHERE id = %s",
+                    (username, tipo, status, id),
+                )
+            conn.commit()
+            flash("Usuário atualizado com sucesso!", "success")
+            return redirect(url_for("usuarios_list"))
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            flash("Nome de usuário já existe.", "danger")
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar usuário: {e}", "danger")
+    cur.execute("SELECT * FROM usuarios WHERE id = %s", (id,))
+    usuario = cur.fetchone()
+    cur.close()
+    conn.close()
+    if usuario is None:
+        flash("Usuário não encontrado.", "danger")
+        return redirect(url_for("usuarios_list"))
+    return render_template("usuarios/add_list.html", usuario=usuario)
+
+
+@app.route("/usuarios/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Excluir")
+def usuarios_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM usuarios WHERE id = %s", (id,))
+        conn.commit()
+        flash("Usuário excluído com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir usuário: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("usuarios_list"))
+
+
+@app.route("/usuarios/permissoes/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def usuarios_permissoes(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        cur.execute("DELETE FROM permissoes WHERE usuario_id = %s", (id,))
+        for module in MODULES:
+            for action in ACTIONS:
+                field = f"{module}:{action}"
+                if request.form.get(field):
+                    cur.execute(
+                        "INSERT INTO permissoes (usuario_id, modulo, acao) VALUES (%s, %s, %s)",
+                        (id, module, action),
+                    )
+        conn.commit()
+        flash("Permissões atualizadas com sucesso!", "success")
+
+    cur.execute("SELECT modulo, acao FROM permissoes WHERE usuario_id = %s", (id,))
+    existing = {(row["modulo"], row["acao"]) for row in cur.fetchall()}
+    cur.execute("SELECT * FROM usuarios WHERE id = %s", (id,))
+    usuario = cur.fetchone()
+    cur.close()
+    conn.close()
+    if usuario is None:
+        flash("Usuário não encontrado.", "danger")
+        return redirect(url_for("usuarios_list"))
+    return render_template(
+        "usuarios/permissoes.html",
+        usuario=usuario,
+        existing=existing,
+        modules=MODULES,
+        actions=ACTIONS,
+    )
+
+
+@app.route("/empresa")
+@login_required
+@permission_required("Administracao Sistema", "Consultar")
 def empresa_licenciada():
     # Lógica para gerenciar dados da empresa licenciada
-    return render_template('admin/empresa.html')
-
-# --- Rotas de Placeholder para outros módulos (para evitar erros de URL) ---
-@app.route('/exames')
-@login_required
-def exames_menu():
-    flash('Módulo de Exames em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard')) # Redireciona para o dashboard ou uma página de "em breve"
-
-@app.route('/fardas-epi')
-@login_required
-def fardas_epi_menu():
-    flash('Módulo de Fardas e EPIs em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
-
-@app.route('/sst')
-@login_required
-def sst_menu():
-    flash('Módulo de SST em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
-
-@app.route('/registros-ponto')
-@login_required
-def listar_registros_ponto():
-    flash('Módulo de Registro de Ponto em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
-
-@app.route('/reajustes')
-@login_required
-def listar_reajustes():
-    flash('Módulo de Reajustes Salariais em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
-
-@app.route('/demissoes')
-@login_required
-def listar_demissoes():
-    flash('Módulo de Demissões em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
-
-@app.route('/ferias')
-@login_required
-def listar_ferias():
-    flash('Módulo de Controle de Férias em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
-
-@app.route('/adiantamentos')
-@login_required
-def listar_adiantamentos():
-    flash('Módulo de Adiantamentos em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
-
-@app.route('/relatorio-funcionarios-por-cidade')
-@login_required
-def relatorio_funcionarios_por_cidade():
-    flash('Relatório de Funcionários por Cidade em desenvolvimento.', 'info')
-    return redirect(url_for('dashboard'))
+    return render_template("admin/empresa.html")
 
 # --- Execução da Aplicação ---
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True) # Mude debug para False em produção

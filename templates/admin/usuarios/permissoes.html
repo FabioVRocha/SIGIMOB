@@ -1,0 +1,41 @@
+<!-- templates/usuarios/permissoes.html -->
+{% extends "base.html" %}
+
+{% block title %}Permissões{% endblock %}
+
+{% block page_title %}Permissões de {{ usuario.nome_usuario }}{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{{ url_for('usuarios_permissoes', id=usuario.id) }}" method="POST">
+        <div class="overflow-x-auto mb-6">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Módulo</th>
+                        {% for acao in actions %}
+                        <th class="py-3 px-4 text-center text-sm font-semibold text-gray-700">{{ acao }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for modulo in modules %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-3 px-4 text-sm text-gray-700">{{ modulo }}</td>
+                        {% for acao in actions %}
+                        <td class="py-3 px-4 text-center">
+                            <input type="checkbox" name="{{ modulo }}:{{ acao }}" value="1" class="form-checkbox" {% if (modulo, acao) in existing %}checked{% endif %}>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="flex justify-end space-x-4">
+            <a href="{{ url_for('usuarios_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">Salvar Permissões</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

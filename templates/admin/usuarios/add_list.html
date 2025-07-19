@@ -1,0 +1,47 @@
+<!-- templates/usuarios/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if usuario.id %}Editar Usuário{% else %}Adicionar Novo Usuário{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if usuario.id %}Editar Usuário{% else %}Adicionar Novo Usuário{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if usuario.id %}{{ url_for('usuarios_edit', id=usuario.id) }}{% else %}{{ url_for('usuarios_add') }}{% endif %}" method="POST">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="form-group">
+                <label for="username" class="form-label">Usuário:</label>
+                <input type="text" id="username" name="username" class="form-input" value="{{ usuario.nome_usuario | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="password" class="form-label">Senha{% if not usuario.id %}*{% endif %}:</label>
+                <input type="password" id="password" name="password" class="form-input" {% if not usuario.id %}required{% endif %}>
+            </div>
+            <div class="form-group">
+                <label for="tipo_usuario" class="form-label">Tipo de Usuário:</label>
+                <select id="tipo_usuario" name="tipo_usuario" class="form-select" required>
+                    <option value="Master" {% if usuario.tipo_usuario == 'Master' %}selected{% endif %}>Master</option>
+                    <option value="Operador" {% if usuario.tipo_usuario == 'Operador' %}selected{% endif %}>Operador</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="status" class="form-label">Status:</label>
+                <select id="status" name="status" class="form-select" required>
+                    <option value="Ativo" {% if usuario.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+                    <option value="Inativo" {% if usuario.status == 'Inativo' %}selected{% endif %}>Inativo</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{{ url_for('usuarios_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">
+                {% if usuario.id %}Atualizar Usuário{% else %}Cadastrar Usuário{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
