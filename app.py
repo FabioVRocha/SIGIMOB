@@ -620,6 +620,291 @@ def imovel_anexo_delete(anexo_id):
         conn.close()
     return redirect(url_for('imoveis_list')) # Redireciona para a lista caso não encontre o anexo ou erro
 
+# --- 1.3. Cadastro de Despesas ---
+@app.route('/despesas')
+@login_required
+@permission_required('Cadastro Despesas', 'Consultar')
+def despesas_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get('search', '')
+    if search_query:
+        cur.execute("""
+            SELECT * FROM despesas_cadastro
+            WHERE descricao ILIKE %s
+            ORDER BY data_cadastro DESC
+        """, (f'%{search_query}%',))
+    else:
+        cur.execute("SELECT * FROM despesas_cadastro ORDER BY data_cadastro DESC")
+    despesas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('despesas/list.html', despesas=despesas, search_query=search_query)
+
+@app.route('/despesas/add', methods=['GET', 'POST'])
+@login_required
+@permission_required('Cadastro Despesas', 'Incluir')
+def despesas_add():
+    if request.method == 'POST':
+        descricao = request.form['descricao']
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO despesas_cadastro (descricao) VALUES (%s)",
+                (descricao,)
+            )
+            conn.commit()
+            flash('Despesa cadastrada com sucesso!', 'success')
+            return redirect(url_for('despesas_list'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Erro ao cadastrar despesa: {e}', 'danger')
+            return render_template('despesas/add_list.html', despesa=request.form)
+        finally:
+            cur.close()
+            conn.close()
+    return render_template('despesas/add_list.html', despesa={})
+
+@app.route('/despesas/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@permission_required('Cadastro Despesas', 'Editar')
+def despesas_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == 'POST':
+        descricao = request.form['descricao']
+        try:
+            cur.execute(
+                "UPDATE despesas_cadastro SET descricao = %s WHERE id = %s",
+                (descricao, id)
+            )
+            conn.commit()
+            flash('Despesa atualizada com sucesso!', 'success')
+            return redirect(url_for('despesas_list'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Erro ao atualizar despesa: {e}', 'danger')
+            cur.execute("SELECT * FROM despesas_cadastro WHERE id = %s", (id,))
+            despesa = cur.fetchone()
+            return render_template('despesas/add_list.html', despesa=despesa)
+    cur.execute("SELECT * FROM despesas_cadastro WHERE id = %s", (id,))
+    despesa = cur.fetchone()
+    cur.close()
+    conn.close()
+    if despesa is None:
+        flash('Despesa não encontrada.', 'danger')
+        return redirect(url_for('despesas_list'))
+    return render_template('despesas/add_list.html', despesa=despesa)
+
+@app.route('/despesas/delete/<int:id>', methods=['POST'])
+@login_required
+@permission_required('Cadastro Despesas', 'Excluir')
+def despesas_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM despesas_cadastro WHERE id = %s", (id,))
+        conn.commit()
+        flash('Despesa excluída com sucesso!', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Erro ao excluir despesa: {e}', 'danger')
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for('despesas_list'))
+
+# --- 1.4. Cadastro de Origens ---
+@app.route('/origens')
+@login_required
+@permission_required('Cadastro Origens', 'Consultar')
+def origens_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get('search', '')
+    if search_query:
+        cur.execute("""
+            SELECT * FROM origens_cadastro
+            WHERE descricao ILIKE %s
+            ORDER BY data_cadastro DESC
+        """, (f'%{search_query}%',))
+    else:
+        cur.execute("SELECT * FROM origens_cadastro ORDER BY data_cadastro DESC")
+    origens = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('origens/list.html', origens=origens, search_query=search_query)
+
+@app.route('/origens/add', methods=['GET', 'POST'])
+@login_required
+@permission_required('Cadastro Origens', 'Incluir')
+def origens_add():
+    if request.method == 'POST':
+        descricao = request.form['descricao']
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO origens_cadastro (descricao) VALUES (%s)",
+                (descricao,)
+            )
+            conn.commit()
+            flash('Origem cadastrada com sucesso!', 'success')
+            return redirect(url_for('origens_list'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Erro ao cadastrar origem: {e}', 'danger')
+            return render_template('origens/add_list.html', origem=request.form)
+        finally:
+            cur.close()
+            conn.close()
+    return render_template('origens/add_list.html', origem={})
+
+@app.route('/origens/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@permission_required('Cadastro Origens', 'Editar')
+def origens_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == 'POST':
+        descricao = request.form['descricao']
+        try:
+            cur.execute(
+                "UPDATE origens_cadastro SET descricao = %s WHERE id = %s",
+                (descricao, id)
+            )
+            conn.commit()
+            flash('Origem atualizada com sucesso!', 'success')
+            return redirect(url_for('origens_list'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Erro ao atualizar origem: {e}', 'danger')
+            cur.execute("SELECT * FROM origens_cadastro WHERE id = %s", (id,))
+            origem = cur.fetchone()
+            return render_template('origens/add_list.html', origem=origem)
+    cur.execute("SELECT * FROM origens_cadastro WHERE id = %s", (id,))
+    origem = cur.fetchone()
+    cur.close()
+    conn.close()
+    if origem is None:
+        flash('Origem não encontrada.', 'danger')
+        return redirect(url_for('origens_list'))
+    return render_template('origens/add_list.html', origem=origem)
+
+@app.route('/origens/delete/<int:id>', methods=['POST'])
+@login_required
+@permission_required('Cadastro Origens', 'Excluir')
+def origens_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM origens_cadastro WHERE id = %s", (id,))
+        conn.commit()
+        flash('Origem excluída com sucesso!', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Erro ao excluir origem: {e}', 'danger')
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for('origens_list'))
+
+# --- 1.5. Cadastro de Receitas ---
+@app.route('/receitas')
+@login_required
+@permission_required('Cadastro Receitas', 'Consultar')
+def receitas_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get('search', '')
+    if search_query:
+        cur.execute("""
+            SELECT * FROM receitas_cadastro
+            WHERE descricao ILIKE %s
+            ORDER BY data_cadastro DESC
+        """, (f'%{search_query}%',))
+    else:
+        cur.execute("SELECT * FROM receitas_cadastro ORDER BY data_cadastro DESC")
+    receitas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template('receitaas/list.html', receitas=receitas, search_query=search_query)
+
+@app.route('/receitas/add', methods=['GET', 'POST'])
+@login_required
+@permission_required('Cadastro Receitas', 'Incluir')
+def receitas_add():
+    if request.method == 'POST':
+        descricao = request.form['descricao']
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO receitas_cadastro (descricao) VALUES (%s)",
+                (descricao,)
+            )
+            conn.commit()
+            flash('Receita cadastrada com sucesso!', 'success')
+            return redirect(url_for('receitas_list'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Erro ao cadastrar receita: {e}', 'danger')
+            return render_template('receitaas/add_list.html', receita=request.form)
+        finally:
+            cur.close()
+            conn.close()
+    return render_template('receitaas/add_list.html', receita={})
+
+@app.route('/receitas/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@permission_required('Cadastro Receitas', 'Editar')
+def receitas_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == 'POST':
+        descricao = request.form['descricao']
+        try:
+            cur.execute(
+                "UPDATE receitas_cadastro SET descricao = %s WHERE id = %s",
+                (descricao, id)
+            )
+            conn.commit()
+            flash('Receita atualizada com sucesso!', 'success')
+            return redirect(url_for('receitas_list'))
+        except Exception as e:
+            conn.rollback()
+            flash(f'Erro ao atualizar receita: {e}', 'danger')
+            cur.execute("SELECT * FROM receitas_cadastro WHERE id = %s", (id,))
+            receita = cur.fetchone()
+            return render_template('receitaas/add_list.html', receita=receita)
+    cur.execute("SELECT * FROM receitas_cadastro WHERE id = %s", (id,))
+    receita = cur.fetchone()
+    cur.close()
+    conn.close()
+    if receita is None:
+        flash('Receita não encontrada.', 'danger')
+        return redirect(url_for('receitas_list'))
+    return render_template('receitaas/add_list.html', receita=receita)
+
+@app.route('/receitas/delete/<int:id>', methods=['POST'])
+@login_required
+@permission_required('Cadastro Receitas', 'Excluir')
+def receitas_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM receitas_cadastro WHERE id = %s", (id,))
+        conn.commit()
+        flash('Receita excluída com sucesso!', 'success')
+    except Exception as e:
+        conn.rollback()
+        flash(f'Erro ao excluir receita: {e}', 'danger')
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for('receitas_list'))
+
 # --- Rotas para outros módulos (placeholders existentes) ---
 @app.route('/contratos')
 @login_required
