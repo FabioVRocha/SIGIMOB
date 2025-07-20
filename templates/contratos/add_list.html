@@ -1,0 +1,138 @@
+<!-- templates/contratos/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if contrato.id %}Editar Contrato{% else %}Novo Contrato{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if contrato.id %}Editar Contrato{% else %}Novo Contrato{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if contrato.id %}{{ url_for('contratos_edit', id=contrato.id) }}{% else %}{{ url_for('contratos_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div class="form-group">
+                <label for="imovel_id" class="form-label">Imóvel:</label>
+                <select id="imovel_id" name="imovel_id" class="form-select" required>
+                    <option value="">Selecione...</option>
+                    {% for imovel in imoveis %}
+                    <option value="{{ imovel.id }}" {% if contrato.imovel_id == imovel.id %}selected{% endif %}>{{ imovel.endereco }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="cliente_id" class="form-label">Cliente:</label>
+                <select id="cliente_id" name="cliente_id" class="form-select" required onchange="preencherDadosInquilino()">
+                    <option value="">Selecione...</option>
+                    {% for cliente in clientes %}
+                    <option value="{{ cliente.id }}" data-nome="{{ cliente.razao_social_nome }}" data-endereco="{{ cliente.endereco }}" data-bairro="{{ cliente.bairro }}" data-cidade="{{ cliente.cidade }}" data-estado="{{ cliente.estado }}" data-cep="{{ cliente.cep }}" data-telefone="{{ cliente.telefone }}" {% if contrato.cliente_id == cliente.id %}selected{% endif %}>{{ cliente.razao_social_nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="nome_inquilino" class="form-label">Nome do Inquilino:</label>
+                <input type="text" id="nome_inquilino" name="nome_inquilino" class="form-input" value="{{ contrato.nome_inquilino | default('') }}" readonly>
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="endereco_inquilino" class="form-label">Endereço do Inquilino:</label>
+                <input type="text" id="endereco_inquilino" name="endereco_inquilino" class="form-input" value="{{ contrato.endereco_inquilino | default('') }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="bairro_inquilino" class="form-label">Bairro:</label>
+                <input type="text" id="bairro_inquilino" name="bairro_inquilino" class="form-input" value="{{ contrato.bairro_inquilino | default('') }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="cidade_inquilino" class="form-label">Cidade:</label>
+                <input type="text" id="cidade_inquilino" name="cidade_inquilino" class="form-input" value="{{ contrato.cidade_inquilino | default('') }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="estado_inquilino" class="form-label">Estado:</label>
+                <input type="text" id="estado_inquilino" name="estado_inquilino" class="form-input" value="{{ contrato.estado_inquilino | default('') }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="cep_inquilino" class="form-label">CEP:</label>
+                <input type="text" id="cep_inquilino" name="cep_inquilino" class="form-input" value="{{ contrato.cep_inquilino | default('') }}" readonly>
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="telefone_inquilino" class="form-label">Telefone:</label>
+                <input type="text" id="telefone_inquilino" name="telefone_inquilino" class="form-input" value="{{ contrato.telefone_inquilino | default('') }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="data_inicio" class="form-label">Data Início:</label>
+                <input type="date" id="data_inicio" name="data_inicio" class="form-input" value="{{ contrato.data_inicio | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="data_fim" class="form-label">Data Fim:</label>
+                <input type="date" id="data_fim" name="data_fim" class="form-input" value="{{ contrato.data_fim | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="quantidade_parcelas" class="form-label">Qtd. Parcelas:</label>
+                <input type="number" id="quantidade_parcelas" name="quantidade_parcelas" class="form-input" value="{{ contrato.quantidade_parcelas | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="valor_parcela" class="form-label">Valor da Parcela:</label>
+                <input type="number" step="0.01" id="valor_parcela" name="valor_parcela" class="form-input" value="{{ contrato.valor_parcela | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="status_contrato" class="form-label">Status:</label>
+                <select id="status_contrato" name="status_contrato" class="form-select" required>
+                    <option value="Ativo" {% if contrato.status_contrato == 'Ativo' %}selected{% endif %}>Ativo</option>
+                    <option value="Encerrado" {% if contrato.status_contrato == 'Encerrado' %}selected{% endif %}>Encerrado</option>
+                    <option value="Pendente" {% if contrato.status_contrato == 'Pendente' %}selected{% endif %}>Pendente</option>
+                </select>
+            </div>
+            <div class="form-group lg:col-span-3">
+                <label for="observacao" class="form-label">Observação:</label>
+                <textarea id="observacao" name="observacao" rows="3" class="form-textarea">{{ contrato.observacao | default('') }}</textarea>
+            </div>
+            <div class="lg:col-span-3">
+                <h3 class="text-lg font-semibold text-dark-blue mb-4">Anexos</h3>
+                <div class="form-group">
+                    <label for="anexos" class="form-label">Selecionar Arquivos:</label>
+                    <input type="file" id="anexos" name="anexos" class="form-input" multiple>
+                    <p class="text-xs text-gray-500 mt-1">Tipos permitidos: .png, .jpg, .jpeg, .gif, .pdf, .doc, .docx, .sql</p>
+                </div>
+                {% if anexos %}
+                <div class="mt-4">
+                    <h4 class="text-md font-medium text-gray-700 mb-2">Anexos Atuais:</h4>
+                    <ul class="list-disc list-inside space-y-1">
+                        {% for anexo in anexos %}
+                        <li class="flex items-center justify-between text-sm text-gray-700">
+                            <span><i class="fas fa-file mr-2"></i> {{ anexo.nome_arquivo }}</span>
+                            <form action="{{ url_for('contrato_anexo_delete', anexo_id=anexo.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja remover este anexo?');">
+                                <button type="submit" class="text-red-600 hover:text-red-800 ml-3" title="Remover Anexo">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
+                            </form>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">{% if contrato.id %}Atualizar Contrato{% else %}Cadastrar Contrato{% endif %}</button>
+        </div>
+    </form>
+</div>
+<script>
+function preencherDadosInquilino() {
+    const select = document.getElementById('cliente_id');
+    if (!select) return;
+    const opt = select.options[select.selectedIndex];
+    document.getElementById('nome_inquilino').value = opt.getAttribute('data-nome') || '';
+    document.getElementById('endereco_inquilino').value = opt.getAttribute('data-endereco') || '';
+    document.getElementById('bairro_inquilino').value = opt.getAttribute('data-bairro') || '';
+    document.getElementById('cidade_inquilino').value = opt.getAttribute('data-cidade') || '';
+    document.getElementById('estado_inquilino').value = opt.getAttribute('data-estado') || '';
+    document.getElementById('cep_inquilino').value = opt.getAttribute('data-cep') || '';
+    document.getElementById('telefone_inquilino').value = opt.getAttribute('data-telefone') || '';
+}
+
+document.addEventListener('DOMContentLoaded', preencherDadosInquilino);
+</script>
+{% endblock %}

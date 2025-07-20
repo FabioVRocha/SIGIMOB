@@ -7,7 +7,56 @@
 
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl">
-    <h2 class="text-2xl font-semibold text-dark-blue mb-4">Módulo em desenvolvimento</h2>
-    <p class="text-gray-700">Esta seção será utilizada para gerenciar contratos de aluguel.</p>
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Contratos</h2>
+        <a href="{{ url_for('contratos_add') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Novo Contrato
+        </a>
+    </div>
+    <form action="{{ url_for('contratos_list') }}" method="GET" class="mb-6">
+        <div class="flex items-center space-x-2">
+            <input type="text" name="search" placeholder="Buscar por inquilino ou endereço..." class="form-input flex-grow" value="{{ search_query }}">
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+        </div>
+    </form>
+    {% if contratos %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Imóvel</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Inquilino</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Período</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor Parcela</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contrato in contratos %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.endereco_imovel }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.nome_inquilino }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.data_inicio }} - {{ contrato.data_fim }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f"|format(contrato.valor_parcela) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.status_contrato }}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
+                        <form action="{{ url_for('contratos_delete', id=contrato.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este contrato e todos os seus anexos?');">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhum contrato encontrado.</p>
+    {% endif %}
 </div>
 {% endblock %}

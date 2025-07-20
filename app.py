@@ -22,10 +22,15 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 # Cria as pastas de uploads se elas não existirem
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
-    os.makedirs(os.path.join(UPLOAD_FOLDER, "backups"), exist_ok=True)
-    os.makedirs(
-        os.path.join(UPLOAD_FOLDER, "imoveis_anexos"), exist_ok=True
-    )  # Pasta para anexos de imóveis
+
+# Pastas de uploads utilizadas pelos módulos
+os.makedirs(os.path.join(UPLOAD_FOLDER, "backups"), exist_ok=True)
+os.makedirs(
+    os.path.join(UPLOAD_FOLDER, "imoveis_anexos"), exist_ok=True
+)  # Pasta para anexos de imóveis
+os.makedirs(
+    os.path.join(UPLOAD_FOLDER, "contratos_anexos"), exist_ok=True
+)  # Pasta para anexos de contratos
 
 
 # Variáveis globais para o sistema (exemplo)
@@ -336,27 +341,27 @@ def pessoas_add():
             # Validação de CPF/CNPJ (simplificada, você precisaria de uma biblioteca real como "validate-docbr")
             if len(documento) == 11 and not documento.isdigit():
                  flash("CPF inválido. Deve conter apenas números.", "danger")
-                 return render_template("pessoas/add_edit.html", pessoa={})
+                 return render_template("pessoas/add_list.html", pessoa={})
             elif len(documento) == 14 and not documento.isdigit():
                  flash("CNPJ inválido. Deve conter apenas números.", "danger")
-                 return render_template("pessoas/add_edit.html", pessoa={})
+                 return render_template("pessoas/add_list.html", pessoa={})
             elif len(documento) != 11 and len(documento) != 14:
                 flash(
                     "Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).",
                     "danger",
                 )
-                return render_template("pessoas/add_edit.html", pessoa={})
+                return render_template("pessoas/add_list.html", pessoa={})
             
             # Exemplo de uso de validate-docbr (necessita instalação: pip install validate-docbr)
             # from validate_docbr import CPF, CNPJ
             # if len(documento) == 11:
             #     if not CPF().validate(documento):
             #         flash("CPF inválido.", "danger")
-            #         return render_template("pessoas/add_edit.html", pessoa={})
+            #         return render_template("pessoas/add_list.html", pessoa={})
             # elif len(documento) == 14:
             #     if not CNPJ().validate(documento):
             #         flash("CNPJ inválido.", "danger")
-            #         return render_template("pessoas/add_edit.html", pessoa={})
+            #         return render_template("pessoas/add_list.html", pessoa={})
 
             conn = get_db_connection()
             cur = conn.cursor()
@@ -388,11 +393,11 @@ def pessoas_add():
         except psycopg2.errors.UniqueViolation:
             flash("Erro: Documento (CPF/CNPJ) já cadastrado.", "danger")
             conn.rollback()  # Garante que a transação seja desfeita em caso de erro
-            return render_template("pessoas/add_edit.html", pessoa=request.form)
+            return render_template("pessoas/add_list.html", pessoa=request.form)
         except Exception as e:
             flash(f"Erro ao cadastrar pessoa: {e}", "danger")
-            return render_template("pessoas/add_edit.html", pessoa=request.form)
-    return render_template("pessoas/add_edit.html", pessoa={})
+            return render_template("pessoas/add_list.html", pessoa=request.form)
+    return render_template("pessoas/add_list.html", pessoa={})
 
 
 @app.route("/pessoas/edit/<int:id>", methods=["GET", "POST"])
@@ -424,16 +429,16 @@ def pessoas_edit(id):
             # Validação de CPF/CNPJ (simplificada)
             if len(documento) == 11 and not documento.isdigit():
                  flash("CPF inválido. Deve conter apenas números.", "danger")
-                 return render_template("pessoas/add_edit.html", pessoa=request.form)
+                 return render_template("pessoas/add_list.html", pessoa=request.form)
             elif len(documento) == 14 and not documento.isdigit():
                  flash("CNPJ inválido. Deve conter apenas números.", "danger")
-                 return render_template("pessoas/add_edit.html", pessoa={})
+                 return render_template("pessoas/add_list.html", pessoa={})
             elif len(documento) != 11 and len(documento) != 14:
                 flash(
                     "Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).",
                     "danger",
                 )
-                return render_template("pessoas/add_edit.html", pessoa={})
+                return render_template("pessoas/add_list.html", pessoa={})
 
             cur.execute(
                 """
@@ -468,13 +473,13 @@ def pessoas_edit(id):
             # Recarrega os dados da pessoa para preencher o formulário novamente
             cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
             pessoa = cur.fetchone()
-            return render_template("pessoas/add_edit.html", pessoa=pessoa)
+            return render_template("pessoas/add_list.html", pessoa=pessoa)
         except Exception as e:
             flash(f"Erro ao atualizar pessoa: {e}", "danger")
             # Recarrega os dados da pessoa para preencher o formulário novamente
             cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
             pessoa = cur.fetchone()
-            return render_template("pessoas/add_edit.html", pessoa=pessoa)
+            return render_template("pessoas/add_list.html", pessoa=pessoa)
 
     cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
     pessoa = cur.fetchone()
@@ -483,7 +488,7 @@ def pessoas_edit(id):
     if pessoa is None:
         flash("Pessoa não encontrada.", "danger")
         return redirect(url_for("pessoas_list"))
-    return render_template("pessoas/add_edit.html", pessoa=pessoa)
+    return render_template("pessoas/add_list.html", pessoa=pessoa)
 
 
 @app.route("/pessoas/delete/<int:id>", methods=["POST"])
@@ -632,11 +637,11 @@ def imoveis_add():
         except psycopg2.errors.UniqueViolation:
             flash("Erro: Inscrição IPTU já cadastrada.", "danger")
             conn.rollback()
-            return render_template("imoveis/add_edit.html", imovel=request.form)
+            return render_template("imoveis/add_list.html", imovel=request.form)
         except Exception as e:
             flash(f"Erro ao cadastrar imóvel: {e}", "danger")
-            return render_template("imoveis/add_edit.html", imovel=request.form)
-    return render_template("imoveis/add_edit.html", imovel={})
+            return render_template("imoveis/add_list.html", imovel=request.form)
+    return render_template("imoveis/add_list.html", imovel={})
 
 
 @app.route("/imoveis/edit/<int:id>", methods=["GET", "POST"])
@@ -732,7 +737,7 @@ def imoveis_edit(id):
             cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
             anexos = cur.fetchall()
             return render_template(
-                "imoveis/add_edit.html", imovel=imovel, anexos=anexos
+                "imoveis/add_list.html", imovel=imovel, anexos=anexos
             )
         except Exception as e:
             flash(f"Erro ao atualizar imóvel: {e}", "danger")
@@ -742,7 +747,7 @@ def imoveis_edit(id):
             cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
             anexos = cur.fetchall()
             return render_template(
-                "imoveis/add_edit.html", imovel=imovel, anexos=anexos
+                "imoveis/add_list.html", imovel=imovel, anexos=anexos
             )
 
     cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
@@ -754,7 +759,7 @@ def imoveis_edit(id):
     if imovel is None:
         flash("Imóvel não encontrado.", "danger")
         return redirect(url_for("imoveis_list"))
-    return render_template("imoveis/add_edit.html", imovel=imovel, anexos=anexos)
+    return render_template("imoveis/add_list.html", imovel=imovel, anexos=anexos)
 
 
 @app.route("/imoveis/delete/<int:id>", methods=["POST"])
@@ -1129,8 +1134,311 @@ def receitas_delete(id):
 @login_required
 @permission_required("Gestao Contratos", "Consultar")
 def contratos_list():
-    # Lógica para listar contratos
-    return render_template("contratos/list.html")
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get("search", "")
+    if search_query:
+        cur.execute(
+            """
+            SELECT c.*, i.endereco || ', ' || i.bairro AS endereco_imovel
+            FROM contratos_aluguel c
+            JOIN imoveis i ON c.imovel_id = i.id
+            WHERE c.nome_inquilino ILIKE %s OR i.endereco ILIKE %s
+            ORDER BY c.data_cadastro DESC
+        """,
+            (f"%{search_query}%", f"%{search_query}%"),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT c.*, i.endereco || ', ' || i.bairro AS endereco_imovel
+            FROM contratos_aluguel c
+            JOIN imoveis i ON c.imovel_id = i.id
+            ORDER BY c.data_cadastro DESC
+        """
+        )
+    contratos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "contratos/list.html", contratos=contratos, search_query=search_query
+    )
+
+
+@app.route("/contratos/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Gestao Contratos", "Incluir")
+def contratos_add():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            imovel_id = request.form["imovel_id"]
+            cliente_id = request.form["cliente_id"]
+            data_inicio = datetime.strptime(request.form["data_inicio"], "%Y-%m-%d").date()
+            data_fim = datetime.strptime(request.form["data_fim"], "%Y-%m-%d").date()
+            quantidade_parcelas = request.form["quantidade_parcelas"]
+            valor_parcela = request.form["valor_parcela"]
+            status_contrato = request.form["status_contrato"]
+            observacao = request.form.get("observacao")
+
+            cur.execute(
+                "SELECT razao_social_nome, endereco, bairro, cidade, estado, cep, telefone FROM pessoas WHERE id = %s",
+                (cliente_id,),
+            )
+            cli = cur.fetchone()
+            nome_inquilino = cli["razao_social_nome"] if cli else ""
+            endereco_inquilino = cli["endereco"] if cli else ""
+            bairro_inquilino = cli["bairro"] if cli else ""
+            cidade_inquilino = cli["cidade"] if cli else ""
+            estado_inquilino = cli["estado"] if cli else ""
+            cep_inquilino = cli["cep"] if cli else ""
+            telefone_inquilino = cli["telefone"] if cli else ""
+
+            cur.execute(
+                """
+                INSERT INTO contratos_aluguel (
+                    imovel_id, cliente_id, nome_inquilino, endereco_inquilino,
+                    bairro_inquilino, cidade_inquilino, estado_inquilino,
+                    cep_inquilino, telefone_inquilino, data_inicio, data_fim,
+                    quantidade_parcelas, valor_parcela, status_contrato, observacao
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    imovel_id,
+                    cliente_id,
+                    nome_inquilino,
+                    endereco_inquilino,
+                    bairro_inquilino,
+                    cidade_inquilino,
+                    estado_inquilino,
+                    cep_inquilino,
+                    telefone_inquilino,
+                    data_inicio,
+                    data_fim,
+                    quantidade_parcelas,
+                    valor_parcela,
+                    status_contrato,
+                    observacao,
+                ),
+            )
+            contrato_id = cur.fetchone()[0]
+
+            if "anexos" in request.files:
+                files = request.files.getlist("anexos")
+                for file in files:
+                    if file and allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        filepath = os.path.join(
+                            app.config["UPLOAD_FOLDER"],
+                            "contratos_anexos",
+                            filename,
+                        )
+                        file.save(filepath)
+                        cur.execute(
+                            "INSERT INTO contrato_anexos (contrato_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
+                            (contrato_id, filename, filepath, "documento"),
+                        )
+
+            conn.commit()
+            flash("Contrato cadastrado com sucesso!", "success")
+            return redirect(url_for("contratos_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao cadastrar contrato: {e}", "danger")
+            cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
+            imoveis = cur.fetchall()
+            cur.execute(
+                "SELECT * FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+            )
+            clientes = cur.fetchall()
+            return render_template(
+                "contratos/add_edit.html",
+                contrato=request.form,
+                imoveis=imoveis,
+                clientes=clientes,
+                anexos=[],
+            )
+
+    cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
+    imoveis = cur.fetchall()
+    cur.execute(
+        "SELECT * FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+    )
+    clientes = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "contratos/add_edit.html", contrato={}, imoveis=imoveis, clientes=clientes, anexos=[]
+    )
+
+
+@app.route("/contratos/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            imovel_id = request.form["imovel_id"]
+            cliente_id = request.form["cliente_id"]
+            data_inicio = datetime.strptime(request.form["data_inicio"], "%Y-%m-%d").date()
+            data_fim = datetime.strptime(request.form["data_fim"], "%Y-%m-%d").date()
+            quantidade_parcelas = request.form["quantidade_parcelas"]
+            valor_parcela = request.form["valor_parcela"]
+            status_contrato = request.form["status_contrato"]
+            observacao = request.form.get("observacao")
+
+            cur.execute(
+                "SELECT razao_social_nome, endereco, bairro, cidade, estado, cep, telefone FROM pessoas WHERE id = %s",
+                (cliente_id,),
+            )
+            cli = cur.fetchone()
+            nome_inquilino = cli["razao_social_nome"] if cli else ""
+            endereco_inquilino = cli["endereco"] if cli else ""
+            bairro_inquilino = cli["bairro"] if cli else ""
+            cidade_inquilino = cli["cidade"] if cli else ""
+            estado_inquilino = cli["estado"] if cli else ""
+            cep_inquilino = cli["cep"] if cli else ""
+            telefone_inquilino = cli["telefone"] if cli else ""
+
+            cur.execute(
+                """
+                UPDATE contratos_aluguel
+                SET imovel_id = %s, cliente_id = %s, nome_inquilino = %s,
+                    endereco_inquilino = %s, bairro_inquilino = %s,
+                    cidade_inquilino = %s, estado_inquilino = %s,
+                    cep_inquilino = %s, telefone_inquilino = %s,
+                    data_inicio = %s, data_fim = %s,
+                    quantidade_parcelas = %s, valor_parcela = %s,
+                    status_contrato = %s, observacao = %s
+                WHERE id = %s
+                """,
+                (
+                    imovel_id,
+                    cliente_id,
+                    nome_inquilino,
+                    endereco_inquilino,
+                    bairro_inquilino,
+                    cidade_inquilino,
+                    estado_inquilino,
+                    cep_inquilino,
+                    telefone_inquilino,
+                    data_inicio,
+                    data_fim,
+                    quantidade_parcelas,
+                    valor_parcela,
+                    status_contrato,
+                    observacao,
+                    id,
+                ),
+            )
+
+            if "anexos" in request.files:
+                files = request.files.getlist("anexos")
+                for file in files:
+                    if file and allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        filepath = os.path.join(
+                            app.config["UPLOAD_FOLDER"],
+                            "contratos_anexos",
+                            filename,
+                        )
+                        file.save(filepath)
+                        cur.execute(
+                            "INSERT INTO contrato_anexos (contrato_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
+                            (id, filename, filepath, "documento"),
+                        )
+
+            conn.commit()
+            flash("Contrato atualizado com sucesso!", "success")
+            return redirect(url_for("contratos_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar contrato: {e}", "danger")
+
+    cur.execute("SELECT * FROM contratos_aluguel WHERE id = %s", (id,))
+    contrato = cur.fetchone()
+    cur.execute("SELECT * FROM contrato_anexos WHERE contrato_id = %s", (id,))
+    anexos = cur.fetchall()
+    cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
+    imoveis = cur.fetchall()
+    cur.execute(
+        "SELECT * FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+    )
+    clientes = cur.fetchall()
+    cur.close()
+    conn.close()
+    if contrato is None:
+        flash("Contrato não encontrado.", "danger")
+        return redirect(url_for("contratos_list"))
+    return render_template(
+        "contratos/add_edit.html",
+        contrato=contrato,
+        imoveis=imoveis,
+        clientes=clientes,
+        anexos=anexos,
+    )
+
+
+@app.route("/contratos/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Excluir")
+def contratos_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            "SELECT id, caminho_arquivo FROM contrato_anexos WHERE contrato_id = %s",
+            (id,),
+        )
+        anexos = cur.fetchall()
+        for anexo in anexos:
+            if os.path.exists(anexo["caminho_arquivo"]):
+                os.remove(anexo["caminho_arquivo"])
+        cur.execute("DELETE FROM contrato_anexos WHERE contrato_id = %s", (id,))
+        cur.execute("DELETE FROM contratos_aluguel WHERE id = %s", (id,))
+        conn.commit()
+        flash("Contrato excluído com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir contrato: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contratos_list"))
+
+
+@app.route("/contratos/anexo/delete/<int:anexo_id>", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contrato_anexo_delete(anexo_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            "SELECT caminho_arquivo, contrato_id FROM contrato_anexos WHERE id = %s",
+            (anexo_id,),
+        )
+        anexo = cur.fetchone()
+        if anexo:
+            if os.path.exists(anexo["caminho_arquivo"]):
+                os.remove(anexo["caminho_arquivo"])
+            cur.execute("DELETE FROM contrato_anexos WHERE id = %s", (anexo_id,))
+            conn.commit()
+            flash("Anexo removido com sucesso!", "success")
+            return redirect(url_for("contratos_edit", id=anexo["contrato_id"]))
+        else:
+            flash("Anexo não encontrado.", "danger")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao remover anexo: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contratos_list"))
 
 
 # --- Módulo Financeiro ---
