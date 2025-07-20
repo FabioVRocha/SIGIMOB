@@ -1,0 +1,60 @@
+<!-- templates/reajustes_contrato/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Reajustes de Contrato{% endblock %}
+
+{% block page_title %}Reajustes de Contrato{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Reajustes</h2>
+        <a href="{{ url_for('reajustes_add') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Novo Reajuste
+        </a>
+    </div>
+    <form action="{{ url_for('reajustes_list') }}" method="GET" class="mb-6">
+        <div class="flex items-center space-x-2">
+            <input type="text" name="search" placeholder="Buscar por contrato ou inquilino..." class="form-input flex-grow" value="{{ search_query }}">
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+        </div>
+    </form>
+    {% if reajustes %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Contrato</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Data</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">% Reajuste</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Novo Valor</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reajustes %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ r.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ r.contrato_id }} - {{ r.nome_inquilino }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ r.data_alteracao }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ "%.2f"|format(r.percentual_reajuste) }}%</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f"|format(r.novo_valor_parcela) }}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <a href="{{ url_for('reajustes_edit', id=r.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
+                        <form action="{{ url_for('reajustes_delete', id=r.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este reajuste?');">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhum reajuste encontrado.</p>
+    {% endif %}
+</div>
+{% endblock %}

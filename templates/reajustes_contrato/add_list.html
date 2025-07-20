@@ -1,0 +1,76 @@
+<!-- templates/reajustes_contrato/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if reajuste.id %}Editar Reajuste{% else %}Novo Reajuste{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if reajuste.id %}Editar Reajuste{% else %}Novo Reajuste{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if reajuste.id %}{{ url_for('reajustes_edit', id=reajuste.id) }}{% else %}{{ url_for('reajustes_add') }}{% endif %}" method="POST">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="form-group">
+                <label for="contrato_id" class="form-label">ID do Contrato:</label>
+                <input type="number" id="contrato_id" name="contrato_id" class="form-input" value="{{ reajuste.contrato_id | default('') }}" required onblur="buscarContrato()">
+            </div>
+            <div class="form-group">
+                <label for="info_contrato" class="form-label">Inquilino:</label>
+                <input type="text" id="info_contrato" class="form-input" readonly>
+            </div>
+            <div class="form-group">
+                <label for="valor_atual" class="form-label">Valor Atual da Parcela:</label>
+                <input type="text" id="valor_atual" class="form-input" readonly>
+            </div>
+            <div class="form-group">
+                <label for="data_alteracao" class="form-label">Data do Reajuste:</label>
+                <input type="date" id="data_alteracao" name="data_alteracao" class="form-input" value="{{ reajuste.data_alteracao | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="percentual_reajuste" class="form-label">Percentual de Reajuste (%):</label>
+                <input type="number" step="0.01" id="percentual_reajuste" name="percentual_reajuste" class="form-input" value="{{ reajuste.percentual_reajuste | default('') }}" required oninput="calcularNovoValor()">
+            </div>
+            <div class="form-group">
+                <label for="novo_valor_parcela" class="form-label">Novo Valor da Parcela:</label>
+                <input type="text" id="novo_valor_parcela" name="novo_valor_parcela" class="form-input" value="{{ reajuste.novo_valor_parcela | default('') }}" readonly>
+            </div>
+            <div class="md:col-span-2 form-group">
+                <label for="observacao" class="form-label">Observação:</label>
+                <textarea id="observacao" name="observacao" rows="3" class="form-textarea">{{ reajuste.observacao | default('') }}</textarea>
+            </div>
+        </div>
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{{ url_for('reajustes_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">{% if reajuste.id %}Atualizar Reajuste{% else %}Cadastrar Reajuste{% endif %}</button>
+        </div>
+    </form>
+</div>
+<script>
+async function buscarContrato() {
+    const cid = document.getElementById('contrato_id').value;
+    if(!cid) return;
+    const resp = await fetch('{{ url_for('contrato_info', contrato_id=0) }}'.replace('0', cid));
+    if(resp.ok) {
+        const data = await resp.json();
+        document.getElementById('info_contrato').value = data.nome_inquilino || '';
+        document.getElementById('valor_atual').value = data.valor_parcela ? Number(data.valor_parcela).toFixed(2) : '';
+        calcularNovoValor();
+    } else {
+        document.getElementById('info_contrato').value = '';
+        document.getElementById('valor_atual').value = '';
+        document.getElementById('novo_valor_parcela').value = '';
+    }
+}
+function calcularNovoValor() {
+    const valorAtual = parseFloat(document.getElementById('valor_atual').value.replace(',', '.'));
+    const perc = parseFloat(document.getElementById('percentual_reajuste').value);
+    if(!isNaN(valorAtual) && !isNaN(perc)) {
+        const novoValor = valorAtual * (1 + perc/100);
+        document.getElementById('novo_valor_parcela').value = novoValor.toFixed(2);
+    }
+}
+</script>
+{% endblock %}

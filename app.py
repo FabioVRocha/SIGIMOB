@@ -1254,7 +1254,7 @@ def contratos_add():
             )
             clientes = cur.fetchall()
             return render_template(
-                "contratos/add_edit.html",
+                "contratos/add_list.html",
                 contrato=request.form,
                 imoveis=imoveis,
                 clientes=clientes,
@@ -1270,7 +1270,7 @@ def contratos_add():
     cur.close()
     conn.close()
     return render_template(
-        "contratos/add_edit.html", contrato={}, imoveis=imoveis, clientes=clientes, anexos=[]
+        "contratos/add_list.html", contrato={}, imoveis=imoveis, clientes=clientes, anexos=[]
     )
 
 
@@ -1375,7 +1375,7 @@ def contratos_edit(id):
         flash("Contrato não encontrado.", "danger")
         return redirect(url_for("contratos_list"))
     return render_template(
-        "contratos/add_edit.html",
+        "contratos/add_list.html",
         contrato=contrato,
         imoveis=imoveis,
         clientes=clientes,
@@ -1439,6 +1439,181 @@ def contrato_anexo_delete(anexo_id):
         cur.close()
         conn.close()
     return redirect(url_for("contratos_list"))
+
+
+# --- Reajustes de Contrato ---
+@app.route("/reajustes", methods=["GET"])
+@login_required
+@permission_required("Gestao Contratos", "Consultar")
+def reajustes_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get("search", "")
+    if search_query:
+        cur.execute(
+            """
+            SELECT r.*, c.nome_inquilino, c.valor_parcela
+            FROM reajustes_contrato r
+            JOIN contratos_aluguel c ON r.contrato_id = c.id
+            WHERE CAST(r.contrato_id AS TEXT) ILIKE %s OR c.nome_inquilino ILIKE %s
+            ORDER BY r.data_alteracao DESC
+            """,
+            (f"%{search_query}%", f"%{search_query}%"),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT r.*, c.nome_inquilino, c.valor_parcela
+            FROM reajustes_contrato r
+            JOIN contratos_aluguel c ON r.contrato_id = c.id
+            ORDER BY r.data_alteracao DESC
+            """
+        )
+    reajustes = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "reajustes_contrato/list.html", reajustes=reajustes, search_query=search_query
+    )
+
+
+@app.route("/reajustes/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Gestao Contratos", "Incluir")
+def reajustes_add():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            contrato_id = request.form["contrato_id"]
+            data_alteracao = datetime.strptime(request.form["data_alteracao"], "%Y-%m-%d").date()
+            percentual_reajuste = float(request.form["percentual_reajuste"])
+            cur.execute(
+                "SELECT valor_parcela FROM contratos_aluguel WHERE id = %s",
+                (contrato_id,),
+            )
+            contrato = cur.fetchone()
+            if not contrato:
+                flash("Contrato não encontrado.", "danger")
+                return render_template("reajustes_contrato/add_list.html", reajuste=request.form)
+            valor_atual = float(contrato["valor_parcela"])
+            novo_valor = round(valor_atual * (1 + percentual_reajuste / 100), 2)
+            observacao = request.form.get("observacao")
+            cur.execute(
+                """
+                INSERT INTO reajustes_contrato (contrato_id, data_alteracao, percentual_reajuste, novo_valor_parcela, observacao)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (contrato_id, data_alteracao, percentual_reajuste, novo_valor, observacao),
+            )
+            cur.execute(
+                "UPDATE contratos_aluguel SET valor_parcela = %s WHERE id = %s",
+                (novo_valor, contrato_id),
+            )
+            conn.commit()
+            flash("Reajuste cadastrado com sucesso!", "success")
+            return redirect(url_for("reajustes_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao cadastrar reajuste: {e}", "danger")
+            return render_template("reajustes_contrato/add_list.html", reajuste=request.form)
+        finally:
+            cur.close()
+            conn.close()
+    return render_template("reajustes_contrato/add_list.html", reajuste={})
+
+
+@app.route("/reajustes/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def reajustes_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            contrato_id = request.form["contrato_id"]
+            data_alteracao = datetime.strptime(request.form["data_alteracao"], "%Y-%m-%d").date()
+            percentual_reajuste = float(request.form["percentual_reajuste"])
+            cur.execute(
+                "SELECT valor_parcela FROM contratos_aluguel WHERE id = %s",
+                (contrato_id,),
+            )
+            contrato = cur.fetchone()
+            if not contrato:
+                flash("Contrato não encontrado.", "danger")
+                return render_template("reajustes_contrato/add_list.html", reajuste=request.form)
+            valor_atual = float(contrato["valor_parcela"])
+            novo_valor = round(valor_atual * (1 + percentual_reajuste / 100), 2)
+            observacao = request.form.get("observacao")
+            cur.execute(
+                """
+                UPDATE reajustes_contrato
+                SET contrato_id = %s, data_alteracao = %s, percentual_reajuste = %s, novo_valor_parcela = %s, observacao = %s
+                WHERE id = %s
+                """,
+                (contrato_id, data_alteracao, percentual_reajuste, novo_valor, observacao, id),
+            )
+            cur.execute(
+                "UPDATE contratos_aluguel SET valor_parcela = %s WHERE id = %s",
+                (novo_valor, contrato_id),
+            )
+            conn.commit()
+            flash("Reajuste atualizado com sucesso!", "success")
+            return redirect(url_for("reajustes_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar reajuste: {e}", "danger")
+    cur.execute(
+        "SELECT * FROM reajustes_contrato WHERE id = %s",
+        (id,),
+    )
+    reajuste = cur.fetchone()
+    cur.close()
+    conn.close()
+    if reajuste is None:
+        flash("Reajuste não encontrado.", "danger")
+        return redirect(url_for("reajustes_list"))
+    return render_template("reajustes_contrato/add_list.html", reajuste=reajuste)
+
+
+@app.route("/reajustes/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Excluir")
+def reajustes_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM reajustes_contrato WHERE id = %s", (id,))
+        conn.commit()
+        flash("Reajuste excluído com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir reajuste: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("reajustes_list"))
+
+
+@app.route("/reajustes/contrato/<int:contrato_id>")
+@login_required
+def contrato_info(contrato_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel WHERE id = %s",
+        (contrato_id,),
+    )
+    contrato = cur.fetchone()
+    cur.close()
+    conn.close()
+    if contrato:
+        return {
+            "id": contrato["id"],
+            "nome_inquilino": contrato["nome_inquilino"],
+            "valor_parcela": float(contrato["valor_parcela"]),
+        }
+    return {}, 404
 
 
 # --- Módulo Financeiro ---
