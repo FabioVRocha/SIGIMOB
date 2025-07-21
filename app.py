@@ -14,7 +14,10 @@ from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos d
 
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
-from caixa_banco import init_app as init_caixa_banco
+from caixa_banco import init_app as init_caixa_banco, db
+from caixa_banco.models import ContaCaixa, ContaBanco, Conciliacao
+from caixa_banco.services import criar_movimento, importar_cnab
+from sqlalchemy import func
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
@@ -279,6 +282,13 @@ def dashboard():
     contratacoes = [2, 3, 1, 4, 2, 3, 1, 2, 4, 3, 2, 1]
     demissoes = [1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1]
 
+    saldo_caixas = db.session.query(func.coalesce(func.sum(ContaCaixa.saldo_atual), 0)).scalar() or 0
+    saldo_bancos = db.session.query(func.coalesce(func.sum(ContaBanco.saldo_atual), 0)).scalar() or 0
+    saldo_total = float(saldo_caixas) + float(saldo_bancos)
+    alertas_saldo_negativo = ContaCaixa.query.filter(ContaCaixa.saldo_atual < 0).count() + \
+        ContaBanco.query.filter(ContaBanco.saldo_atual < 0).count()
+    conciliacoes_pendentes = Conciliacao.query.filter_by(status='pendente').count()
+
     return render_template(
         "dashboard.html",
         exames_vencidos=exames_vencidos,
@@ -287,6 +297,9 @@ def dashboard():
         meses_labels=meses_labels,
         contratacoes=contratacoes,
         demissoes=demissoes,
+        saldo_total=saldo_total,
+        alertas_saldo_negativo=alertas_saldo_negativo,
+        conciliacoes_pendentes=conciliacoes_pendentes,
     )
 
 
@@ -2205,6 +2218,70 @@ def contas_a_pagar_delete(id):
         cur.close()
         conn.close()
     return redirect(url_for("contas_a_pagar_list"))
+
+
+# --- Módulo Caixa e Banco ---
+
+@app.route("/caixas")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def caixas_list():
+    contas = ContaCaixa.query.all()
+    return render_template("financeiro/caixas/list.html", contas=contas)
+
+
+@app.route("/bancos")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def bancos_list():
+    contas = ContaBanco.query.all()
+    return render_template("financeiro/bancos/list.html", contas=contas)
+
+
+@app.route("/movimento/<tipo>/<int:conta_id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def movimento_novo(tipo, conta_id):
+    conta = ContaCaixa.query.get(conta_id) if tipo == "caixa" else ContaBanco.query.get(conta_id)
+    if not conta:
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("caixas_list" if tipo == "caixa" else "bancos_list"))
+    if request.method == "POST":
+        data = {
+            "conta_origem_id": conta_id,
+            "conta_origem_tipo": tipo,
+            "tipo": request.form["tipo"],
+            "valor": request.form["valor"],
+            "categoria": request.form.get("categoria"),
+            "historico": request.form.get("historico"),
+            "data_movimento": request.form.get("data_movimento") or datetime.today().date(),
+        }
+        criar_movimento(data)
+        flash("Movimento registrado com sucesso!", "success")
+        return redirect(url_for("caixas_list" if tipo == "caixa" else "bancos_list"))
+    return render_template(
+        "financeiro/caixas/lancamento.html",
+        conta=conta,
+        tipo=tipo,
+        date_today=datetime.today().date().isoformat(),
+    )
+
+
+@app.route("/bancos/importar/<int:conta_id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def banco_importar_cnab(conta_id):
+    conta = ContaBanco.query.get(conta_id)
+    if not conta:
+        flash("Conta bancária não encontrada.", "danger")
+        return redirect(url_for("bancos_list"))
+    arquivo = request.files.get("arquivo")
+    if not arquivo:
+        flash("Selecione um arquivo CNAB.", "danger")
+    else:
+        resultados = importar_cnab(arquivo, conta_id, "banco")
+        flash(f"{len(resultados)} lançamentos importados.", "success")
+    return redirect(url_for("bancos_list"))
 
 
 # --- Módulo de Administração do Sistema ---

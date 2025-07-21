@@ -1,0 +1,46 @@
+<!-- templates/financeiro/bancos/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Bancos{% endblock %}
+{% block page_title %}Contas Bancárias{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Contas Bancárias</h2>
+    </div>
+    {% if contas %}
+    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+        <thead class="bg-gray-200">
+            <tr>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Banco</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Agência</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Conta</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Saldo Atual</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in contas %}
+            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.id }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.banco }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.agencia }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.conta }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(b.saldo_atual or 0) }}</td>
+                <td class="py-3 px-4 text-sm">
+                    <form action="{{ url_for('banco_importar_cnab', conta_id=b.id) }}" method="POST" enctype="multipart/form-data" class="flex space-x-2">
+                        <input type="file" name="arquivo" class="form-input text-sm" required>
+                        <button type="submit" class="btn-primary text-sm"><i class="fas fa-file-upload"></i> Importar CNAB</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhuma conta bancária cadastrada.</p>
+    {% endif %}
+</div>
+{% endblock %}
