@@ -845,6 +845,141 @@ def imovel_anexo_delete(anexo_id):
     )  # Redireciona para a lista caso não encontre o anexo ou erro
 
 
+# --- Avaliações de Imóveis ---
+@app.route("/avaliacoes-imovel")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def avaliacoes_imovel_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get("search", "")
+    if search_query:
+        cur.execute(
+            """
+            SELECT a.*, i.endereco || ', ' || i.bairro AS endereco_imovel
+            FROM avaliacoes_imovel a
+            JOIN imoveis i ON a.imovel_id = i.id
+            WHERE i.endereco ILIKE %s
+            ORDER BY a.data_avaliacao DESC
+            """,
+            (f"%{search_query}%",),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT a.*, i.endereco || ', ' || i.bairro AS endereco_imovel
+            FROM avaliacoes_imovel a
+            JOIN imoveis i ON a.imovel_id = i.id
+            ORDER BY a.data_avaliacao DESC
+            """
+        )
+    avaliacoes = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "avaliacoes_imovel/list.html", avaliacoes=avaliacoes, search_query=search_query
+    )
+
+
+@app.route("/avaliacoes-imovel/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Incluir")
+def avaliacoes_imovel_add():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            imovel_id = request.form["imovel_id"]
+            data_str = request.form["data_avaliacao"]
+            data_avaliacao = datetime.strptime(data_str + "-01", "%Y-%m-%d").date()
+            valor_avaliacao = request.form["valor_avaliacao"]
+            cur.execute(
+                """
+                INSERT INTO avaliacoes_imovel (imovel_id, data_avaliacao, valor_avaliacao)
+                VALUES (%s, %s, %s)
+                """,
+                (imovel_id, data_avaliacao, valor_avaliacao),
+            )
+            conn.commit()
+            flash("Avaliação cadastrada com sucesso!", "success")
+            return redirect(url_for("avaliacoes_imovel_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao cadastrar avaliação: {e}", "danger")
+    cur.execute("SELECT id, endereco, bairro FROM imoveis ORDER BY endereco")
+    imoveis = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("avaliacoes_imovel/add_list.html", avaliacao={}, imoveis=imoveis)
+
+
+@app.route("/avaliacoes-imovel/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Editar")
+def avaliacoes_imovel_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            imovel_id = request.form["imovel_id"]
+            data_str = request.form["data_avaliacao"]
+            data_avaliacao = datetime.strptime(data_str + "-01", "%Y-%m-%d").date()
+            valor_avaliacao = request.form["valor_avaliacao"]
+            cur.execute(
+                """
+                UPDATE avaliacoes_imovel
+                SET imovel_id = %s, data_avaliacao = %s, valor_avaliacao = %s
+                WHERE id = %s
+                """,
+                (imovel_id, data_avaliacao, valor_avaliacao, id),
+            )
+            conn.commit()
+            flash("Avaliação atualizada com sucesso!", "success")
+            return redirect(url_for("avaliacoes_imovel_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar avaliação: {e}", "danger")
+    cur.execute(
+        """
+        SELECT a.*, i.endereco || ', ' || i.bairro AS endereco_imovel
+        FROM avaliacoes_imovel a
+        JOIN imoveis i ON a.imovel_id = i.id
+        WHERE a.id = %s
+        """,
+        (id,),
+    )
+    avaliacao = cur.fetchone()
+    cur.execute("SELECT id, endereco, bairro FROM imoveis ORDER BY endereco")
+    imoveis = cur.fetchall()
+    cur.close()
+    conn.close()
+    if avaliacao is None:
+        flash("Avaliação não encontrada.", "danger")
+        return redirect(url_for("avaliacoes_imovel_list"))
+    return render_template(
+        "avaliacoes_imovel/add_list.html", avaliacao=avaliacao, imoveis=imoveis
+    )
+
+
+@app.route("/avaliacoes-imovel/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Excluir")
+def avaliacoes_imovel_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM avaliacoes_imovel WHERE id = %s", (id,))
+        conn.commit()
+        flash("Avaliação excluída com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir avaliação: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("avaliacoes_imovel_list"))
+
+
 # --- 1.3. Cadastro de Despesas ---
 @app.route("/despesas")
 @login_required
