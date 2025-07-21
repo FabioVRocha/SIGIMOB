@@ -556,6 +556,15 @@ def imoveis_mapa():
         "WHERE latitude IS NOT NULL AND longitude IS NOT NULL"
     )
     imoveis = cur.fetchall()
+    # Converte coordenadas DECIMAL do banco para float para uso no JavaScript
+    imoveis = [
+        {
+            **dict(row),
+            "latitude": float(row["latitude"]),
+            "longitude": float(row["longitude"]),
+        }
+        for row in imoveis
+    ]
     cur.close()
     conn.close()
     return render_template("imoveis/mapa.html", imoveis=imoveis)
