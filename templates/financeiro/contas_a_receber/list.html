@@ -1,0 +1,68 @@
+<!-- templates/financeiro/contas_a_receber/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Contas a Receber{% endblock %}
+
+{% block page_title %}Contas a Receber{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Contas a Receber</h2>
+        <a href="{{ url_for('contas_a_receber_add') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Nova Conta
+        </a>
+    </div>
+
+    <form action="{{ url_for('contas_a_receber_list') }}" method="GET" class="mb-6">
+        <div class="flex items-center space-x-2">
+            <input type="text" name="search" placeholder="Buscar por cliente ou receita..." class="form-input flex-grow" value="{{ search_query }}">
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+        </div>
+    </form>
+
+    {% if contas %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Cliente</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Receita</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Vencimento</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conta in contas %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.cliente }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.receita }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_previsto) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.status_conta }}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <a href="{{ url_for('contas_a_receber_edit', id=conta.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('contas_a_receber_delete', id=conta.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta conta?');">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhuma conta encontrada.</p>
+    {% endif %}
+</div>
+{% endblock %}

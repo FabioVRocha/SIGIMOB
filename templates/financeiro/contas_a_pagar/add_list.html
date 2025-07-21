@@ -1,0 +1,100 @@
+<!-- templates/financeiro/contas_a_pagar/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if conta.id %}Editar Conta a Pagar{% else %}Nova Conta a Pagar{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if conta.id %}Editar Conta a Pagar{% else %}Nova Conta a Pagar{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if conta.id %}{{ url_for('contas_a_pagar_edit', id=conta.id) }}{% else %}{{ url_for('contas_a_pagar_add') }}{% endif %}" method="POST">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div class="form-group">
+                <label for="despesa_id" class="form-label">Despesa:</label>
+                <select id="despesa_id" name="despesa_id" class="form-select" required>
+                    <option value="">Selecione...</option>
+                    {% for des in despesas %}
+                    <option value="{{ des.id }}" {% if conta.despesa_id == des.id %}selected{% endif %}>{{ des.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="fornecedor_id" class="form-label">Fornecedor:</label>
+                <select id="fornecedor_id" name="fornecedor_id" class="form-select" required>
+                    <option value="">Selecione...</option>
+                    {% for forn in fornecedores %}
+                    <option value="{{ forn.id }}" {% if conta.fornecedor_id == forn.id %}selected{% endif %}>{{ forn.razao_social_nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="titulo" class="form-label">Título:</label>
+                <input type="text" id="titulo" name="titulo" class="form-input" value="{{ conta.titulo | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="data_vencimento" class="form-label">Data Vencimento:</label>
+                <input type="date" id="data_vencimento" name="data_vencimento" class="form-input" value="{{ conta.data_vencimento | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="valor_previsto" class="form-label">Valor Previsto:</label>
+                <input type="number" step="0.01" id="valor_previsto" name="valor_previsto" class="form-input" value="{{ conta.valor_previsto | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="data_pagamento" class="form-label">Data Pagamento:</label>
+                <input type="date" id="data_pagamento" name="data_pagamento" class="form-input" value="{{ conta.data_pagamento | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_pago" class="form-label">Valor Pago:</label>
+                <input type="number" step="0.01" id="valor_pago" name="valor_pago" class="form-input" value="{{ conta.valor_pago | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_desconto" class="form-label">Desconto:</label>
+                <input type="number" step="0.01" id="valor_desconto" name="valor_desconto" class="form-input" value="{{ conta.valor_desconto | default('0.00') }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_multa" class="form-label">Multa:</label>
+                <input type="number" step="0.01" id="valor_multa" name="valor_multa" class="form-input" value="{{ conta.valor_multa | default('0.00') }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_juros" class="form-label">Juros:</label>
+                <input type="number" step="0.01" id="valor_juros" name="valor_juros" class="form-input" value="{{ conta.valor_juros | default('0.00') }}">
+            </div>
+            <div class="form-group">
+                <label for="centro_custo" class="form-label">Centro de Custo:</label>
+                <input type="text" id="centro_custo" name="centro_custo" class="form-input" value="{{ conta.centro_custo | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="status_conta" class="form-label">Status:</label>
+                <select id="status_conta" name="status_conta" class="form-select" required>
+                    {% for status in ['Aberta','Paga','Vencida','Cancelada'] %}
+                    <option value="{{ status }}" {% if conta.status_conta == status %}selected{% endif %}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="origem_id" class="form-label">Origem:</label>
+                <select id="origem_id" name="origem_id" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for orig in origens %}
+                    <option value="{{ orig.id }}" {% if conta.origem_id == orig.id %}selected{% endif %}>{{ orig.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group md:col-span-2 lg:col-span-3">
+                <label for="observacao" class="form-label">Observação:</label>
+                <textarea id="observacao" name="observacao" class="form-input">{{ conta.observacao | default('') }}</textarea>
+            </div>
+        </div>
+        <div class="flex justify-end space-x-4">
+            <a href="{{ url_for('contas_a_pagar_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">
+                {% if conta.id %}Atualizar{% else %}Cadastrar{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

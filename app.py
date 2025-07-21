@@ -1621,16 +1621,424 @@ def contrato_info(contrato_id):
 @login_required
 @permission_required("Financeiro", "Consultar")
 def contas_a_receber_list():
-    # Lógica para listar contas a receber
-    return render_template("financeiro/contas_a_receber.html")
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get("search", "")
+    if search_query:
+        cur.execute(
+            """
+            SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita
+            FROM contas_a_receber cr
+            JOIN pessoas p ON cr.cliente_id = p.id
+            JOIN receitas_cadastro r ON cr.receita_id = r.id
+            WHERE p.razao_social_nome ILIKE %s OR r.descricao ILIKE %s
+            ORDER BY cr.data_vencimento DESC
+            """,
+            (f"%{search_query}%", f"%{search_query}%"),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita
+            FROM contas_a_receber cr
+            JOIN pessoas p ON cr.cliente_id = p.id
+            JOIN receitas_cadastro r ON cr.receita_id = r.id
+            ORDER BY cr.data_vencimento DESC
+            """
+        )
+    contas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/contas_a_receber/list.html",
+        contas=contas,
+        search_query=search_query,
+    )
+
+
+@app.route("/contas-a-receber/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_receber_add():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            contrato_id = request.form.get("contrato_id") or None
+            receita_id = request.form["receita_id"]
+            cliente_id = request.form["cliente_id"]
+            parcela_numero = request.form.get("parcela_numero") or None
+            data_vencimento = request.form["data_vencimento"]
+            valor_previsto = request.form["valor_previsto"]
+            data_pagamento = request.form.get("data_pagamento") or None
+            valor_pago = request.form.get("valor_pago") or None
+            valor_desconto = request.form.get("valor_desconto") or 0
+            valor_multa = request.form.get("valor_multa") or 0
+            valor_juros = request.form.get("valor_juros") or 0
+            observacao = request.form.get("observacao")
+            status_conta = request.form.get("status_conta")
+            origem_id = request.form.get("origem_id") or None
+
+            cur.execute(
+                """
+                INSERT INTO contas_a_receber (
+                    contrato_id, receita_id, cliente_id, parcela_numero,
+                    data_vencimento, valor_previsto, data_pagamento, valor_pago,
+                    valor_desconto, valor_multa, valor_juros, observacao,
+                    status_conta, origem_id
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    contrato_id,
+                    receita_id,
+                    cliente_id,
+                    parcela_numero,
+                    data_vencimento,
+                    valor_previsto,
+                    data_pagamento,
+                    valor_pago,
+                    valor_desconto,
+                    valor_multa,
+                    valor_juros,
+                    observacao,
+                    status_conta,
+                    origem_id,
+                ),
+            )
+            conn.commit()
+            flash("Conta a receber cadastrada com sucesso!", "success")
+            return redirect(url_for("contas_a_receber_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao cadastrar conta: {e}", "danger")
+    cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+    receitas = cur.fetchall()
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+    )
+    clientes = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
+    origens = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/contas_a_receber/add_list.html",
+        conta=request.form,
+        receitas=receitas,
+        clientes=clientes,
+        origens=origens,
+    )
+
+
+@app.route("/contas-a-receber/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def contas_a_receber_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            contrato_id = request.form.get("contrato_id") or None
+            receita_id = request.form["receita_id"]
+            cliente_id = request.form["cliente_id"]
+            parcela_numero = request.form.get("parcela_numero") or None
+            data_vencimento = request.form["data_vencimento"]
+            valor_previsto = request.form["valor_previsto"]
+            data_pagamento = request.form.get("data_pagamento") or None
+            valor_pago = request.form.get("valor_pago") or None
+            valor_desconto = request.form.get("valor_desconto") or 0
+            valor_multa = request.form.get("valor_multa") or 0
+            valor_juros = request.form.get("valor_juros") or 0
+            observacao = request.form.get("observacao")
+            status_conta = request.form.get("status_conta")
+            origem_id = request.form.get("origem_id") or None
+
+            cur.execute(
+                """
+                UPDATE contas_a_receber
+                SET contrato_id=%s, receita_id=%s, cliente_id=%s, parcela_numero=%s,
+                    data_vencimento=%s, valor_previsto=%s, data_pagamento=%s,
+                    valor_pago=%s, valor_desconto=%s, valor_multa=%s, valor_juros=%s,
+                    observacao=%s, status_conta=%s, origem_id=%s
+                WHERE id=%s
+                """,
+                (
+                    contrato_id,
+                    receita_id,
+                    cliente_id,
+                    parcela_numero,
+                    data_vencimento,
+                    valor_previsto,
+                    data_pagamento,
+                    valor_pago,
+                    valor_desconto,
+                    valor_multa,
+                    valor_juros,
+                    observacao,
+                    status_conta,
+                    origem_id,
+                    id,
+                ),
+            )
+            conn.commit()
+            flash("Conta a receber atualizada com sucesso!", "success")
+            return redirect(url_for("contas_a_receber_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar conta: {e}", "danger")
+    cur.execute("SELECT * FROM contas_a_receber WHERE id = %s", (id,))
+    conta = cur.fetchone()
+    cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+    receitas = cur.fetchall()
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+    )
+    clientes = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
+    origens = cur.fetchall()
+    cur.close()
+    conn.close()
+    if conta is None:
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_receber_list"))
+    return render_template(
+        "financeiro/contas_a_receber/add_list.html",
+        conta=conta,
+        receitas=receitas,
+        clientes=clientes,
+        origens=origens,
+    )
+
+
+@app.route("/contas-a-receber/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Excluir")
+def contas_a_receber_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM contas_a_receber WHERE id = %s", (id,))
+        conn.commit()
+        flash("Conta excluída com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir conta: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contas_a_receber_list"))
 
 
 @app.route("/contas-a-pagar")
 @login_required
 @permission_required("Financeiro", "Consultar")
 def contas_a_pagar_list():
-    # Lógica para listar contas a pagar
-    return render_template("financeiro/contas_a_pagar.html")
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get("search", "")
+    if search_query:
+        cur.execute(
+            """
+            SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa
+            FROM contas_a_pagar cp
+            JOIN pessoas p ON cp.fornecedor_id = p.id
+            JOIN despesas_cadastro d ON cp.despesa_id = d.id
+            WHERE p.razao_social_nome ILIKE %s OR d.descricao ILIKE %s
+            ORDER BY cp.data_vencimento DESC
+            """,
+            (f"%{search_query}%", f"%{search_query}%"),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa
+            FROM contas_a_pagar cp
+            JOIN pessoas p ON cp.fornecedor_id = p.id
+            JOIN despesas_cadastro d ON cp.despesa_id = d.id
+            ORDER BY cp.data_vencimento DESC
+            """
+        )
+    contas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/contas_a_pagar/list.html",
+        contas=contas,
+        search_query=search_query,
+    )
+
+
+@app.route("/contas-a-pagar/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_pagar_add():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            despesa_id = request.form["despesa_id"]
+            fornecedor_id = request.form["fornecedor_id"]
+            titulo = request.form["titulo"]
+            data_vencimento = request.form["data_vencimento"]
+            valor_previsto = request.form["valor_previsto"]
+            data_pagamento = request.form.get("data_pagamento") or None
+            valor_pago = request.form.get("valor_pago") or None
+            valor_desconto = request.form.get("valor_desconto") or 0
+            valor_multa = request.form.get("valor_multa") or 0
+            valor_juros = request.form.get("valor_juros") or 0
+            observacao = request.form.get("observacao")
+            centro_custo = request.form.get("centro_custo")
+            status_conta = request.form.get("status_conta")
+            origem_id = request.form.get("origem_id") or None
+
+            cur.execute(
+                """
+                INSERT INTO contas_a_pagar (
+                    despesa_id, fornecedor_id, titulo, data_vencimento,
+                    valor_previsto, data_pagamento, valor_pago, valor_desconto,
+                    valor_multa, valor_juros, observacao, centro_custo,
+                    status_conta, origem_id
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    despesa_id,
+                    fornecedor_id,
+                    titulo,
+                    data_vencimento,
+                    valor_previsto,
+                    data_pagamento,
+                    valor_pago,
+                    valor_desconto,
+                    valor_multa,
+                    valor_juros,
+                    observacao,
+                    centro_custo,
+                    status_conta,
+                    origem_id,
+                ),
+            )
+            conn.commit()
+            flash("Conta a pagar cadastrada com sucesso!", "success")
+            return redirect(url_for("contas_a_pagar_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao cadastrar conta: {e}", "danger")
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+    )
+    fornecedores = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
+    origens = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/contas_a_pagar/add_list.html",
+        conta=request.form,
+        despesas=despesas,
+        fornecedores=fornecedores,
+        origens=origens,
+    )
+
+
+@app.route("/contas-a-pagar/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def contas_a_pagar_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            despesa_id = request.form["despesa_id"]
+            fornecedor_id = request.form["fornecedor_id"]
+            titulo = request.form["titulo"]
+            data_vencimento = request.form["data_vencimento"]
+            valor_previsto = request.form["valor_previsto"]
+            data_pagamento = request.form.get("data_pagamento") or None
+            valor_pago = request.form.get("valor_pago") or None
+            valor_desconto = request.form.get("valor_desconto") or 0
+            valor_multa = request.form.get("valor_multa") or 0
+            valor_juros = request.form.get("valor_juros") or 0
+            observacao = request.form.get("observacao")
+            centro_custo = request.form.get("centro_custo")
+            status_conta = request.form.get("status_conta")
+            origem_id = request.form.get("origem_id") or None
+
+            cur.execute(
+                """
+                UPDATE contas_a_pagar
+                SET despesa_id=%s, fornecedor_id=%s, titulo=%s, data_vencimento=%s,
+                    valor_previsto=%s, data_pagamento=%s, valor_pago=%s,
+                    valor_desconto=%s, valor_multa=%s, valor_juros=%s,
+                    observacao=%s, centro_custo=%s, status_conta=%s, origem_id=%s
+                WHERE id=%s
+                """,
+                (
+                    despesa_id,
+                    fornecedor_id,
+                    titulo,
+                    data_vencimento,
+                    valor_previsto,
+                    data_pagamento,
+                    valor_pago,
+                    valor_desconto,
+                    valor_multa,
+                    valor_juros,
+                    observacao,
+                    centro_custo,
+                    status_conta,
+                    origem_id,
+                    id,
+                ),
+            )
+            conn.commit()
+            flash("Conta a pagar atualizada com sucesso!", "success")
+            return redirect(url_for("contas_a_pagar_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar conta: {e}", "danger")
+    cur.execute("SELECT * FROM contas_a_pagar WHERE id = %s", (id,))
+    conta = cur.fetchone()
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+    )
+    fornecedores = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
+    origens = cur.fetchall()
+    cur.close()
+    conn.close()
+    if conta is None:
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_pagar_list"))
+    return render_template(
+        "financeiro/contas_a_pagar/add_list.html",
+        conta=conta,
+        despesas=despesas,
+        fornecedores=fornecedores,
+        origens=origens,
+    )
+
+
+@app.route("/contas-a-pagar/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Excluir")
+def contas_a_pagar_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM contas_a_pagar WHERE id = %s", (id,))
+        conn.commit()
+        flash("Conta excluída com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir conta: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contas_a_pagar_list"))
 
 
 # --- Módulo de Administração do Sistema ---
