@@ -15,7 +15,13 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div class="form-group">
                 <label for="tipo_imovel" class="form-label">Tipo de Imóvel:</label>
-                <input type="text" id="tipo_imovel" name="tipo_imovel" class="form-input" value="{{ imovel.tipo_imovel | default('') }}" placeholder="Ex: Casa, Apartamento, Comercial">
+                <select id="tipo_imovel" name="tipo_imovel" class="form-select">
+                    <option value="">Selecione...</option>
+                    <option value="Comercial" {% if imovel.tipo_imovel == 'Comercial' %}selected{% endif %}>Comercial</option>
+                    <option value="Casa" {% if imovel.tipo_imovel == 'Casa' %}selected{% endif %}>Casa</option>
+                    <option value="Apartamento" {% if imovel.tipo_imovel == 'Apartamento' %}selected{% endif %}>Apartamento</option>
+                    <option value="Terreno" {% if imovel.tipo_imovel == 'Terreno' %}selected{% endif %}>Terreno</option>
+                </select>
             </div>
             <div class="form-group md:col-span-2">
                 <label for="endereco" class="form-label">Endereço:</label>
