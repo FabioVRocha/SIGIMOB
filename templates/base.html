@@ -326,24 +326,16 @@
                     </ul>
                 </li>
                 <li>
-                    <a href="{{ url_for('imoveis_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-house-user"></i> Imóveis
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('contratos_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-file-contract"></i> Contratos de Aluguel
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('reajustes_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-percent"></i> Reajustes de Contrato
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('avaliacoes_imovel_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-balance-scale"></i> Avaliações de Imóveis
-                    </a>
+                    <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="imoveis-toggle">
+                        <span><i class="fas fa-house-user"></i> Imóveis</span>
+                        <i class="fas fa-chevron-right arrow-icon"></i>
+                    </div>
+                    <ul id="imoveis-submenu" class="ml-6 mt-1 hidden">
+                        <li><a href="{{ url_for('imoveis_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-house-user"></i> Imóveis</a></li>
+                        <li><a href="{{ url_for('contratos_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-contract"></i> Contratos de Aluguel</a></li>
+                        <li><a href="{{ url_for('reajustes_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-percent"></i> Reajustes de Contrato</a></li>
+                        <li><a href="{{ url_for('avaliacoes_imovel_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-balance-scale"></i> Avaliações de Imóveis</a></li>
+                    </ul>
                 </li>
                 <li>
                     <a href="{{ url_for('contas_a_receber_list') }}" class="sidebar-nav-item">
@@ -447,6 +439,30 @@
                     cadastrosToggle.classList.remove('active');
                 }
 
+                // Lógica para o menu expansível "Imóveis"
+                const imoveisToggleEl = document.getElementById('imoveis-toggle');
+                const imoveisSubmenu = document.getElementById('imoveis-submenu');
+                const imoveisSubmenuItems = imoveisSubmenu ? imoveisSubmenu.querySelectorAll('.sidebar-nav-item') : [];
+
+                let isImoveisActive = false;
+                imoveisSubmenuItems.forEach(item => {
+                    const href = item.getAttribute('href');
+                    if (href === path || (path.startsWith(href + '/') && href !== '/')) {
+                        item.classList.add('active');
+                        isImoveisActive = true;
+                    }
+                });
+
+                if (isImoveisActive) {
+                    imoveisSubmenu.classList.remove('hidden');
+                    imoveisToggleEl.querySelector('.arrow-icon').classList.add('rotate-90');
+                    imoveisToggleEl.classList.add('active');
+                } else {
+                    imoveisSubmenu.classList.add('hidden');
+                    imoveisToggleEl.querySelector('.arrow-icon').classList.remove('rotate-90');
+                    imoveisToggleEl.classList.remove('active');
+                }
+
                 // Ativa o dashboard se nenhuma outra rota for ativa
                 if (!foundActive && currentPath === '{{ url_for("dashboard") }}') {
                     const dashboardItem = document.querySelector('a[href="{{ url_for("dashboard") }}"]');
@@ -487,6 +503,17 @@
                 cadastrosToggle.addEventListener('click', () => {
                     const submenu = document.getElementById('cadastros-essenciais-submenu');
                     const arrowIcon = cadastrosToggle.querySelector('.arrow-icon');
+                    submenu.classList.toggle('hidden');
+                    arrowIcon.classList.toggle('rotate-90');
+                });
+            }
+
+            // Event listener para o toggle do menu "Imóveis"
+            const imoveisToggleElement = document.getElementById('imoveis-toggle');
+            if (imoveisToggleElement) {
+                imoveisToggleElement.addEventListener('click', () => {
+                    const submenu = document.getElementById('imoveis-submenu');
+                    const arrowIcon = imoveisToggleElement.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
                     arrowIcon.classList.toggle('rotate-90');
                 });
