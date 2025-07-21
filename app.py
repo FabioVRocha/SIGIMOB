@@ -545,6 +545,22 @@ def imoveis_list():
     )
 
 
+@app.route("/imoveis/mapa")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def imoveis_mapa():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        "SELECT id, matricula, latitude, longitude FROM imoveis "
+        "WHERE latitude IS NOT NULL AND longitude IS NOT NULL"
+    )
+    imoveis = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("imoveis/mapa.html", imoveis=imoveis)
+
+
 @app.route("/imoveis/add", methods=["GET", "POST"])
 @login_required
 @permission_required("Cadastro Imoveis", "Incluir")

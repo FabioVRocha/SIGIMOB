@@ -9,9 +9,14 @@
 <div class="bg-white p-6 rounded-lg shadow-xl">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-dark-blue">Lista de Imóveis</h2>
-        <a href="{{ url_for('imoveis_add') }}" class="btn-primary flex items-center">
-            <i class="fas fa-plus mr-2"></i> Novo Imóvel
-        </a>
+        <div class="flex space-x-2">
+            <a href="{{ url_for('imoveis_mapa') }}" class="btn-primary flex items-center">
+                <i class="fas fa-map-marked-alt mr-2"></i> Ver Mapa
+            </a>
+            <a href="{{ url_for('imoveis_add') }}" class="btn-primary flex items-center">
+                <i class="fas fa-plus mr-2"></i> Novo Imóvel
+            </a>
+        </div>
     </div>
 
     <form action="{{ url_for('imoveis_list') }}" method="GET" class="mb-6">
