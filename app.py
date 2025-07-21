@@ -14,10 +14,13 @@ from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos d
 
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
+from caixa_banco import init_app as init_caixa_banco
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Cria as pastas de uploads se elas não existirem
 if not os.path.exists(UPLOAD_FOLDER):
@@ -31,6 +34,9 @@ os.makedirs(
 os.makedirs(
     os.path.join(UPLOAD_FOLDER, "contratos_anexos"), exist_ok=True
 )  # Pasta para anexos de contratos
+
+# Inicializa o módulo de Caixa e Banco (SQLAlchemy e rotas REST)
+init_caixa_banco(app)
 
 
 # Variáveis globais para o sistema (exemplo)

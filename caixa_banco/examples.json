@@ -1,0 +1,22 @@
+{
+  "novo_caixa": {
+    "nome": "Caixa Geral",
+    "moeda": "BRL",
+    "saldo_inicial": 1000.00
+  },
+  "novo_banco": {
+    "banco": "Banco Exemplo",
+    "agencia": "0001",
+    "conta": "12345-6",
+    "tipo": "corrente",
+    "saldo_inicial": 5000.00
+  },
+  "novo_movimento": {
+    "conta_origem_id": 1,
+    "conta_origem_tipo": "caixa",
+    "tipo": "saida",
+    "valor": 150.00,
+    "categoria": "Pagamentos",
+    "historico": "Compra de material"
+  }
+}
