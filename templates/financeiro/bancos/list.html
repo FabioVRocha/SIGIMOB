@@ -8,6 +8,9 @@
 <div class="bg-white p-6 rounded-lg shadow-xl">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-dark-blue">Contas Bancárias</h2>
+        <a href="{{ url_for('bancos_add') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Novo Banco
+        </a>
     </div>
     {% if contas %}
     <table class="min-w-full bg-white rounded-lg overflow-hidden">

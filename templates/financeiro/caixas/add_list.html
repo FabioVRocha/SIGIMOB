@@ -1,0 +1,30 @@
+<!-- templates/financeiro/caixas/add_list.html -->
+{% extends "base.html" %}
+
+{% block title %}Nova Conta de Caixa{% endblock %}
+{% block page_title %}Nova Conta de Caixa{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{{ url_for('caixas_add') }}" method="POST">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="form-group">
+                <label for="nome" class="form-label">Nome:</label>
+                <input type="text" id="nome" name="nome" class="form-input" value="{{ conta.nome | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="moeda" class="form-label">Moeda:</label>
+                <input type="text" id="moeda" name="moeda" class="form-input" value="{{ conta.moeda | default('BRL') }}">
+            </div>
+            <div class="form-group">
+                <label for="saldo_inicial" class="form-label">Saldo Inicial:</label>
+                <input type="number" step="0.01" id="saldo_inicial" name="saldo_inicial" class="form-input" value="{{ conta.saldo_inicial | default('0.00') }}">
+            </div>
+        </div>
+        <div class="flex justify-end space-x-4">
+            <a href="{{ url_for('caixas_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">Cadastrar Caixa</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

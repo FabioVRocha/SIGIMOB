@@ -2230,12 +2230,56 @@ def caixas_list():
     return render_template("financeiro/caixas/list.html", contas=contas)
 
 
+@app.route("/caixas/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def caixas_add():
+    if request.method == "POST":
+        nome = request.form["nome"]
+        moeda = request.form.get("moeda", "BRL")
+        saldo_inicial = request.form.get("saldo_inicial") or 0
+        conta = ContaCaixa(
+            nome=nome,
+            moeda=moeda,
+            saldo_inicial=saldo_inicial,
+            saldo_atual=saldo_inicial,
+        )
+        db.session.add(conta)
+        db.session.commit()
+        flash("Caixa cadastrado com sucesso!", "success")
+        return redirect(url_for("caixas_list"))
+    return render_template("financeiro/caixas/add_list.html", conta=request.form)
+
+
 @app.route("/bancos")
 @login_required
 @permission_required("Financeiro", "Consultar")
 def bancos_list():
     contas = ContaBanco.query.all()
     return render_template("financeiro/bancos/list.html", contas=contas)
+
+
+@app.route("/bancos/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def bancos_add():
+    if request.method == "POST":
+        conta = ContaBanco(
+            banco=request.form["banco"],
+            agencia=request.form["agencia"],
+            conta=request.form["conta"],
+            tipo=request.form.get("tipo"),
+            convenio=request.form.get("convenio"),
+            carteira=request.form.get("carteira"),
+            variacao=request.form.get("variacao"),
+            saldo_inicial=request.form.get("saldo_inicial") or 0,
+            saldo_atual=request.form.get("saldo_inicial") or 0,
+        )
+        db.session.add(conta)
+        db.session.commit()
+        flash("Conta bancária cadastrada com sucesso!", "success")
+        return redirect(url_for("bancos_list"))
+    return render_template("financeiro/bancos/add_list.html", conta=request.form)
 
 
 @app.route("/movimento/<tipo>/<int:conta_id>", methods=["GET", "POST"])

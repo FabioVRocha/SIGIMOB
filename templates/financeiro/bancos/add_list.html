@@ -1,0 +1,38 @@
+<!-- templates/financeiro/bancos/add_list.html -->
+{% extends "base.html" %}
+
+{% block title %}Nova Conta Bancária{% endblock %}
+{% block page_title %}Nova Conta Bancária{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{{ url_for('bancos_add') }}" method="POST">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div class="form-group">
+                <label for="banco" class="form-label">Banco:</label>
+                <input type="text" id="banco" name="banco" class="form-input" value="{{ conta.banco | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="agencia" class="form-label">Agência:</label>
+                <input type="text" id="agencia" name="agencia" class="form-input" value="{{ conta.agencia | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="conta" class="form-label">Conta:</label>
+                <input type="text" id="conta" name="conta" class="form-input" value="{{ conta.conta | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="tipo" class="form-label">Tipo:</label>
+                <input type="text" id="tipo" name="tipo" class="form-input" value="{{ conta.tipo | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="saldo_inicial" class="form-label">Saldo Inicial:</label>
+                <input type="number" step="0.01" id="saldo_inicial" name="saldo_inicial" class="form-input" value="{{ conta.saldo_inicial | default('0.00') }}">
+            </div>
+        </div>
+        <div class="flex justify-end space-x-4">
+            <a href="{{ url_for('bancos_list') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">Cadastrar Banco</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
