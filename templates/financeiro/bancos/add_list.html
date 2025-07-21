@@ -24,6 +24,18 @@
                 <label for="tipo" class="form-label">Tipo:</label>
                 <input type="text" id="tipo" name="tipo" class="form-input" value="{{ conta.tipo | default('') }}">
             </div>
+             <div class="form-group">
+                <label for="convenio" class="form-label">Convênio:</label>
+                <input type="text" id="convenio" name="convenio" class="form-input" value="{{ conta.convenio | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="carteira" class="form-label">Carteira:</label>
+                <input type="text" id="carteira" name="carteira" class="form-input" value="{{ conta.carteira | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="variacao" class="form-label">Variação:</label>
+                <input type="text" id="variacao" name="variacao" class="form-input" value="{{ conta.variacao | default('') }}">
+            </div>
             <div class="form-group">
                 <label for="saldo_inicial" class="form-label">Saldo Inicial:</label>
                 <input type="number" step="0.01" id="saldo_inicial" name="saldo_inicial" class="form-input" value="{{ conta.saldo_inicial | default('0.00') }}">
