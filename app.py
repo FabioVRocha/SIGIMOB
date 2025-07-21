@@ -2376,9 +2376,205 @@ def usuarios_permissoes(id):
 @app.route("/empresa")
 @login_required
 @permission_required("Administracao Sistema", "Consultar")
-def empresa_licenciada():
-    # Lógica para gerenciar dados da empresa licenciada
-    return render_template("admin/empresa.html")
+def empresa_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get("search", "")
+    if search_query:
+        cur.execute(
+            """
+            SELECT * FROM empresa_licenciada
+            WHERE documento ILIKE %s OR razao_social_nome ILIKE %s OR nome_fantasia ILIKE %s
+            ORDER BY data_cadastro DESC
+        """,
+            (f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"),
+        )
+    else:
+        cur.execute("SELECT * FROM empresa_licenciada ORDER BY data_cadastro DESC")
+    empresas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "admin/empresa/list.html", empresas=empresas, search_query=search_query
+    )
+
+
+@app.route("/empresa/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Administracao Sistema", "Incluir")
+def empresa_add():
+    if request.method == "POST":
+        try:
+            documento = (
+                request.form["documento"].replace(".", "").replace("/", "").replace("-", "")
+            )
+            razao_social_nome = request.form["razao_social_nome"]
+            nome_fantasia = request.form.get("nome_fantasia")
+            endereco = request.form.get("endereco")
+            bairro = request.form.get("bairro")
+            cidade = request.form.get("cidade")
+            estado = request.form.get("estado")
+            cep = request.form.get("cep", "").replace("-", "")
+            telefone = request.form.get("telefone")
+            observacao = request.form.get("observacao")
+            status = request.form["status"]
+
+            if len(documento) == 11 and not documento.isdigit():
+                flash("CPF inválido. Deve conter apenas números.", "danger")
+                return render_template("admin/empresa/add_list.html", empresa=request.form)
+            elif len(documento) == 14 and not documento.isdigit():
+                flash("CNPJ inválido. Deve conter apenas números.", "danger")
+                return render_template("admin/empresa/add_list.html", empresa=request.form)
+            elif len(documento) != 11 and len(documento) != 14:
+                flash(
+                    "Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).",
+                    "danger",
+                )
+                return render_template("admin/empresa/add_list.html", empresa=request.form)
+
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute(
+                """
+                INSERT INTO empresa_licenciada (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, observacao, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    documento,
+                    razao_social_nome,
+                    nome_fantasia,
+                    endereco,
+                    bairro,
+                    cidade,
+                    estado,
+                    cep,
+                    telefone,
+                    observacao,
+                    status,
+                ),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Empresa cadastrada com sucesso!", "success")
+            return redirect(url_for("empresa_list"))
+        except psycopg2.errors.UniqueViolation:
+            flash("Erro: Documento (CNPJ/CPF) já cadastrado.", "danger")
+            conn.rollback()
+            return render_template("admin/empresa/add_list.html", empresa=request.form)
+        except Exception as e:
+            flash(f"Erro ao cadastrar empresa: {e}", "danger")
+            return render_template("admin/empresa/add_list.html", empresa=request.form)
+    return render_template("admin/empresa/add_list.html", empresa={})
+
+
+@app.route("/empresa/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def empresa_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            documento = (
+                request.form["documento"].replace(".", "").replace("/", "").replace("-", "")
+            )
+            razao_social_nome = request.form["razao_social_nome"]
+            nome_fantasia = request.form.get("nome_fantasia")
+            endereco = request.form.get("endereco")
+            bairro = request.form.get("bairro")
+            cidade = request.form.get("cidade")
+            estado = request.form.get("estado")
+            cep = request.form.get("cep", "").replace("-", "")
+            telefone = request.form.get("telefone")
+            observacao = request.form.get("observacao")
+            status = request.form["status"]
+
+            if len(documento) == 11 and not documento.isdigit():
+                flash("CPF inválido. Deve conter apenas números.", "danger")
+                cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
+                empresa = cur.fetchone()
+                return render_template("admin/empresa/add_list.html", empresa=empresa)
+            elif len(documento) == 14 and not documento.isdigit():
+                flash("CNPJ inválido. Deve conter apenas números.", "danger")
+                cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
+                empresa = cur.fetchone()
+                return render_template("admin/empresa/add_list.html", empresa=empresa)
+            elif len(documento) != 11 and len(documento) != 14:
+                flash(
+                    "Documento deve ser um CPF (11 dígitos) ou CNPJ (14 dígitos).",
+                    "danger",
+                )
+                cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
+                empresa = cur.fetchone()
+                return render_template("admin/empresa/add_list.html", empresa=empresa)
+
+            cur.execute(
+                """
+                UPDATE empresa_licenciada
+                SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, observacao = %s, status = %s
+                WHERE id = %s
+                """,
+                (
+                    documento,
+                    razao_social_nome,
+                    nome_fantasia,
+                    endereco,
+                    bairro,
+                    cidade,
+                    estado,
+                    cep,
+                    telefone,
+                    observacao,
+                    status,
+                    id,
+                ),
+            )
+            conn.commit()
+            flash("Empresa atualizada com sucesso!", "success")
+            return redirect(url_for("empresa_list"))
+        except psycopg2.errors.UniqueViolation:
+            flash("Erro: Documento (CNPJ/CPF) já cadastrado para outra empresa.", "danger")
+            conn.rollback()
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar empresa: {e}", "danger")
+        cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
+        empresa = cur.fetchone()
+        cur.close()
+        conn.close()
+        if empresa is None:
+            flash("Empresa não encontrada.", "danger")
+            return redirect(url_for("empresa_list"))
+        return render_template("admin/empresa/add_list.html", empresa=empresa)
+
+    cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
+    empresa = cur.fetchone()
+    cur.close()
+    conn.close()
+    if empresa is None:
+        flash("Empresa não encontrada.", "danger")
+        return redirect(url_for("empresa_list"))
+    return render_template("admin/empresa/add_list.html", empresa=empresa)
+
+
+@app.route("/empresa/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Excluir")
+def empresa_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM empresa_licenciada WHERE id = %s", (id,))
+        conn.commit()
+        flash("Empresa excluída com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir empresa: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("empresa_list"))
 
 # --- Execução da Aplicação ---
 if __name__ == "__main__":
