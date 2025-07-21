@@ -12,15 +12,18 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+JzB2XHwjQtGU+9d2k7sHCw7+eCt6QBKpFyD/vg5A=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-nNRQNvjeaw21HhTsWY8QM+nqPO6Wy8ww2cMYEl0sVus=" crossorigin=""></script>
     <script>
+        const imoveis = {{ imoveis | tojson | safe }};
         const map = L.map('map').setView([-15.7801, -47.9292], 4);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        {% for imovel in imoveis %}
-            L.marker([{{ imovel.latitude }}, {{ imovel.longitude }}]).addTo(map)
-                .bindPopup('<b>ID:</b> {{ imovel.id }}<br><b>Matrícula:</b> {{ imovel.matricula | default("N/A") }}');
-        {% endfor %}
+        imoveis.forEach(imovel => {
+            L.marker([imovel.latitude, imovel.longitude]).addTo(map)
+                .bindPopup(
+                    `<b>ID:</b> ${imovel.id}<br><b>Matrícula:</b> ${imovel.matricula || 'N/A'}`
+                );
+        });
     </script>
 {% endblock %}
