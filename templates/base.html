@@ -351,19 +351,15 @@
                     </a>
                 </li>
                 <li>
-                    <a href="{{ url_for('backup_db') }}" class="sidebar-nav-item">
-                        <i class="fas fa-database"></i> Backup
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('usuarios_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-user-shield"></i> Usuários
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('empresa_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-building"></i> Empresa
-                    </a>
+                    <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="gerencial-toggle">
+                        <span><i class="fas fa-cogs"></i> Gerencial</span>
+                        <i class="fas fa-chevron-right arrow-icon"></i>
+                    </div>
+                    <ul id="gerencial-submenu" class="ml-6 mt-1 hidden">
+                        <li><a href="{{ url_for('backup_db') }}" class="sidebar-nav-item text-sm"><i class="fas fa-database"></i> Backup</a></li>
+                        <li><a href="{{ url_for('usuarios_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-user-shield"></i> Usuários</a></li>
+                        <li><a href="{{ url_for('empresa_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-building"></i> Empresa</a></li>
+                    </ul>
                 </li>
             </ul>
         </nav>
@@ -453,7 +449,32 @@
                         dashboardItem.classList.add('active');
                     }
                 }
-            };
+
+                // Lógica para o menu expansível "Gerencial"
+                const gerencialToggleEl = document.getElementById('gerencial-toggle');
+                const gerencialSubmenu = document.getElementById('gerencial-submenu');
+                const gerencialSubmenuItems = gerencialSubmenu ? gerencialSubmenu.querySelectorAll('.sidebar-nav-item') : [];
+
+                let isGerencialActive = false;
+                gerencialSubmenuItems.forEach(item => {
+                    const href = item.getAttribute('href');
+                    if (href === path || (path.startsWith(href + '/') && href !== '/')) {
+                        item.classList.add('active');
+                        isGerencialActive = true;
+                    }
+                });
+
+                if (isGerencialActive) {
+                    gerencialSubmenu.classList.remove('hidden');
+                    gerencialToggleEl.querySelector('.arrow-icon').classList.add('rotate-90');
+                    gerencialToggleEl.classList.add('active');
+                } else {
+                    gerencialSubmenu.classList.add('hidden');
+                    gerencialToggleEl.querySelector('.arrow-icon').classList.remove('rotate-90');
+                    gerencialToggleEl.classList.remove('active');
+                }
+
+                };
 
             // Event listener para o toggle do menu "Cadastros Essenciais"
             const cadastrosToggle = document.getElementById('cadastros-essenciais-toggle');
@@ -461,6 +482,17 @@
                 cadastrosToggle.addEventListener('click', () => {
                     const submenu = document.getElementById('cadastros-essenciais-submenu');
                     const arrowIcon = cadastrosToggle.querySelector('.arrow-icon');
+                    submenu.classList.toggle('hidden');
+                    arrowIcon.classList.toggle('rotate-90');
+                });
+            }
+
+            // Event listener para o toggle do menu "Gerencial"
+            const gerencialToggleElement = document.getElementById('gerencial-toggle');
+            if (gerencialToggleElement) {
+                gerencialToggleElement.addEventListener('click', () => {
+                    const submenu = document.getElementById('gerencial-submenu');
+                    const arrowIcon = gerencialToggleElement.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
                     arrowIcon.classList.toggle('rotate-90');
                 });
