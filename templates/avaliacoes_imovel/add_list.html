@@ -56,7 +56,7 @@
                         <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.id }}</td>
                         <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
                         <td class="py-2 px-3 text-right">
-                            <button type="button" class="btn-primary" onclick="selectImovel({{ imovel.id }}, {{ (imovel.endereco ~ ', ' ~ imovel.bairro)|tojson }})">Escolher</button>
+                            <button type="button" class="btn-primary select-imovel-btn" data-id="{{ imovel.id }}" data-text="{{ imovel.endereco }}, {{ imovel.bairro }}">Escolher</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -80,5 +80,16 @@ function selectImovel(id, texto) {
     document.getElementById('imovel_display').value = texto;
     closeModal();
 }
+
+// Adiciona evento aos botões do modal após o carregamento da página
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.select-imovel-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            const texto = btn.getAttribute('data-text');
+            selectImovel(id, texto);
+        });
+    });
+});
 </script>
 {% endblock %}
