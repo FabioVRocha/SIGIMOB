@@ -264,7 +264,12 @@ def dashboard():
     # Dados de exemplo para o dashboard
     exames_vencidos = 2
     exames_proximos = 0
-    total_funcionarios_ativos = 5
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM imoveis")
+    total_imoveis_ativos = cur.fetchone()[0]
+    cur.close()
+    conn.close()
     meses_labels = [
         "Ago",
         "Set",
@@ -293,7 +298,7 @@ def dashboard():
         "dashboard.html",
         exames_vencidos=exames_vencidos,
         exames_proximos=exames_proximos,
-        total_funcionarios_ativos=total_funcionarios_ativos,
+        total_imoveis_ativos=total_imoveis_ativos,
         meses_labels=meses_labels,
         contratacoes=contratacoes,
         demissoes=demissoes,
