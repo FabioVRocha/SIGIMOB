@@ -1,12 +1,16 @@
 <!-- templates/financeiro/caixas/add_list.html -->
 {% extends "base.html" %}
 
-{% block title %}Nova Conta de Caixa{% endblock %}
-{% block page_title %}Nova Conta de Caixa{% endblock %}
+{% block title %}
+    {% if conta.id %}Editar Conta de Caixa{% else %}Nova Conta de Caixa{% endif %}
+{% endblock %}
+{% block page_title %}
+    {% if conta.id %}Editar Conta de Caixa{% else %}Nova Conta de Caixa{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{{ url_for('caixas_add') }}" method="POST">
+    <form action="{% if conta.id %}{{ url_for('caixas_edit', id=conta.id) }}{% else %}{{ action_url }}{% endif %}" method="POST">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div class="form-group">
                 <label for="nome" class="form-label">Nome:</label>
@@ -23,7 +27,9 @@
         </div>
         <div class="flex justify-end space-x-4">
             <a href="{{ url_for('caixas_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">Cadastrar Caixa</button>
+            <button type="submit" class="btn-primary">
+                {% if conta.id %}Atualizar{% else %}Cadastrar{% endif %}
+            </button>
         </div>
     </form>
 </div>

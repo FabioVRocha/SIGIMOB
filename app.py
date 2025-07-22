@@ -2253,7 +2253,30 @@ def caixas_add():
         db.session.commit()
         flash("Caixa cadastrado com sucesso!", "success")
         return redirect(url_for("caixas_list"))
-    return render_template("financeiro/caixas/add_list.html", conta=request.form)
+    return render_template(
+        "financeiro/caixas/add_list.html",
+        conta=request.form,
+        action_url=url_for("caixas_add"),
+    )
+
+
+@app.route("/caixas/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def caixas_edit(id):
+    conta = ContaCaixa.query.get_or_404(id)
+    if request.method == "POST":
+        conta.nome = request.form["nome"]
+        conta.moeda = request.form.get("moeda", "BRL")
+        conta.saldo_inicial = request.form.get("saldo_inicial") or 0
+        db.session.commit()
+        flash("Conta de caixa atualizada com sucesso!", "success")
+        return redirect(url_for("caixas_list"))
+    return render_template(
+        "financeiro/caixas/add_list.html",
+        conta=conta,
+        action_url=url_for("caixas_edit", id=id),
+    )
 
 
 @app.route("/bancos")
@@ -2285,7 +2308,36 @@ def bancos_add():
         db.session.commit()
         flash("Conta bancária cadastrada com sucesso!", "success")
         return redirect(url_for("bancos_list"))
-    return render_template("financeiro/bancos/add_list.html", conta=request.form)
+    return render_template(
+        "financeiro/bancos/add_list.html",
+        conta=request.form,
+        action_url=url_for("bancos_add"),
+    )
+
+
+@app.route("/bancos/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def bancos_edit(id):
+    conta = ContaBanco.query.get_or_404(id)
+    if request.method == "POST":
+        conta.banco = request.form["banco"]
+        conta.nome_banco = request.form.get("nome_banco")
+        conta.agencia = request.form["agencia"]
+        conta.conta = request.form["conta"]
+        conta.tipo = request.form.get("tipo")
+        conta.convenio = request.form.get("convenio")
+        conta.carteira = request.form.get("carteira")
+        conta.variacao = request.form.get("variacao")
+        conta.saldo_inicial = request.form.get("saldo_inicial") or 0
+        db.session.commit()
+        flash("Conta bancária atualizada com sucesso!", "success")
+        return redirect(url_for("bancos_list"))
+    return render_template(
+        "financeiro/bancos/add_list.html",
+        conta=conta,
+        action_url=url_for("bancos_edit", id=id),
+    )
 
 
 @app.route("/movimento/<tipo>/<int:conta_id>", methods=["GET", "POST"])
@@ -2325,6 +2377,49 @@ def movimento_novo(tipo, conta_id):
         "financeiro/caixas/lancamento.html",
         conta=conta,
         tipo=tipo,
+        despesas=despesas,
+        receitas=receitas,
+        date_today=datetime.today().date().isoformat(),
+    )
+
+@app.route("/lancamentos/novo", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def lancamentos_novo():
+    contas_caixa = ContaCaixa.query.all()
+    contas_banco = ContaBanco.query.all()
+    if request.method == "POST":
+        conta_tipo = request.form["conta_tipo"]
+        conta_id = int(request.form["conta_id"])
+        data = {
+            "conta_origem_id": conta_id,
+            "conta_origem_tipo": conta_tipo,
+            "tipo": request.form["tipo"],
+            "valor": request.form["valor"],
+            "categoria": request.form.get("categoria"),
+            "historico": request.form.get("historico"),
+            "data_movimento": request.form.get("data_movimento") or datetime.today().date(),
+        }
+        if data["tipo"] == "saida":
+            data["despesa_id"] = request.form.get("despesa_id") or None
+        elif data["tipo"] == "entrada":
+            data["receita_id"] = request.form.get("receita_id") or None
+        criar_movimento(data)
+        flash("Movimento registrado com sucesso!", "success")
+        return redirect(url_for("lancamentos_novo"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+    receitas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/lancamentos/add.html",
+        contas_caixa=contas_caixa,
+        contas_banco=contas_banco,
         despesas=despesas,
         receitas=receitas,
         date_today=datetime.today().date().isoformat(),

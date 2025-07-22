@@ -1,12 +1,16 @@
 <!-- templates/financeiro/bancos/add_list.html -->
 {% extends "base.html" %}
 
-{% block title %}Nova Conta Bancária{% endblock %}
-{% block page_title %}Nova Conta Bancária{% endblock %}
+{% block title %}
+    {% if conta.id %}Editar Conta Bancária{% else %}Nova Conta Bancária{% endif %}
+{% endblock %}
+{% block page_title %}
+    {% if conta.id %}Editar Conta Bancária{% else %}Nova Conta Bancária{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{{ url_for('bancos_add') }}" method="POST">
+    <form action="{% if conta.id %}{{ url_for('bancos_edit', id=conta.id) }}{% else %}{{ action_url }}{% endif %}" method="POST">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div class="form-group">
                 <label for="banco" class="form-label">Código do Banco:</label>
@@ -47,7 +51,9 @@
         </div>
         <div class="flex justify-end space-x-4">
             <a href="{{ url_for('bancos_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">Cadastrar Banco</button>
+            <button type="submit" class="btn-primary">
+                {% if conta.id %}Atualizar{% else %}Cadastrar{% endif %}
+            </button>
         </div>
     </form>
 </div>

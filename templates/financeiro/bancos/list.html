@@ -35,8 +35,8 @@
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.conta }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(b.saldo_atual or 0) }}</td>
                 <td class="py-3 px-4 text-sm">
-                    <a href="{{ url_for('movimento_novo', tipo='banco', conta_id=b.id) }}" class="text-blue-600 hover:text-blue-800 mr-3">
-                        <i class="fas fa-plus-circle"></i> Novo Lançamento
+                    <a href="{{ url_for('bancos_edit', id=b.id) }}" class="text-blue-600 hover:text-blue-800 mr-3">
+                        <i class="fas fa-edit"></i> Editar
                     </a>
                     <form action="{{ url_for('banco_importar_cnab', conta_id=b.id) }}" method="POST" enctype="multipart/form-data" class="inline-block">
                         <input type="file" name="arquivo" class="form-input text-sm" required>
