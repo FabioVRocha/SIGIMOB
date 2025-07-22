@@ -52,6 +52,8 @@ class MovimentoFinanceiro(db.Model):
     categoria = db.Column(db.String(100))
     historico = db.Column(db.Text)
     documento = db.Column(db.String(100))
+    despesa_id = db.Column(db.Integer)
+    receita_id = db.Column(db.Integer)
 
 
 class Conciliacao(db.Model):

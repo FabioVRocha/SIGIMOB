@@ -21,6 +21,24 @@
                 <label for="valor" class="form-label">Valor:</label>
                 <input type="number" step="0.01" id="valor" name="valor" class="form-input" required>
             </div>
+            <div class="form-group" id="despesa-field" style="display:none;">
+                <label for="despesa_id" class="form-label">Despesa:</label>
+                <select id="despesa_id" name="despesa_id" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for des in despesas %}
+                    <option value="{{ des.id }}">{{ des.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="receita-field" style="display:none;">
+                <label for="receita_id" class="form-label">Receita:</label>
+                <select id="receita_id" name="receita_id" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for rec in receitas %}
+                    <option value="{{ rec.id }}">{{ rec.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <div class="form-group">
                 <label for="data_movimento" class="form-label">Data:</label>
                 <input type="date" id="data_movimento" name="data_movimento" class="form-input" value="{{ date_today }}" required>
@@ -40,4 +58,16 @@
         </div>
     </form>
 </div>
+<script>
+    const tipoSelect = document.getElementById('tipo');
+    const despesaField = document.getElementById('despesa-field');
+    const receitaField = document.getElementById('receita-field');
+    function toggleCampos() {
+        const tipo = tipoSelect.value;
+        despesaField.style.display = tipo === 'saida' ? 'block' : 'none';
+        receitaField.style.display = tipo === 'entrada' ? 'block' : 'none';
+    }
+    tipoSelect.addEventListener('change', toggleCampos);
+    window.addEventListener('load', toggleCampos);
+</script>
 {% endblock %}

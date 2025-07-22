@@ -2301,13 +2301,27 @@ def movimento_novo(tipo, conta_id):
             "historico": request.form.get("historico"),
             "data_movimento": request.form.get("data_movimento") or datetime.today().date(),
         }
+        if data["tipo"] == "saida":
+            data["despesa_id"] = request.form.get("despesa_id") or None
+        elif data["tipo"] == "entrada":
+            data["receita_id"] = request.form.get("receita_id") or None
         criar_movimento(data)
         flash("Movimento registrado com sucesso!", "success")
         return redirect(url_for("caixas_list" if tipo == "caixa" else "bancos_list"))
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+    receitas = cur.fetchall()
+    cur.close()
+    conn.close()
     return render_template(
         "financeiro/caixas/lancamento.html",
         conta=conta,
         tipo=tipo,
+        despesas=despesas,
+        receitas=receitas,
         date_today=datetime.today().date().isoformat(),
     )
 
