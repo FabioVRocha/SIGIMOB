@@ -39,6 +39,7 @@ def listar_bancos():
         {
             'id': c.id,
             'banco': c.banco,
+            'nome_banco': c.nome_banco,
             'agencia': c.agencia,
             'conta': c.conta,
             'tipo': c.tipo,
@@ -52,6 +53,7 @@ def criar_banco():
     data = request.get_json() or {}
     conta = ContaBanco(
         banco=data.get('banco'),
+        nome_banco=data.get('nome_banco'),
         agencia=data.get('agencia'),
         conta=data.get('conta'),
         tipo=data.get('tipo'),

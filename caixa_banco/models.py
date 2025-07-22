@@ -21,7 +21,8 @@ class ContaBanco(db.Model):
     __tablename__ = 'conta_banco'
 
     id = db.Column(db.Integer, primary_key=True)
-    banco = db.Column(db.String(100), nullable=False)
+    banco = db.Column(db.String(10), nullable=False)  # código do banco
+    nome_banco = db.Column(db.String(100))
     agencia = db.Column(db.String(50), nullable=False)
     conta = db.Column(db.String(50), nullable=False)
     tipo = db.Column(db.String(20))

@@ -2266,6 +2266,7 @@ def bancos_add():
     if request.method == "POST":
         conta = ContaBanco(
             banco=request.form["banco"],
+            nome_banco=request.form.get("nome_banco"),
             agencia=request.form["agencia"],
             conta=request.form["conta"],
             tipo=request.form.get("tipo"),

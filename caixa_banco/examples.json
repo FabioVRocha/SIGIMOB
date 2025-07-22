@@ -5,7 +5,8 @@
     "saldo_inicial": 1000.00
   },
   "novo_banco": {
-    "banco": "Banco Exemplo",
+    "banco": "001",
+    "nome_banco": "Banco do Brasil S/A",
     "agencia": "0001",
     "conta": "12345-6",
     "tipo": "corrente",

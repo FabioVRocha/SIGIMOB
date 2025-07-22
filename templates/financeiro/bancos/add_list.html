@@ -9,8 +9,12 @@
     <form action="{{ url_for('bancos_add') }}" method="POST">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
             <div class="form-group">
-                <label for="banco" class="form-label">Banco:</label>
+                <label for="banco" class="form-label">Código do Banco:</label>
                 <input type="text" id="banco" name="banco" class="form-input" value="{{ conta.banco | default('') }}" required>
+            </div>
+            <div class="form-group">
+                <label for="nome_banco" class="form-label">Nome do Banco:</label>
+                <input type="text" id="nome_banco" name="nome_banco" class="form-input" value="{{ conta.nome_banco | default('') }}">
             </div>
             <div class="form-group">
                 <label for="agencia" class="form-label">Agência:</label>

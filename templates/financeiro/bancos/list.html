@@ -17,6 +17,7 @@
         <thead class="bg-gray-200">
             <tr>
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Código</th>
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Banco</th>
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Agência</th>
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Conta</th>
@@ -29,6 +30,7 @@
             <tr class="border-b border-gray-200 hover:bg-gray-50">
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.id }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.banco }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.nome_banco }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.agencia }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.conta }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(b.saldo_atual or 0) }}</td>
