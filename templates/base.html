@@ -338,21 +338,13 @@
                     </ul>
                 </li>
                 <li>
-                    <a href="{{ url_for('contas_a_receber_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-hand-holding-usd"></i> Contas a Receber
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('contas_a_pagar_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-money-bill-wave"></i> Contas a Pagar
-                    </a>
-                </li>
-                <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="financeiro-toggle">
-                        <span><i class="fas fa-wallet"></i> Caixa e Banco</span>
+                        <span><i class="fas fa-wallet"></i> Financeiro</span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
                     </div>
                     <ul id="financeiro-submenu" class="ml-6 mt-1 hidden">
+                        <li><a href="{{ url_for('contas_a_receber_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-hand-holding-usd"></i> Contas a Receber</a></li>
+                        <li><a href="{{ url_for('contas_a_pagar_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-money-bill-wave"></i> Contas a Pagar</a></li>
                         <li><a href="{{ url_for('caixas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-cash-register"></i> Caixa</a></li>
                         <li><a href="{{ url_for('bancos_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-university"></i> Banco</a></li>
                     </ul>
@@ -473,7 +465,7 @@
                     imoveisToggleEl.classList.remove('active');
                 }
 
-                // Lógica para o menu expansível "Caixa e Banco"
+                // Lógica para o menu expansível "Financeiro"
                 const finToggleEl = document.getElementById('financeiro-toggle');
                 const finSubmenu = document.getElementById('financeiro-submenu');
                 const finSubmenuItems = finSubmenu ? finSubmenu.querySelectorAll('.sidebar-nav-item') : [];
@@ -553,7 +545,7 @@
                 });
             }
 
-            // Event listener para o toggle do menu "Caixa e Banco"
+            // Event listener para o toggle do menu "Financeiro"
             const finToggleElement = document.getElementById('financeiro-toggle');
             if (finToggleElement) {
                 finToggleElement.addEventListener('click', () => {
