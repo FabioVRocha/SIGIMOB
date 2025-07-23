@@ -5,6 +5,16 @@
 
 {% block content %}
 <div id="map" style="height: 600px; width: 100%;"></div>
+<div class="mt-4 flex space-x-8">
+    <div class="flex items-center">
+        <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png" class="w-4 h-7" alt="Marcador azul">
+        <span class="ml-2">Contrato de aluguel ativo</span>
+    </div>
+    <div class="flex items-center">
+        <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png" class="w-4 h-7" alt="Marcador vermelho">
+        <span class="ml-2">Sem contrato de aluguel ativo</span>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
