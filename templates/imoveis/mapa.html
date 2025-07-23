@@ -51,11 +51,15 @@
             imoveis.forEach(imovel => {
                 if (imovel.latitude && imovel.longitude) {
                     const icon = imovel.contrato_ativo ? blueIcon : redIcon;
-                    L.marker([imovel.latitude, imovel.longitude], { icon })
-                        .addTo(map)
-                        .bindPopup(
-                            `<b>ID:</b> ${imovel.id}<br><b>Matrícula:</b> ${imovel.matricula || 'N/A'}`
-                        );
+                    const marker = L.marker([imovel.latitude, imovel.longitude], { icon }).addTo(map);
+                    marker.bindPopup(`<b>ID:</b> ${imovel.id}<br><b>Matrícula:</b> ${imovel.matricula || 'N/A'}`);
+                    const tooltipContent =
+                        `<b>${imovel.endereco}, ${imovel.bairro}</b><br>` +
+                        `IPTU: ${imovel.inscricao_iptu || 'N/A'}<br>` +
+                        `Cliente: ${imovel.cliente_nome || 'Sem contrato ativo'}`;
+                    marker.bindTooltip(tooltipContent);
+                    marker.on('mouseover', function () { this.openTooltip(); });
+                    marker.on('mouseout', function () { this.closeTooltip(); });
                 }
             });
         });

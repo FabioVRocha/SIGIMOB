@@ -108,6 +108,10 @@
                     <input type="file" id="anexos" name="anexos" class="form-input" multiple>
                     <p class="text-xs text-gray-500 mt-1">Tipos permitidos: .png, .jpg, .jpeg, .gif, .pdf, .doc, .docx, .sql</p>
                 </div>
+                <div class="form-group mt-4">
+                    <label for="fotos" class="form-label">Fotos do Imóvel (máx. 4):</label>
+                    <input type="file" id="fotos" name="fotos" class="form-input" accept="image/*" multiple>
+                </div>
 
                 {% if anexos %}
                 <div class="mt-4">

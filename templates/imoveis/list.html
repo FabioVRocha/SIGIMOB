@@ -52,6 +52,9 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.inscricao_iptu | default('N/A') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f" | format(imovel.valor_previsto_aluguel | default(0.00)) }}</td>
                     <td class="py-3 px-4 text-sm">
+                        <button type="button" class="text-green-600 hover:text-green-800 mr-3 view-photos-btn" data-id="{{ imovel.id }}" title="Ver Fotos">
+                            <i class="fas fa-images"></i>
+                        </button>
                         <a href="{{ url_for('imoveis_edit', id=imovel.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
@@ -70,4 +73,45 @@
     <p class="text-center text-gray-600">Nenhum imóvel encontrado.</p>
     {% endif %}
 </div>
+
+<div id="photos-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closePhotosModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Fotos do Imóvel</h2>
+        <div id="photos-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.view-photos-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            fetch(`/imoveis/fotos/${id}`)
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('photos-container');
+                    container.innerHTML = '';
+                    if (data.length === 0) {
+                        container.innerHTML = '<p class="text-center">Sem fotos cadastradas.</p>';
+                    } else {
+                        data.forEach(url => {
+                            const img = document.createElement('img');
+                            img.src = url;
+                            img.className = 'mb-2 max-w-full h-auto';
+                            container.appendChild(img);
+                        });
+                    }
+                    document.getElementById('photos-modal').style.display = 'flex';
+                });
+        });
+    });
+});
+function closePhotosModal(){
+    document.getElementById('photos-modal').style.display='none';
+}
+</script>
 {% endblock %}

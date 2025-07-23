@@ -1,7 +1,17 @@
 # app.py
 # Este é o arquivo principal da sua aplicação Flask.
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    flash,
+    send_from_directory,
+    jsonify,
+)
 import psycopg2
 from psycopg2 import extras
 import os
@@ -70,6 +80,34 @@ def get_db_connection():
 # Função auxiliar para verificar extensões de arquivo permitidas
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    """Serve arquivos enviados pelo usuário."""
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+@app.route("/imoveis/fotos/<int:imovel_id>")
+@login_required
+def imoveis_fotos(imovel_id):
+    """Retorna as URLs das fotos de um imóvel em formato JSON."""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        "SELECT nome_arquivo FROM imovel_anexos WHERE imovel_id = %s AND tipo_anexo = 'foto'",
+        (imovel_id,),
+    )
+    fotos = [
+        url_for(
+            "uploaded_file",
+            filename=os.path.join("imoveis_anexos", row["nome_arquivo"]),
+        )
+        for row in cur.fetchall()
+    ]
+    cur.close()
+    conn.close()
+    return jsonify(fotos)
 
 
 # Decorador para verificar se o usuário está logado
@@ -577,12 +615,22 @@ def imoveis_mapa():
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute(
         """
-        SELECT i.id, i.matricula, i.latitude, i.longitude,
-               EXISTS(
-                   SELECT 1 FROM contratos_aluguel c
-                   WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
-               ) AS contrato_ativo
+        SELECT
+            i.id,
+            i.matricula,
+            i.endereco,
+            i.bairro,
+            i.cidade,
+            i.estado,
+            i.inscricao_iptu,
+            i.latitude,
+            i.longitude,
+            (c.id IS NOT NULL) AS contrato_ativo,
+            p.razao_social_nome AS cliente_nome
         FROM imoveis i
+        LEFT JOIN contratos_aluguel c
+            ON c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+        LEFT JOIN pessoas p ON c.cliente_id = p.id
         WHERE i.latitude IS NOT NULL AND i.longitude IS NOT NULL
         """
     )
@@ -665,7 +713,7 @@ def imoveis_add():
             )
             imovel_id = cur.fetchone()[0]
 
-            # Lidar com uploads de arquivos (anexos e fotos)
+            # Lidar com uploads de documentos
             if "anexos" in request.files:
                 files = request.files.getlist("anexos")
                 for file in files:
@@ -682,7 +730,27 @@ def imoveis_add():
                                 filename,
                                 filepath,
                                 "documento",
-                            ),  # Ou "foto" dependendo da lógica que você implementar para diferenciar
+                            ),
+                        )
+
+            # Upload de fotos (limite de 4)
+            if "fotos" in request.files:
+                fotos = request.files.getlist("fotos")[:4]
+                for file in fotos:
+                    if file and allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        filepath = os.path.join(
+                            app.config["UPLOAD_FOLDER"], "imoveis_anexos", filename
+                        )
+                        file.save(filepath)
+                        cur.execute(
+                            "INSERT INTO imovel_anexos (imovel_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
+                            (
+                                imovel_id,
+                                filename,
+                                filepath,
+                                "foto",
+                            ),
                         )
             
             conn.commit()
@@ -766,7 +834,7 @@ def imoveis_edit(id):
                 ),
             )
 
-            # Lidar com novos uploads de arquivos
+            # Lidar com novos uploads de documentos
             if "anexos" in request.files:
                 files = request.files.getlist("anexos")
                 for file in files:
@@ -778,7 +846,22 @@ def imoveis_edit(id):
                         file.save(filepath)
                         cur.execute(
                             "INSERT INTO imovel_anexos (imovel_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
-                            (id, filename, filepath, "documento"),  # Ou "foto"
+                            (id, filename, filepath, "documento"),
+                        )
+
+            # Upload de novas fotos (limite de 4 por envio)
+            if "fotos" in request.files:
+                fotos = request.files.getlist("fotos")[:4]
+                for file in fotos:
+                    if file and allowed_file(file.filename):
+                        filename = secure_filename(file.filename)
+                        filepath = os.path.join(
+                            app.config["UPLOAD_FOLDER"], "imoveis_anexos", filename
+                        )
+                        file.save(filepath)
+                        cur.execute(
+                            "INSERT INTO imovel_anexos (imovel_id, nome_arquivo, caminho_arquivo, tipo_anexo) VALUES (%s, %s, %s, %s)",
+                            (id, filename, filepath, "foto"),
                         )
             
             conn.commit()
