@@ -20,9 +20,28 @@
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
 
+            const blueIcon = new L.Icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+
+            const redIcon = new L.Icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+
             imoveis.forEach(imovel => {
                 if (imovel.latitude && imovel.longitude) {
-                    L.marker([imovel.latitude, imovel.longitude])
+                    const icon = imovel.contrato_ativo ? blueIcon : redIcon;
+                    L.marker([imovel.latitude, imovel.longitude], { icon })
                         .addTo(map)
                         .bindPopup(
                             `<b>ID:</b> ${imovel.id}<br><b>Matrícula:</b> ${imovel.matricula || 'N/A'}`

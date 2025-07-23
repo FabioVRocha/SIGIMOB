@@ -576,8 +576,15 @@ def imoveis_mapa():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute(
-        "SELECT id, matricula, latitude, longitude FROM imoveis "
-        "WHERE latitude IS NOT NULL AND longitude IS NOT NULL"
+        """
+        SELECT i.id, i.matricula, i.latitude, i.longitude,
+               EXISTS(
+                   SELECT 1 FROM contratos_aluguel c
+                   WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+               ) AS contrato_ativo
+        FROM imoveis i
+        WHERE i.latitude IS NOT NULL AND i.longitude IS NOT NULL
+        """
     )
     imoveis = cur.fetchall()
     # Converte coordenadas DECIMAL do banco para float para uso no JavaScript
