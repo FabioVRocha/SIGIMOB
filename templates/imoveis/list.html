@@ -75,10 +75,13 @@
 </div>
 
 <div id="photos-modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content photo-modal-content">
         <span class="close-button" onclick="closePhotosModal()">&times;</span>
         <h2 class="text-lg font-semibold mb-4">Fotos do Imóvel</h2>
-        <div id="photos-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        <div id="main-photo-wrapper" class="flex justify-center mb-4">
+            <img id="main-photo" class="photo-main rounded shadow" src="" alt="Foto principal">
+        </div>
+        <div id="thumbs-container" class="flex justify-center gap-2 flex-wrap"></div>
     </div>
 </div>
 
@@ -93,16 +96,25 @@ document.addEventListener('DOMContentLoaded', () => {
             fetch(`/imoveis/fotos/${id}`)
                 .then(r => r.json())
                 .then(data => {
-                    const container = document.getElementById('photos-container');
-                    container.innerHTML = '';
+                    const main = document.getElementById('main-photo');
+                    const thumbs = document.getElementById('thumbs-container');
+                    thumbs.innerHTML = '';
                     if (data.length === 0) {
-                        container.innerHTML = '<p class="text-center">Sem fotos cadastradas.</p>';
+                        main.style.display = 'none';
+                        thumbs.innerHTML = '<p class="text-center">Sem fotos cadastradas.</p>';
                     } else {
+                        main.style.display = '';
+                        main.src = data[0];
                         data.forEach(url => {
                             const img = document.createElement('img');
                             img.src = url;
-                            img.className = 'mb-2 max-w-full h-auto';
-                            container.appendChild(img);
+                            img.className = 'photo-thumb object-cover rounded cursor-pointer';
+                            img.addEventListener('click', () => {
+                                const current = main.src;
+                                main.src = url;
+                                img.src = current;
+                            });
+                            thumbs.appendChild(img);
                         });
                     }
                     document.getElementById('photos-modal').style.display = 'flex';
