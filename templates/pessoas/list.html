@@ -33,6 +33,7 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Nome/Razão Social</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Tipo</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Telefone</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Contato</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
                 </tr>
@@ -45,6 +46,7 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.razao_social_nome }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.tipo }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.telefone | default('') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.contato | default('') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.status }}</td>
                     <td class="py-3 px-4 text-sm">
                         <a href="{{ url_for('pessoas_edit', id=pessoa.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">

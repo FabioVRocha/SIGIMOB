@@ -15,6 +15,7 @@ CREATE TABLE pessoas (
     estado CHAR(2),
     cep VARCHAR(10),
     telefone VARCHAR(20),
+    contato VARCHAR(255),
     observacao TEXT,
     tipo tipo_pessoa_enum NOT NULL,
     status status_geral_enum NOT NULL DEFAULT 'Ativo',

@@ -409,6 +409,7 @@ def pessoas_add():
             estado = request.form.get("estado")
             cep = request.form.get("cep", "").replace("-", "")
             telefone = request.form.get("telefone")
+            contato = request.form.get("contato")
             observacao = request.form.get("observacao")
             tipo = request.form["tipo"]
             status = request.form["status"]
@@ -442,8 +443,8 @@ def pessoas_add():
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, observacao, tipo, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, contato, observacao, tipo, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     documento,
@@ -455,6 +456,7 @@ def pessoas_add():
                     estado,
                     cep,
                     telefone,
+                    contato,
                     observacao,
                     tipo,
                     status,
@@ -497,6 +499,7 @@ def pessoas_edit(id):
             estado = request.form.get("estado")
             cep = request.form.get("cep", "").replace("-", "")
             telefone = request.form.get("telefone")
+            contato = request.form.get("contato")
             observacao = request.form.get("observacao")
             tipo = request.form["tipo"]
             status = request.form["status"]
@@ -518,7 +521,7 @@ def pessoas_edit(id):
             cur.execute(
                 """
                 UPDATE pessoas
-                SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, observacao = %s, tipo = %s, status = %s
+                SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, contato = %s, observacao = %s, tipo = %s, status = %s
                 WHERE id = %s
                 """,
                 (
@@ -531,6 +534,7 @@ def pessoas_edit(id):
                     estado,
                     cep,
                     telefone,
+                    contato,
                     observacao,
                     tipo,
                     status,
