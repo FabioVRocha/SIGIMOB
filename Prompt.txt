@@ -258,7 +258,7 @@ receita_id (FK para Cadastro de Receitas, not null)
 
 cliente_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Cliente', not null)
 
-parcela_numero (INTEGER)
+titulo (VARCHAR)
 
 data_vencimento (DATE, not null)
 

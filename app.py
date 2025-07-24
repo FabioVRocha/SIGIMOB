@@ -1958,7 +1958,7 @@ def contas_a_receber_add():
             contrato_id = request.form.get("contrato_id") or None
             receita_id = request.form["receita_id"]
             cliente_id = request.form["cliente_id"]
-            parcela_numero = request.form.get("parcela_numero") or None
+            titulo = request.form.get("titulo") or None
             data_vencimento = request.form["data_vencimento"]
             valor_previsto = request.form["valor_previsto"]
             data_pagamento = request.form.get("data_pagamento") or None
@@ -1973,7 +1973,7 @@ def contas_a_receber_add():
             cur.execute(
                 """
                 INSERT INTO contas_a_receber (
-                    contrato_id, receita_id, cliente_id, parcela_numero,
+                    contrato_id, receita_id, cliente_id, titulo,
                     data_vencimento, valor_previsto, data_pagamento, valor_pago,
                     valor_desconto, valor_multa, valor_juros, observacao,
                     status_conta, origem_id
@@ -1983,7 +1983,7 @@ def contas_a_receber_add():
                     contrato_id,
                     receita_id,
                     cliente_id,
-                    parcela_numero,
+                    titulo,
                     data_vencimento,
                     valor_previsto,
                     data_pagamento,
@@ -2032,7 +2032,7 @@ def contas_a_receber_edit(id):
             contrato_id = request.form.get("contrato_id") or None
             receita_id = request.form["receita_id"]
             cliente_id = request.form["cliente_id"]
-            parcela_numero = request.form.get("parcela_numero") or None
+            titulo = request.form.get("titulo") or None
             data_vencimento = request.form["data_vencimento"]
             valor_previsto = request.form["valor_previsto"]
             data_pagamento = request.form.get("data_pagamento") or None
@@ -2047,7 +2047,7 @@ def contas_a_receber_edit(id):
             cur.execute(
                 """
                 UPDATE contas_a_receber
-                SET contrato_id=%s, receita_id=%s, cliente_id=%s, parcela_numero=%s,
+                SET contrato_id=%s, receita_id=%s, cliente_id=%s, titulo=%s,
                     data_vencimento=%s, valor_previsto=%s, data_pagamento=%s,
                     valor_pago=%s, valor_desconto=%s, valor_multa=%s, valor_juros=%s,
                     observacao=%s, status_conta=%s, origem_id=%s
@@ -2057,7 +2057,7 @@ def contas_a_receber_edit(id):
                     contrato_id,
                     receita_id,
                     cliente_id,
-                    parcela_numero,
+                    titulo,
                     data_vencimento,
                     valor_previsto,
                     data_pagamento,

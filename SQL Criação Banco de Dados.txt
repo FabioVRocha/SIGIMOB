@@ -144,7 +144,7 @@ CREATE TABLE contas_a_receber (
     contrato_id INTEGER REFERENCES contratos_aluguel(id), -- Pode ser NULO para outras receitas
     receita_id INTEGER NOT NULL REFERENCES receitas_cadastro(id),
     cliente_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Cliente'
-    parcela_numero INTEGER,
+    titulo VARCHAR(255),
     data_vencimento DATE NOT NULL,
     valor_previsto NUMERIC(10,2) NOT NULL,
     data_pagamento DATE,
