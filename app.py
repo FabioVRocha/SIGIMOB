@@ -319,6 +319,10 @@ def dashboard():
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM imoveis")
     total_imoveis_ativos = cur.fetchone()[0]
+    cur.execute(
+        "SELECT COUNT(*) FROM contratos_aluguel WHERE status_contrato = 'Ativo'"
+    )
+    total_contratos_ativos = cur.fetchone()[0]
     cur.close()
     conn.close()
     meses_labels = [
@@ -350,6 +354,7 @@ def dashboard():
         exames_vencidos=exames_vencidos,
         exames_proximos=exames_proximos,
         total_imoveis_ativos=total_imoveis_ativos,
+        total_contratos_ativos=total_contratos_ativos,
         meses_labels=meses_labels,
         contratacoes=contratacoes,
         demissoes=demissoes,
