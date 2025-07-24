@@ -88,6 +88,18 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
+# Decorador para verificar se o usuário está logado
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Você precisa estar logado para acessar esta página.", "info")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 @app.route("/imoveis/fotos/<int:imovel_id>")
 @login_required
 def imoveis_fotos(imovel_id):
