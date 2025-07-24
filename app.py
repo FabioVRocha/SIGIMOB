@@ -15,6 +15,7 @@ from flask import (
 import psycopg2
 from psycopg2 import extras
 import os
+import posixpath
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -113,7 +114,7 @@ def imoveis_fotos(imovel_id):
     fotos = [
         url_for(
             "uploaded_file",
-            filename=os.path.join("imoveis_anexos", row["nome_arquivo"]),
+            filename=posixpath.join("imoveis_anexos", row["nome_arquivo"]),
         )
         for row in cur.fetchall()
     ]
