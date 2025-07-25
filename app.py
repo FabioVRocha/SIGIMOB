@@ -719,12 +719,12 @@ def imoveis_mapa():
         """
     )
     imoveis = cur.fetchall()
-    # Converte coordenadas DECIMAL do banco para float para uso no JavaScript
+    # Converte coordenadas para float quando possível para uso no JavaScript
     imoveis = [
         {
             **dict(row),
-            "latitude": float(row["latitude"]),
-            "longitude": float(row["longitude"]),
+            "latitude": float(row["latitude"]) if row["latitude"] is not None else None,
+            "longitude": float(row["longitude"]) if row["longitude"] is not None else None,
         }
         for row in imoveis
     ]
@@ -750,8 +750,8 @@ def imoveis_add():
             folha = request.form.get("folha")
             matricula = request.form.get("matricula")
             inscricao_iptu = request.form.get("inscricao_iptu")
-            latitude = parse_decimal(request.form.get("latitude"))
-            longitude = parse_decimal(request.form.get("longitude"))
+            latitude = request.form.get("latitude") or None
+            longitude = request.form.get("longitude") or None
             data_aquisicao_str = request.form.get("data_aquisicao")
             valor_imovel = parse_decimal(request.form.get("valor_imovel"))
             valor_previsto_aluguel = parse_decimal(
@@ -876,8 +876,8 @@ def imoveis_edit(id):
             folha = request.form.get("folha")
             matricula = request.form.get("matricula")
             inscricao_iptu = request.form.get("inscricao_iptu")
-            latitude = parse_decimal(request.form.get("latitude"))
-            longitude = parse_decimal(request.form.get("longitude"))
+            latitude = request.form.get("latitude") or None
+            longitude = request.form.get("longitude") or None
             data_aquisicao_str = request.form.get("data_aquisicao")
             valor_imovel = parse_decimal(request.form.get("valor_imovel"))
             valor_previsto_aluguel = parse_decimal(
