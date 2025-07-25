@@ -230,19 +230,32 @@
         .text-icon-pink { color: var(--clr-pink); }
         .text-icon-gray { color: var(--clr-medium-gray); }
 
+        .btn-primary,
+        .btn-secondary,
+        .btn-danger {
+            @apply font-semibold py-2 px-5 rounded-full shadow-md transition-all duration-200 transform hover:-translate-y-0.5;
+        }
         .btn-primary {
-            @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
+            background-image: linear-gradient(90deg, var(--clr-light-blue), color-mix(in srgb, var(--clr-light-blue) 80%, var(--clr-dark-blue)));
+            color: var(--clr-white);
+        }
+        .btn-primary:hover {
+            background-image: linear-gradient(90deg, var(--clr-dark-blue), var(--clr-light-blue));
         }
         .btn-secondary {
-            background-color: var(--clr-medium-gray);
+            background-image: linear-gradient(90deg, var(--clr-medium-gray), color-mix(in srgb, var(--clr-medium-gray) 80%, white));
             color: var(--clr-white);
             @apply font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
         }
         .btn-secondary:hover {
-            background-color: color-mix(in srgb, var(--clr-medium-gray) 80%, black);
+           background-image: linear-gradient(90deg, color-mix(in srgb, var(--clr-medium-gray) 80%, black), var(--clr-medium-gray));
         }
         .btn-danger {
-            @apply bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
+            background-image: linear-gradient(90deg, var(--clr-error), color-mix(in srgb, var(--clr-error) 80%, black));
+            color: var(--clr-white);
+        }
+        .btn-danger:hover {
+            background-image: linear-gradient(90deg, color-mix(in srgb, var(--clr-error) 80%, black), var(--clr-error));
         }
 
         /* Estilos para o modal de confirmação */
