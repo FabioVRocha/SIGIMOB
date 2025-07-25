@@ -17,6 +17,11 @@
     <form action="{{ url_for('pessoas_list') }}" method="GET" class="mb-6">
         <div class="flex items-center space-x-2">
             <input type="text" name="search" placeholder="Buscar por documento ou nome..." class="form-input flex-grow" value="{{ search_query }}">
+            <select name="status" class="form-select">
+                <option value="Ambos" {% if status_filter == 'Ambos' %}selected{% endif %}>Ambos</option>
+                <option value="Ativo" {% if status_filter == 'Ativo' %}selected{% endif %}>Ativo</option>
+                <option value="Inativo" {% if status_filter == 'Inativo' %}selected{% endif %}>Inativo</option>
+            </select>
             <button type="submit" class="btn-primary">
                 <i class="fas fa-search"></i> Buscar
             </button>

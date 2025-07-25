@@ -375,22 +375,36 @@ def pessoas_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     search_query = request.args.get("search", "")
+    status_filter = request.args.get("status", "Ambos")
+
+    base_query = "SELECT * FROM pessoas"
+    conditions = []
+    params = []
+
     if search_query:
-        cur.execute(
-            """
-            SELECT * FROM pessoas
-            WHERE documento ILIKE %s OR razao_social_nome ILIKE %s OR nome_fantasia ILIKE %s
-            ORDER BY data_cadastro DESC
-        """,
-            (f"%{search_query}%", f"%{search_query}%", f"%{search_query}%"),
+        conditions.append(
+            "(documento ILIKE %s OR razao_social_nome ILIKE %s OR nome_fantasia ILIKE %s)"
         )
-    else:
-        cur.execute("SELECT * FROM pessoas ORDER BY data_cadastro DESC")
+        params.extend([
+            f"%{search_query}%",
+            f"%{search_query}%",
+            f"%{search_query}%",
+        ])
+
+    if status_filter and status_filter.lower() != "ambos":
+        conditions.append("status = %s")
+        params.append(status_filter)
+
+    if conditions:
+        base_query += " WHERE " + " AND ".join(conditions)
+
+    base_query += " ORDER BY data_cadastro DESC"
+    cur.execute(base_query, tuple(params))
     pessoas = cur.fetchall()
     cur.close()
     conn.close()
     return render_template(
-        "pessoas/list.html", pessoas=pessoas, search_query=search_query
+        "pessoas/list.html", pessoas=pessoas, search_query=search_query, status_filter=status_filter
     )
 
 
