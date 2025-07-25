@@ -239,20 +239,21 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            transition: background-position 0.3s, box-shadow 0.3s, transform 0.2s;
         }
         .btn:hover {
             background-position: right;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
         }
         .btn-primary {
-            background-image: linear-gradient(90deg, var(--clr-purple), var(--clr-indigo));
+            background-image: linear-gradient(120deg, var(--clr-purple), var(--clr-indigo));
         }
         .btn-secondary {
-            background-image: linear-gradient(90deg, var(--clr-light-blue), var(--clr-dark-blue));
+            background-image: linear-gradient(120deg, var(--clr-light-blue), var(--clr-dark-blue));
         }
         .btn-danger {
-            background-image: linear-gradient(90deg, var(--clr-error), #b31217);
+            background-image: linear-gradient(120deg, var(--clr-error), #b31217);
         }
         .sidebar-btn {
             background-image: linear-gradient(120deg, var(--clr-medium-gray), #6b7280);
