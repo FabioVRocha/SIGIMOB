@@ -82,12 +82,33 @@ def get_db_connection():
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Converte valores decimais enviados pelo formulário, aceitando vírgula ou
-# ponto como separador. Retorna None se o valor estiver vazio.
+# Converte valores decimais enviados pelo formulário, aceitando vírgulas ou
+# pontos como separadores de milhares e decimais. Retorna None se o valor
+# estiver vazio ou não puder ser convertido em número.
 def parse_decimal(value):
-    if value is None or value == "":
+    if value is None:
         return None
-    return float(value.replace(",", "."))
+    value = str(value).strip()
+    if value == "":
+        return None
+
+    # Se contiver tanto "," quanto ".", assume que o separador decimal é o
+    # último caracter dentre eles e remove os demais como separadores de
+    # milhares.
+    if "," in value and "." in value:
+        if value.rfind(",") > value.rfind("."):
+            value = value.replace(".", "").replace(",", ".")
+        else:
+            value = value.replace(",", "")
+    elif "," in value:
+        value = value.replace(".", "").replace(",", ".")
+    else:
+        value = value.replace(",", "")
+
+    try:
+        return float(value)
+    except ValueError:
+        return None
 
 
 @app.route("/uploads/<path:filename>")
