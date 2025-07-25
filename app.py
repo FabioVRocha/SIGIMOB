@@ -1813,7 +1813,15 @@ def reajustes_add():
             contrato = cur.fetchone()
             if not contrato:
                 flash("Contrato não encontrado.", "danger")
-                return render_template("reajustes_contrato/add_list.html", reajuste=request.form)
+                cur.execute(
+                    "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel ORDER BY id"
+                )
+                contratos = cur.fetchall()
+                return render_template(
+                    "reajustes_contrato/add_list.html",
+                    reajuste=request.form,
+                    contratos=contratos,
+                )
             valor_atual = float(contrato["valor_parcela"])
             novo_valor = round(valor_atual * (1 + percentual_reajuste / 100), 2)
             observacao = request.form.get("observacao")
@@ -1834,11 +1842,27 @@ def reajustes_add():
         except Exception as e:
             conn.rollback()
             flash(f"Erro ao cadastrar reajuste: {e}", "danger")
-            return render_template("reajustes_contrato/add_list.html", reajuste=request.form)
+            cur.execute(
+                "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel ORDER BY id"
+            )
+            contratos = cur.fetchall()
+            return render_template(
+                "reajustes_contrato/add_list.html",
+                reajuste=request.form,
+                contratos=contratos,
+            )
         finally:
             cur.close()
             conn.close()
-    return render_template("reajustes_contrato/add_list.html", reajuste={})
+    cur.execute(
+        "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel ORDER BY id"
+    )
+    contratos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "reajustes_contrato/add_list.html", reajuste={}, contratos=contratos
+    )
 
 
 @app.route("/reajustes/edit/<int:id>", methods=["GET", "POST"])
@@ -1859,7 +1883,15 @@ def reajustes_edit(id):
             contrato = cur.fetchone()
             if not contrato:
                 flash("Contrato não encontrado.", "danger")
-                return render_template("reajustes_contrato/add_list.html", reajuste=request.form)
+                cur.execute(
+                    "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel ORDER BY id"
+                )
+                contratos = cur.fetchall()
+                return render_template(
+                    "reajustes_contrato/add_list.html",
+                    reajuste=request.form,
+                    contratos=contratos,
+                )
             valor_atual = float(contrato["valor_parcela"])
             novo_valor = round(valor_atual * (1 + percentual_reajuste / 100), 2)
             observacao = request.form.get("observacao")
@@ -1886,12 +1918,18 @@ def reajustes_edit(id):
         (id,),
     )
     reajuste = cur.fetchone()
+    cur.execute(
+        "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel ORDER BY id"
+    )
+    contratos = cur.fetchall()
     cur.close()
     conn.close()
     if reajuste is None:
         flash("Reajuste não encontrado.", "danger")
         return redirect(url_for("reajustes_list"))
-    return render_template("reajustes_contrato/add_list.html", reajuste=reajuste)
+    return render_template(
+        "reajustes_contrato/add_list.html", reajuste=reajuste, contratos=contratos
+    )
 
 
 @app.route("/reajustes/delete/<int:id>", methods=["POST"])

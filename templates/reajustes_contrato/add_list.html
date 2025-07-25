@@ -13,9 +13,19 @@
 <div class="bg-white p-6 rounded-lg shadow-xl">
     <form action="{% if reajuste.id %}{{ url_for('reajustes_edit', id=reajuste.id) }}{% else %}{{ url_for('reajustes_add') }}{% endif %}" method="POST">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {% set ns = namespace(text='') %}
+            {% for c in contratos %}
+                {% if c.id == reajuste.contrato_id %}
+                    {% set ns.text = c.id ~ ' - ' ~ c.nome_inquilino %}
+                {% endif %}
+            {% endfor %}
             <div class="form-group">
-                <label for="contrato_id" class="form-label">ID do Contrato:</label>
-                <input type="number" id="contrato_id" name="contrato_id" class="form-input" value="{{ reajuste.contrato_id | default('') }}" required onblur="buscarContrato()">
+                <label for="contrato_display" class="form-label">Contrato:</label>
+                <div class="flex">
+                    <input type="text" id="contrato_display" class="form-input flex-grow" readonly value="{{ ns.text }}">
+                    <button type="button" class="btn-secondary ml-2" onclick="openContratoModal()">Selecionar</button>
+                </div>
+                <input type="hidden" id="contrato_id" name="contrato_id" value="{{ reajuste.contrato_id | default('') }}">
             </div>
             <div class="form-group">
                 <label for="info_contrato" class="form-label">Inquilino:</label>
@@ -48,6 +58,35 @@
         </div>
     </form>
 </div>
+
+<div id="contrato-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeContratoModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Contrato</h2>
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Inquilino</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in contratos %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ c.id }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ c.nome_inquilino }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-contrato-btn" data-id="{{ c.id }}" data-nome="{{ c.nome_inquilino }}" data-valor="{{ c.valor_parcela }}">Escolher</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 <script>
 async function buscarContrato() {
     const cid = document.getElementById('contrato_id').value;
@@ -72,5 +111,29 @@ function calcularNovoValor() {
         document.getElementById('novo_valor_parcela').value = novoValor.toFixed(2);
     }
 }
+
+function openContratoModal(){
+    document.getElementById('contrato-modal').style.display = 'flex';
+}
+function closeContratoModal(){
+    document.getElementById('contrato-modal').style.display = 'none';
+}
+function selectContrato(btn){
+    document.getElementById('contrato_id').value = btn.dataset.id;
+    document.getElementById('contrato_display').value = btn.dataset.id + ' - ' + btn.dataset.nome;
+    document.getElementById('info_contrato').value = btn.dataset.nome;
+    document.getElementById('valor_atual').value = parseFloat(btn.dataset.valor).toFixed(2);
+    closeContratoModal();
+    calcularNovoValor();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.select-contrato-btn').forEach(btn => {
+        btn.addEventListener('click', () => selectContrato(btn));
+    });
+    if(document.getElementById('contrato_id').value){
+        buscarContrato();
+    }
+});
 </script>
 {% endblock %}
