@@ -3207,5 +3207,9 @@ def empresa_delete(id):
     return redirect(url_for("empresa_list"))
 
 # --- Execução da Aplicação ---
+
 if __name__ == "__main__":
-    app.run(debug=True) # Mude debug para False em produção
+    # Ao definir host="0.0.0.0" o Flask escuta em todas as interfaces de
+    # rede, permitindo acesso por outras máquinas da rede local.
+    # Altere debug para False em produção.
+    app.run(host="0.0.0.0", port=5000, debug=True)
