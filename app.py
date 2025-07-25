@@ -110,6 +110,26 @@ def parse_decimal(value):
     except ValueError:
         return None
 
+# Garante que a coluna max_contratos exista na tabela imoveis
+def ensure_max_contratos_column():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='imoveis' AND column_name='max_contratos'
+        """
+    )
+    exists = cur.fetchone() is not None
+    if not exists:
+        cur.execute(
+            "ALTER TABLE imoveis ADD COLUMN max_contratos INTEGER DEFAULT 1"
+        )
+        conn.commit()
+    cur.close()
+    conn.close()
+
+
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
