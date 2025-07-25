@@ -50,6 +50,15 @@
             <p class="text-sm text-gray-700">Total de imóveis ativos no sistema.</p>
         </div>
 
+        <!-- Card: Percentual de Imóveis Alugados -->
+        <div class="dashboard-card rented-percentage-card">
+            <div class="dashboard-card-header">
+                <i class="fas fa-percentage"></i> Imóveis Alugados
+            </div>
+            <p class="text-3xl font-bold text-dark-blue">{{ '{:.1f}'.format(percent_imoveis_alugados) }}%</p>
+            <p class="text-sm text-gray-700">Proporção de imóveis com contrato ativo.</p>
+        </div>
+
         <!-- Novo Card: Contratos Ativos -->
         <div class="dashboard-card active-contracts-card">
             <div class="dashboard-card-header">

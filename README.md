@@ -49,4 +49,13 @@ Sistema de Gestão de Imóveis e Aluguéis.
    O servidor iniciará na porta padrão do Flask (5000). Acesse
    `http://localhost:5000` pelo navegador.
 
+A aplicação é executada ouvindo em todas as interfaces de rede
+   (`0.0.0.0`), permitindo o acesso a partir de outros computadores da
+   mesma rede. Se o IP do servidor for `192.168.0.254`, por exemplo,
+   utilize `http://192.168.0.254:5000/` no navegador para acessar o
+   sistema.
+
+   Caso o endereço ainda não seja acessível, verifique se a porta 5000
+   está liberada no firewall do servidor.
+
 As pastas de upload serão criadas automaticamente no primeiro uso.

@@ -371,6 +371,15 @@ def dashboard():
         "SELECT COUNT(*) FROM contratos_aluguel WHERE status_contrato = 'Ativo'"
     )
     total_contratos_ativos = cur.fetchone()[0]
+    cur.execute(
+        "SELECT COUNT(DISTINCT imovel_id) FROM contratos_aluguel WHERE status_contrato = 'Ativo'"
+    )
+    imoveis_com_contrato = cur.fetchone()[0]
+    percent_imoveis_alugados = (
+        imoveis_com_contrato / total_imoveis_ativos * 100
+        if total_imoveis_ativos
+        else 0
+    )
     cur.close()
     conn.close()
     meses_labels = [
@@ -403,6 +412,7 @@ def dashboard():
         exames_proximos=exames_proximos,
         total_imoveis_ativos=total_imoveis_ativos,
         total_contratos_ativos=total_contratos_ativos,
+        percent_imoveis_alugados=percent_imoveis_alugados,
         meses_labels=meses_labels,
         contratacoes=contratacoes,
         demissoes=demissoes,
