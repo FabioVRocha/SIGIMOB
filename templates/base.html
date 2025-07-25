@@ -233,29 +233,28 @@
         .btn-primary,
         .btn-secondary,
         .btn-danger {
-            @apply font-semibold py-2 px-5 rounded-full shadow-md transition-all duration-200 transform hover:-translate-y-0.5;
+            @apply font-semibold py-2 px-6 rounded-full transition-all duration-200;
+            background-size: 200% 100%;
+            background-position: left;
+            color: var(--clr-white);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
         .btn-primary {
-            background-image: linear-gradient(90deg, var(--clr-light-blue), color-mix(in srgb, var(--clr-light-blue) 80%, var(--clr-dark-blue)));
-            color: var(--clr-white);
+            background-image: linear-gradient(120deg, var(--clr-light-blue), var(--clr-dark-blue));
         }
         .btn-primary:hover {
-            background-image: linear-gradient(90deg, var(--clr-dark-blue), var(--clr-light-blue));
+            background-position: right;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .btn-secondary {
-            background-image: linear-gradient(90deg, var(--clr-medium-gray), color-mix(in srgb, var(--clr-medium-gray) 80%, white));
-            color: var(--clr-white);
-            @apply font-bold py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
-        }
-        .btn-secondary:hover {
-           background-image: linear-gradient(90deg, color-mix(in srgb, var(--clr-medium-gray) 80%, black), var(--clr-medium-gray));
+            background-image: linear-gradient(120deg, var(--clr-medium-gray), #6b7280);
         }
         .btn-danger {
-            background-image: linear-gradient(90deg, var(--clr-error), color-mix(in srgb, var(--clr-error) 80%, black));
-            color: var(--clr-white);
+            background-image: linear-gradient(120deg, var(--clr-error), #c0392b);
         }
         .btn-danger:hover {
-            background-image: linear-gradient(90deg, color-mix(in srgb, var(--clr-error) 80%, black), var(--clr-error));
+            background-position: right;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
 
         /* Estilos para o modal de confirmação */
