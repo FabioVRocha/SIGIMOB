@@ -105,11 +105,9 @@
                         {% for anexo in anexos %}
                         <li class="flex items-center justify-between text-sm text-gray-700">
                             <span><i class="fas fa-file mr-2"></i> {{ anexo.nome_arquivo }}</span>
-                            <form action="{{ url_for('contrato_anexo_delete', anexo_id=anexo.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja remover este anexo?');">
-                                <button type="submit" class="text-red-600 hover:text-red-800 ml-3" title="Remover Anexo">
-                                    <i class="fas fa-times-circle"></i>
-                                </button>
-                            </form>
+                            <button type="submit" form="delete-contrato-anexo-{{ anexo.id }}" class="text-red-600 hover:text-red-800 ml-3" title="Remover Anexo" onclick="return confirm('Tem certeza que deseja remover este anexo?');">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
                         </li>
                         {% endfor %}
                     </ul>
@@ -122,6 +120,11 @@
             <button type="submit" class="btn-primary">{% if contrato.id %}Atualizar Contrato{% else %}Cadastrar Contrato{% endif %}</button>
         </div>
     </form>
+    {% if anexos %}
+    {% for anexo in anexos %}
+    <form id="delete-contrato-anexo-{{ anexo.id }}" action="{{ url_for('contrato_anexo_delete', anexo_id=anexo.id) }}" method="POST"></form>
+    {% endfor %}
+    {% endif %}
 </div>
 
 <div id="imovel-modal" class="modal">
