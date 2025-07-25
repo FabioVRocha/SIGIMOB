@@ -14,22 +14,26 @@
     <form action="{% if contrato.id %}{{ url_for('contratos_edit', id=contrato.id) }}{% else %}{{ url_for('contratos_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div class="form-group">
-                <label for="imovel_id" class="form-label">Imóvel:</label>
-                <select id="imovel_id" name="imovel_id" class="form-select" required>
-                    <option value="">Selecione...</option>
-                    {% for imovel in imoveis %}
-                    <option value="{{ imovel.id }}" {% if contrato.imovel_id == imovel.id %}selected{% endif %}>{{ imovel.endereco }}</option>
+                <label for="imovel_display" class="form-label">Imóvel:</label>
+                <div class="flex">
+                    {% set ns = namespace(text='') %}
+                    {% for im in imoveis %}
+                        {% if im.id == contrato.imovel_id %}
+                            {% set ns.text = im.endereco ~ ', ' ~ im.bairro %}
+                        {% endif %}
                     {% endfor %}
-                </select>
+                    <input type="text" id="imovel_display" class="form-input flex-grow" readonly value="{{ ns.text }}">
+                    <button type="button" class="btn-secondary ml-2" onclick="openImovelModal()">Selecionar</button>
+                </div>
+                <input type="hidden" id="imovel_id" name="imovel_id" value="{{ contrato.imovel_id | default('') }}">
             </div>
             <div class="form-group">
-                <label for="cliente_id" class="form-label">Cliente:</label>
-                <select id="cliente_id" name="cliente_id" class="form-select" required onchange="preencherDadosInquilino()">
-                    <option value="">Selecione...</option>
-                    {% for cliente in clientes %}
-                    <option value="{{ cliente.id }}" data-nome="{{ cliente.razao_social_nome }}" data-endereco="{{ cliente.endereco }}" data-bairro="{{ cliente.bairro }}" data-cidade="{{ cliente.cidade }}" data-estado="{{ cliente.estado }}" data-cep="{{ cliente.cep }}" data-telefone="{{ cliente.telefone }}" {% if contrato.cliente_id == cliente.id %}selected{% endif %}>{{ cliente.razao_social_nome }}</option>
-                    {% endfor %}
-                </select>
+                <label for="cliente_display" class="form-label">Cliente:</label>
+                <div class="flex">
+                    <input type="text" id="cliente_display" class="form-input flex-grow" readonly value="{{ contrato.nome_inquilino | default('') }}">
+                    <button type="button" class="btn-secondary ml-2" onclick="openClienteModal()">Selecionar</button>
+                </div>
+                <input type="hidden" id="cliente_id" name="cliente_id" value="{{ contrato.cliente_id | default('') }}">
             </div>
             <div class="form-group md:col-span-2">
                 <label for="nome_inquilino" class="form-label">Nome do Inquilino:</label>
@@ -119,20 +123,108 @@
         </div>
     </form>
 </div>
+
+<div id="imovel-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeImovelModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Endereço</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for imovel in imoveis %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.id }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-imovel-btn" data-id="{{ imovel.id }}" data-text="{{ imovel.endereco }}, {{ imovel.bairro }}">Escolher</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="cliente-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeClienteModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Cliente</h2>
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Nome</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cli in clientes %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ cli.id }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ cli.razao_social_nome }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-cliente-btn" data-id="{{ cli.id }}" data-nome="{{ cli.razao_social_nome }}" data-endereco="{{ cli.endereco }}" data-bairro="{{ cli.bairro }}" data-cidade="{{ cli.cidade }}" data-estado="{{ cli.estado }}" data-cep="{{ cli.cep }}" data-telefone="{{ cli.telefone }}">Escolher</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <script>
-function preencherDadosInquilino() {
-    const select = document.getElementById('cliente_id');
-    if (!select) return;
-    const opt = select.options[select.selectedIndex];
-    document.getElementById('nome_inquilino').value = opt.getAttribute('data-nome') || '';
-    document.getElementById('endereco_inquilino').value = opt.getAttribute('data-endereco') || '';
-    document.getElementById('bairro_inquilino').value = opt.getAttribute('data-bairro') || '';
-    document.getElementById('cidade_inquilino').value = opt.getAttribute('data-cidade') || '';
-    document.getElementById('estado_inquilino').value = opt.getAttribute('data-estado') || '';
-    document.getElementById('cep_inquilino').value = opt.getAttribute('data-cep') || '';
-    document.getElementById('telefone_inquilino').value = opt.getAttribute('data-telefone') || '';
+function openImovelModal(){
+    document.getElementById('imovel-modal').style.display = 'flex';
+}
+function closeImovelModal(){
+    document.getElementById('imovel-modal').style.display = 'none';
+}
+function selectImovel(id, texto){
+    document.getElementById('imovel_id').value = id;
+    document.getElementById('imovel_display').value = texto;
+    closeImovelModal();
 }
 
-document.addEventListener('DOMContentLoaded', preencherDadosInquilino);
+function openClienteModal(){
+    document.getElementById('cliente-modal').style.display = 'flex';
+}
+function closeClienteModal(){
+    document.getElementById('cliente-modal').style.display = 'none';
+}
+function selectCliente(btn){
+    document.getElementById('cliente_id').value = btn.dataset.id;
+    document.getElementById('cliente_display').value = btn.dataset.nome;
+    document.getElementById('nome_inquilino').value = btn.dataset.nome || '';
+    document.getElementById('endereco_inquilino').value = btn.dataset.endereco || '';
+    document.getElementById('bairro_inquilino').value = btn.dataset.bairro || '';
+    document.getElementById('cidade_inquilino').value = btn.dataset.cidade || '';
+    document.getElementById('estado_inquilino').value = btn.dataset.estado || '';
+    document.getElementById('cep_inquilino').value = btn.dataset.cep || '';
+    document.getElementById('telefone_inquilino').value = btn.dataset.telefone || '';
+    closeClienteModal();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.select-imovel-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectImovel(btn.dataset.id, btn.dataset.text);
+        });
+    });
+    document.querySelectorAll('.select-cliente-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectCliente(btn);
+        });
+    });
+});
 </script>
 {% endblock %}

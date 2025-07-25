@@ -1669,7 +1669,15 @@ def contratos_edit(id):
             conn.rollback()
             flash(f"Erro ao atualizar contrato: {e}", "danger")
 
-    cur.execute("SELECT * FROM contratos_aluguel WHERE id = %s", (id,))
+    cur.execute(
+        """
+        SELECT c.*, i.endereco || ', ' || i.bairro AS endereco_imovel
+        FROM contratos_aluguel c
+        JOIN imoveis i ON c.imovel_id = i.id
+        WHERE c.id = %s
+        """,
+        (id,),
+    )
     contrato = cur.fetchone()
     cur.execute("SELECT * FROM contrato_anexos WHERE contrato_id = %s", (id,))
     anexos = cur.fetchall()
