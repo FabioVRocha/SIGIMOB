@@ -82,6 +82,13 @@ def get_db_connection():
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Converte valores decimais enviados pelo formulário, aceitando vírgula ou
+# ponto como separador. Retorna None se o valor estiver vazio.
+def parse_decimal(value):
+    if value is None or value == "":
+        return None
+    return float(value.replace(",", "."))
+
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
@@ -702,11 +709,14 @@ def imoveis_add():
             folha = request.form.get("folha")
             matricula = request.form.get("matricula")
             inscricao_iptu = request.form.get("inscricao_iptu")
-            latitude = request.form.get("latitude")
-            longitude = request.form.get("longitude")
+            latitude = parse_decimal(request.form.get("latitude"))
+            longitude = parse_decimal(request.form.get("longitude"))
             data_aquisicao_str = request.form.get("data_aquisicao")
-            valor_imovel = request.form.get("valor_imovel")
-            valor_previsto_aluguel = request.form.get("valor_previsto_aluguel")
+            valor_imovel = parse_decimal(request.form.get("valor_imovel"))
+            valor_previsto_aluguel = parse_decimal(
+                request.form.get("valor_previsto_aluguel")
+            )
+            max_contratos = request.form.get("max_contratos") or 1
             destinacao = request.form.get("destinacao")
             observacao = request.form.get("observacao")
 
@@ -723,8 +733,8 @@ def imoveis_add():
                 INSERT INTO imoveis (tipo_imovel, endereco, bairro, cidade, estado, cep,
                                      registro, livro, folha, matricula, inscricao_iptu,
                                      latitude, longitude, data_aquisicao, valor_imovel,
-                                     valor_previsto_aluguel, destinacao, observacao)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                     valor_previsto_aluguel, max_contratos, destinacao, observacao)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
                 (
                     tipo_imovel,
@@ -743,6 +753,7 @@ def imoveis_add():
                     data_aquisicao,
                     valor_imovel,
                     valor_previsto_aluguel,
+                    max_contratos,
                     destinacao,
                     observacao,
                 ),
@@ -824,11 +835,14 @@ def imoveis_edit(id):
             folha = request.form.get("folha")
             matricula = request.form.get("matricula")
             inscricao_iptu = request.form.get("inscricao_iptu")
-            latitude = request.form.get("latitude")
-            longitude = request.form.get("longitude")
+            latitude = parse_decimal(request.form.get("latitude"))
+            longitude = parse_decimal(request.form.get("longitude"))
             data_aquisicao_str = request.form.get("data_aquisicao")
-            valor_imovel = request.form.get("valor_imovel")
-            valor_previsto_aluguel = request.form.get("valor_previsto_aluguel")
+            valor_imovel = parse_decimal(request.form.get("valor_imovel"))
+            valor_previsto_aluguel = parse_decimal(
+                request.form.get("valor_previsto_aluguel")
+            )
+            max_contratos = request.form.get("max_contratos") or 1
             destinacao = request.form.get("destinacao")
             observacao = request.form.get("observacao")
 
@@ -844,7 +858,7 @@ def imoveis_edit(id):
                 SET tipo_imovel = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s,
                     registro = %s, livro = %s, folha = %s, matricula = %s, inscricao_iptu = %s,
                     latitude = %s, longitude = %s, data_aquisicao = %s, valor_imovel = %s,
-                    valor_previsto_aluguel = %s, destinacao = %s, observacao = %s
+                    valor_previsto_aluguel = %s, max_contratos = %s, destinacao = %s, observacao = %s
                 WHERE id = %s
                 """,
                 (
@@ -864,6 +878,7 @@ def imoveis_edit(id):
                     data_aquisicao,
                     valor_imovel,
                     valor_previsto_aluguel,
+                    max_contratos,
                     destinacao,
                     observacao,
                     id,

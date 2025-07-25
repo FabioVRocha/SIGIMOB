@@ -39,6 +39,7 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Cidade/Estado</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">IPTU</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor Aluguel Previsto</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Máx. Contratos</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
                 </tr>
             </thead>
@@ -51,6 +52,7 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.cidade }}/{{ imovel.estado }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.inscricao_iptu | default('N/A') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f" | format(imovel.valor_previsto_aluguel | default(0.00)) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.max_contratos }}</td>
                     <td class="py-3 px-4 text-sm">
                         <button type="button" class="text-green-600 hover:text-green-800 mr-3 view-photos-btn" data-id="{{ imovel.id }}" title="Ver Fotos">
                             <i class="fas fa-images"></i>

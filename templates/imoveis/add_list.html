@@ -81,11 +81,15 @@
             </div>
             <div class="form-group">
                 <label for="valor_imovel" class="form-label">Valor do Imóvel:</label>
-                <input type="number" step="0.01" id="valor_imovel" name="valor_imovel" class="form-input" value="{{ imovel.valor_imovel | default('') }}">
+                <input type="text" inputmode="decimal" id="valor_imovel" name="valor_imovel" class="form-input" value="{{ imovel.valor_imovel | default('') }}">
             </div>
             <div class="form-group">
                 <label for="valor_previsto_aluguel" class="form-label">Valor Previsto de Aluguel:</label>
-                <input type="number" step="0.01" id="valor_previsto_aluguel" name="valor_previsto_aluguel" class="form-input" value="{{ imovel.valor_previsto_aluguel | default('') }}">
+                <input type="text" inputmode="decimal" id="valor_previsto_aluguel" name="valor_previsto_aluguel" class="form-input" value="{{ imovel.valor_previsto_aluguel | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="max_contratos" class="form-label">Máx. Contratos Ativos:</label>
+                <input type="number" id="max_contratos" name="max_contratos" min="1" class="form-input" value="{{ imovel.max_contratos | default('1') }}">
             </div>
             <div class="form-group">
                 <label for="destinacao" class="form-label">Destinação:</label>
