@@ -758,7 +758,7 @@ def imoveis_add():
                 request.form.get("valor_previsto_aluguel")
             )
             max_contratos = request.form.get("max_contratos") or 1
-            destinacao = request.form.get("destinacao")
+            destinacao = request.form.get("destinacao") or None
             observacao = request.form.get("observacao")
 
             data_aquisicao = (
@@ -884,7 +884,7 @@ def imoveis_edit(id):
                 request.form.get("valor_previsto_aluguel")
             )
             max_contratos = request.form.get("max_contratos") or 1
-            destinacao = request.form.get("destinacao")
+            destinacao = request.form.get("destinacao") or None
             observacao = request.form.get("observacao")
 
             data_aquisicao = (
