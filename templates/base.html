@@ -231,29 +231,35 @@
         .text-icon-gray { color: var(--clr-medium-gray); }
 
         .btn {
-            @apply font-semibold py-2 px-6 rounded-full transition-all duration-200;
-            background-size: 200% 100%;
-            background-position: left;
-            color: var(--clr-white);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: background-position 0.3s, box-shadow 0.3s, transform 0.2s;
+            @apply font-semibold py-2 px-6 rounded-lg shadow-md flex items-center justify-center;
+            transition: all 0.3s ease;
         }
-        .btn:hover {
-            background-position: right;
+        .btn-primary {
+            background-color: var(--clr-light-blue);
+            color: var(--clr-white);
+        }
+        .btn-primary:hover {
+            background-color: var(--clr-dark-blue);
             box-shadow: 0 6px 12px rgba(0,0,0,0.2);
             transform: translateY(-2px);
         }
-        .btn-primary {
-            background-image: linear-gradient(120deg, var(--clr-purple), var(--clr-indigo));
-        }
         .btn-secondary {
-            background-image: linear-gradient(120deg, var(--clr-light-blue), var(--clr-dark-blue));
+            background-color: var(--clr-medium-gray);
+            color: var(--clr-white);
         }
-        .btn-danger {
-            background-image: linear-gradient(120deg, var(--clr-error), #b31217);
+        .btn-secondary:hover {
+            background-color: color-mix(in srgb, var(--clr-medium-gray) 80%, black);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+        .btn-add {
+            background-color: var(--clr-success);
+            color: var(--clr-white);
+        }
+        .btn-add:hover {
+            background-color: color-mix(in srgb, var(--clr-success) 90%, black);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
         }
         .sidebar-btn {
             background-image: linear-gradient(120deg, var(--clr-medium-gray), #6b7280);
