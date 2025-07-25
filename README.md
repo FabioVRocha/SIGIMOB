@@ -34,6 +34,10 @@ Sistema de Gestão de Imóveis e Aluguéis.
      `postgresql://usuario:senha@localhost:5432/sigimob_db`
    - Rode o script `SQL Criação Banco de Dados.txt` no banco criado para
      gerar as tabelas iniciais.
+     - Se estiver atualizando uma instalação antiga, execute também:
+     ```sql
+     ALTER TABLE imoveis ADD COLUMN IF NOT EXISTS max_contratos INTEGER DEFAULT 1;
+     ```
 
 5. **Defina a chave secreta** em `config.py` (ou via variável de ambiente
    `SECRET_KEY`) para proteger as sessões do Flask.

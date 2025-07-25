@@ -43,6 +43,7 @@ CREATE TABLE imoveis (
     data_aquisicao DATE,
     valor_imovel NUMERIC(15,2),
     valor_previsto_aluguel NUMERIC(15,2),
+    max_contratos INTEGER DEFAULT 1,
     destinacao destinacao_imovel_enum,
     observacao TEXT,
     data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
