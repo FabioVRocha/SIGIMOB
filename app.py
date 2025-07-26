@@ -2350,6 +2350,8 @@ def contas_a_receber_pagar(id):
             "valor_juros": valor_juros,
         }
         criar_movimento(data)
+        cur.close()
+        conn.close()
         flash("Pagamento registrado com sucesso!", "success")
     except Exception as e:
         conn.rollback()
