@@ -1,0 +1,76 @@
+<!-- templates/financeiro/lancamentos/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Lançamentos{% endblock %}
+{% block page_title %}Lançamentos{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Lançamentos</h2>
+        <a href="{{ url_for('lancamentos_novo') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Novo Lançamento
+        </a>
+    </div>
+
+    <form action="{{ url_for('lancamentos_list') }}" method="GET" class="mb-6">
+        <div class="flex items-center space-x-2">
+            <input type="text" name="search" placeholder="Buscar por categoria ou histórico..." class="form-input flex-grow" value="{{ search_query }}">
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-search"></i> Buscar
+            </button>
+        </div>
+    </form>
+
+    {% if movimentos %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="bg-gray-200">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Data</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Conta Origem</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Conta Destino</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Tipo</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Categoria</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Histórico</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movimentos %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ m.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ m.data_movimento.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {% if m.conta_origem_tipo == 'caixa' %}
+                            {{ contas_caixa[m.conta_origem_id] }}
+                        {% else %}
+                            {{ contas_banco[m.conta_origem_id] }}
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {% if m.tipo == 'transferencia' and m.conta_destino_id %}
+                            {% if m.conta_destino_tipo == 'caixa' %}
+                                {{ contas_caixa[m.conta_destino_id] }}
+                            {% else %}
+                                {{ contas_banco[m.conta_destino_id] }}
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ m.tipo }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(m.valor) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ m.categoria or '' }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ m.historico or '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhum lançamento encontrado.</p>
+    {% endif %}
+</div>
+{% endblock %}

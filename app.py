@@ -26,9 +26,15 @@ from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos d
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
 from caixa_banco import init_app as init_caixa_banco, db
-from caixa_banco.models import ContaCaixa, ContaBanco, Conciliacao
+from caixa_banco.models import (
+    ContaCaixa,
+    ContaBanco,
+    Conciliacao,
+    MovimentoFinanceiro,
+)
 from caixa_banco.services import criar_movimento, importar_cnab
 from sqlalchemy import func
+from sqlalchemy.orm import load_only
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = SECRET_KEY
@@ -2765,6 +2771,32 @@ def lancamentos_novo():
         despesas=despesas,
         receitas=receitas,
         date_today=datetime.today().date().isoformat(),
+    )
+
+
+@app.route("/lancamentos")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def lancamentos_list():
+    search_query = request.args.get("search", "")
+    query = MovimentoFinanceiro.query
+    if search_query:
+        pattern = f"%{search_query}%"
+        query = query.filter(
+            MovimentoFinanceiro.historico.ilike(pattern)
+            | MovimentoFinanceiro.categoria.ilike(pattern)
+        )
+    movimentos = query.order_by(MovimentoFinanceiro.data_movimento.desc()).all()
+    contas_caixa = {c.id: c.nome for c in ContaCaixa.query.all()}
+    contas_banco = {
+        b.id: f"{b.nome_banco} {b.conta}" for b in ContaBanco.query.all()
+    }
+    return render_template(
+        "financeiro/lancamentos/list.html",
+        movimentos=movimentos,
+        contas_caixa=contas_caixa,
+        contas_banco=contas_banco,
+        search_query=search_query,
     )
 
 
