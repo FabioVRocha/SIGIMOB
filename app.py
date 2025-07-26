@@ -2107,10 +2107,14 @@ def contas_a_receber_list():
     contas = cur.fetchall()
     cur.close()
     conn.close()
+    contas_caixa = ContaCaixa.query.all()
+    contas_banco = ContaBanco.query.all()
     return render_template(
         "financeiro/contas_a_receber/list.html",
         contas=contas,
         search_query=search_query,
+        contas_caixa=contas_caixa,
+        contas_banco=contas_banco,
     )
 
 
@@ -2284,6 +2288,70 @@ def contas_a_receber_delete(id):
     finally:
         cur.close()
         conn.close()
+    return redirect(url_for("contas_a_receber_list"))
+
+
+@app.route("/contas-a-receber/pagar/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_receber_pagar(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM contas_a_receber WHERE id = %s", (id,))
+    conta = cur.fetchone()
+    if not conta:
+        cur.close()
+        conn.close()
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_receber_list"))
+    try:
+        conta_tipo = request.form["conta_tipo"]
+        conta_id = int(request.form["conta_id"])
+        valor_previsto = request.form.get("valor_previsto") or conta["valor_previsto"]
+        valor_pago = request.form.get("valor_pago") or valor_previsto
+        valor_desconto = request.form.get("valor_desconto") or 0
+        valor_multa = request.form.get("valor_multa") or 0
+        valor_juros = request.form.get("valor_juros") or 0
+        data_movimento = request.form.get("data_movimento") or datetime.today().date()
+        historico = request.form.get("historico")
+
+        cur.execute(
+            """UPDATE contas_a_receber SET data_pagamento=%s, valor_pago=%s, valor_desconto=%s,
+                valor_multa=%s, valor_juros=%s, status_conta='Paga' WHERE id=%s""",
+            (
+                data_movimento,
+                valor_pago,
+                valor_desconto,
+                valor_multa,
+                valor_juros,
+                id,
+            ),
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        data = {
+            "conta_origem_id": conta_id,
+            "conta_origem_tipo": conta_tipo,
+            "tipo": "entrada",
+            "valor": valor_pago,
+            "historico": historico,
+            "receita_id": conta["receita_id"],
+            "data_movimento": data_movimento,
+            "valor_previsto": valor_previsto,
+            "valor_pago": valor_pago,
+            "valor_desconto": valor_desconto,
+            "valor_multa": valor_multa,
+            "valor_juros": valor_juros,
+        }
+        criar_movimento(data)
+        flash("Pagamento registrado com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        flash(f"Erro ao registrar pagamento: {e}", "danger")
     return redirect(url_for("contas_a_receber_list"))
 
 
