@@ -2334,9 +2334,7 @@ def contas_a_receber_pagar(id):
             ),
         )
         conn.commit()
-        cur.close()
-        conn.close()
-
+        
         data = {
             "conta_origem_id": conta_id,
             "conta_origem_tipo": conta_tipo,
