@@ -16,7 +16,7 @@ import psycopg2
 from psycopg2 import extras
 import os
 import posixpath
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import subprocess
@@ -1600,6 +1600,42 @@ def contratos_add():
                 ),
             )
             contrato_id = cur.fetchone()[0]
+
+            # Criar contas a receber para cada parcela do contrato
+            cur.execute(
+                "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+                ("ALUGUEL",),
+            )
+            result = cur.fetchone()
+            if result:
+                receita_id = result[0]
+            else:
+                cur.execute(
+                    "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
+                    ("ALUGUEL",),
+                )
+                receita_id = cur.fetchone()[0]
+
+            total_parcelas = int(quantidade_parcelas)
+            for numero in range(1, total_parcelas + 1):
+                titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
+                vencimento = data_inicio + timedelta(days=30 * numero)
+                cur.execute(
+                    """
+                    INSERT INTO contas_a_receber (
+                        contrato_id, receita_id, cliente_id, titulo,
+                        data_vencimento, valor_previsto
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        contrato_id,
+                        receita_id,
+                        cliente_id,
+                        titulo_parcela,
+                        vencimento,
+                        valor_parcela,
+                    ),
+                )
 
             if "anexos" in request.files:
                 files = request.files.getlist("anexos")
