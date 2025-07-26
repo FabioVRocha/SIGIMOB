@@ -2313,11 +2313,11 @@ def contas_a_receber_pagar(id):
     try:
         conta_tipo = request.form["conta_tipo"]
         conta_id = int(request.form["conta_id"])
-        valor_previsto = request.form.get("valor_previsto") or conta["valor_previsto"]
-        valor_pago = request.form.get("valor_pago") or valor_previsto
-        valor_desconto = request.form.get("valor_desconto") or 0
-        valor_multa = request.form.get("valor_multa") or 0
-        valor_juros = request.form.get("valor_juros") or 0
+        valor_previsto = parse_decimal(request.form.get("valor_previsto")) or parse_decimal(conta["valor_previsto"])
+        valor_pago = parse_decimal(request.form.get("valor_pago")) or valor_previsto
+        valor_desconto = parse_decimal(request.form.get("valor_desconto")) or 0
+        valor_multa = parse_decimal(request.form.get("valor_multa")) or 0
+        valor_juros = parse_decimal(request.form.get("valor_juros")) or 0
         data_movimento = request.form.get("data_movimento") or datetime.today().date()
         historico = request.form.get("historico")
 
