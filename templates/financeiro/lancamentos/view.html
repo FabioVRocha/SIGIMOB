@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Consultar Lançamento{% endblock %}
+{% block page_title %}Consultar Lançamento{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <dt class="font-semibold">Conta Origem:</dt>
+            <dd>{{ lancamento.conta_origem_id }} - {{ contas_caixa.get(lancamento.conta_origem_id) if lancamento.conta_origem_tipo == 'caixa' else contas_banco.get(lancamento.conta_origem_id) }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Tipo:</dt>
+            <dd>{{ lancamento.tipo }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Valor:</dt>
+            <dd>{{ '{:.2f}'.format(lancamento.valor) }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Data:</dt>
+            <dd>{{ lancamento.data_movimento.strftime('%d/%m/%Y') }}</dd>
+        </div>
+        {% if lancamento.categoria %}
+        <div class="md:col-span-2">
+            <dt class="font-semibold">Categoria:</dt>
+            <dd>{{ lancamento.categoria }}</dd>
+        </div>
+        {% endif %}
+        {% if lancamento.historico %}
+        <div class="md:col-span-2">
+            <dt class="font-semibold">Histórico:</dt>
+            <dd>{{ lancamento.historico }}</dd>
+        </div>
+        {% endif %}
+    </dl>
+    <div class="flex justify-end mt-6">
+        <a href="{{ url_for('lancamentos_list') }}" class="btn-secondary">Voltar</a>
+    </div>
+</div>
+{% endblock %}

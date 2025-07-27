@@ -1,0 +1,126 @@
+<!-- templates/financeiro/lancamentos/add_edit.html -->
+{% extends "base.html" %}
+
+{% block title %}
+    {% if lancamento %}Editar Lançamento{% else %}Novo Lançamento{% endif %}
+{% endblock %}
+{% block page_title %}
+    {% if lancamento %}Editar Lançamento{% else %}Novo Lançamento{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{% if lancamento %}{{ url_for('lancamentos_edit', id=lancamento.id) }}{% else %}{{ url_for('lancamentos_novo') }}{% endif %}" method="POST">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="form-group">
+                <label for="conta_tipo" class="form-label">Tipo de Conta:</label>
+                <select id="conta_tipo" name="conta_tipo" class="form-select" required>
+                    <option value="caixa" {% if lancamento and lancamento.conta_origem_tipo == 'caixa' %}selected{% endif %}>Caixa</option>
+                    <option value="banco" {% if lancamento and lancamento.conta_origem_tipo == 'banco' %}selected{% endif %}>Banco</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="conta_id" class="form-label">Conta:</label>
+                <select id="conta_id" name="conta_id" class="form-select" required>
+                    {% for c in contas_caixa %}
+                    <option data-tipo="caixa" value="{{ c.id }}" {% if lancamento and lancamento.conta_origem_tipo == 'caixa' and lancamento.conta_origem_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+                    {% endfor %}
+                    {% for b in contas_banco %}
+                    <option data-tipo="banco" value="{{ b.id }}" {% if lancamento and lancamento.conta_origem_tipo == 'banco' and lancamento.conta_origem_id == b.id %}selected{% endif %}>{{ b.nome_banco }} {{ b.conta }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="tipo" class="form-label">Tipo:</label>
+                <select id="tipo" name="tipo" class="form-select" required>
+                    <option value="entrada" {% if lancamento and lancamento.tipo == 'entrada' %}selected{% endif %}>Entrada</option>
+                    <option value="saida" {% if lancamento and lancamento.tipo == 'saida' %}selected{% endif %}>Saída</option>
+                    <option value="transferencia" {% if lancamento and lancamento.tipo == 'transferencia' %}selected{% endif %}>Transferência</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="valor" class="form-label">Valor:</label>
+                <input type="number" step="0.01" id="valor" name="valor" class="form-input" value="{{ lancamento.valor if lancamento else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="valor_previsto" class="form-label">Valor Previsto:</label>
+                <input type="number" step="0.01" id="valor_previsto" name="valor_previsto" class="form-input" value="{{ lancamento.valor_previsto if lancamento else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_pago" class="form-label">Valor Pago:</label>
+                <input type="number" step="0.01" id="valor_pago" name="valor_pago" class="form-input" value="{{ lancamento.valor_pago if lancamento else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_desconto" class="form-label">Desconto:</label>
+                <input type="number" step="0.01" id="valor_desconto" name="valor_desconto" class="form-input" value="{{ lancamento.valor_desconto if lancamento else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_multa" class="form-label">Multa:</label>
+                <input type="number" step="0.01" id="valor_multa" name="valor_multa" class="form-input" value="{{ lancamento.valor_multa if lancamento else '' }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_juros" class="form-label">Juros:</label>
+                <input type="number" step="0.01" id="valor_juros" name="valor_juros" class="form-input" value="{{ lancamento.valor_juros if lancamento else '' }}">
+            </div>
+            <div class="form-group" id="despesa-field" style="display:none;">
+                <label for="despesa_id" class="form-label">Despesa:</label>
+                <select id="despesa_id" name="despesa_id" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for des in despesas %}
+                    <option value="{{ des.id }}" {% if lancamento and lancamento.despesa_id == des.id %}selected{% endif %}>{{ des.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" id="receita-field" style="display:none;">
+                <label for="receita_id" class="form-label">Receita:</label>
+                <select id="receita_id" name="receita_id" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for rec in receitas %}
+                    <option value="{{ rec.id }}" {% if lancamento and lancamento.receita_id == rec.id %}selected{% endif %}>{{ rec.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="data_movimento" class="form-label">Data:</label>
+                <input type="date" id="data_movimento" name="data_movimento" class="form-input" value="{{ date_today }}" required>
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="categoria" class="form-label">Categoria:</label>
+                <input type="text" id="categoria" name="categoria" class="form-input" value="{{ lancamento.categoria if lancamento else '' }}">
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="historico" class="form-label">Histórico:</label>
+                <textarea id="historico" name="historico" class="form-input">{{ lancamento.historico if lancamento else '' }}</textarea>
+            </div>
+        </div>
+        <div class="flex justify-end space-x-4">
+            <a href="{{ url_for('dashboard') }}" class="btn-secondary">Voltar</a>
+            <button type="submit" class="btn-primary">Salvar</button>
+        </div>
+    </form>
+</div>
+<script>
+const contaTipoSelect = document.getElementById('conta_tipo');
+const contaSelect = document.getElementById('conta_id');
+function filterAccounts() {
+    const tipo = contaTipoSelect.value;
+    Array.from(contaSelect.options).forEach(o => {
+        o.style.display = o.getAttribute('data-tipo') === tipo ? 'block' : 'none';
+    });
+    if(contaSelect.querySelector('option[data-tipo="'+tipo+'"]')) {
+        contaSelect.value = contaSelect.querySelector('option[data-tipo="'+tipo+'"]').value;
+    }
+}
+const tipoSelect = document.getElementById('tipo');
+const despesaField = document.getElementById('despesa-field');
+const receitaField = document.getElementById('receita-field');
+function toggleCampos() {
+    const tipo = tipoSelect.value;
+    despesaField.style.display = tipo === 'saida' ? 'block' : 'none';
+    receitaField.style.display = tipo === 'entrada' ? 'block' : 'none';
+}
+contaTipoSelect.addEventListener('change', filterAccounts);
+tipoSelect.addEventListener('change', toggleCampos);
+window.addEventListener('load', () => { filterAccounts(); toggleCampos(); });
+</script>
+{% endblock %}

@@ -32,7 +32,12 @@ from caixa_banco.models import (
     Conciliacao,
     MovimentoFinanceiro,
 )
-from caixa_banco.services import criar_movimento, importar_cnab
+from caixa_banco.services import (
+    criar_movimento,
+    importar_cnab,
+    atualizar_movimento,
+    deletar_movimento,
+)
 from sqlalchemy import func
 from sqlalchemy.orm import load_only
 
@@ -2765,13 +2770,90 @@ def lancamentos_novo():
     cur.close()
     conn.close()
     return render_template(
-        "financeiro/lancamentos/add.html",
+        "financeiro/lancamentos/add_edit.html",
         contas_caixa=contas_caixa,
         contas_banco=contas_banco,
         despesas=despesas,
         receitas=receitas,
         date_today=datetime.today().date().isoformat(),
+        lancamento=None,
     )
+
+
+@app.route("/lancamentos/view/<int:id>")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def lancamentos_view(id):
+    lancamento = MovimentoFinanceiro.query.get(id)
+    if not lancamento:
+        flash("Lançamento não encontrado.", "danger")
+        return redirect(url_for("lancamentos_list"))
+    contas_caixa = {c.id: c.nome for c in ContaCaixa.query.all()}
+    contas_banco = {b.id: f"{b.nome_banco} {b.conta}" for b in ContaBanco.query.all()}
+    return render_template(
+        "financeiro/lancamentos/view.html",
+        lancamento=lancamento,
+        contas_caixa=contas_caixa,
+        contas_banco=contas_banco,
+    )
+
+
+@app.route("/lancamentos/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def lancamentos_edit(id):
+    lancamento = MovimentoFinanceiro.query.get(id)
+    if not lancamento:
+        flash("Lançamento não encontrado.", "danger")
+        return redirect(url_for("lancamentos_list"))
+    contas_caixa = ContaCaixa.query.all()
+    contas_banco = ContaBanco.query.all()
+    if request.method == "POST":
+        data = {
+            "conta_origem_id": int(request.form["conta_id"]),
+            "conta_origem_tipo": request.form["conta_tipo"],
+            "tipo": request.form["tipo"],
+            "valor": request.form["valor"],
+            "categoria": request.form.get("categoria"),
+            "historico": request.form.get("historico"),
+            "data_movimento": request.form.get("data_movimento") or datetime.today().date(),
+            "despesa_id": request.form.get("despesa_id") or None,
+            "receita_id": request.form.get("receita_id") or None,
+        }
+        atualizar_movimento(lancamento, data)
+        flash("Lançamento atualizado com sucesso!", "success")
+        return redirect(url_for("lancamentos_list"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+    receitas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/lancamentos/add_edit.html",
+        contas_caixa=contas_caixa,
+        contas_banco=contas_banco,
+        despesas=despesas,
+        receitas=receitas,
+        lancamento=lancamento,
+        date_today=lancamento.data_movimento.isoformat(),
+    )
+
+
+@app.route("/lancamentos/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Excluir")
+def lancamentos_delete(id):
+    lancamento = MovimentoFinanceiro.query.get(id)
+    if not lancamento:
+        flash("Lançamento não encontrado.", "danger")
+    else:
+        deletar_movimento(lancamento)
+        flash("Lançamento excluído com sucesso!", "success")
+    return redirect(url_for("lancamentos_list"))
 
 
 @app.route("/lancamentos")
