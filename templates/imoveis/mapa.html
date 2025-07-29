@@ -5,6 +5,16 @@
 
 {% block content %}
 <div id="map" style="height: 600px; width: 100%;"></div>
+<div id="photos-modal" class="modal">
+    <div class="modal-content photo-modal-content">
+        <span class="close-button" onclick="closePhotosModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Fotos do Imóvel</h2>
+        <div id="main-photo-wrapper" class="flex justify-center mb-4">
+            <img id="main-photo" class="photo-main rounded shadow" src="" alt="Foto principal">
+        </div>
+        <div id="thumbs-container" class="flex justify-center gap-2 flex-wrap"></div>
+    </div>
+</div>
 <div class="mt-4 flex space-x-8">
     <div class="flex items-center">
         <img src="https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png" class="w-4 h-7" alt="Marcador azul">
@@ -55,7 +65,11 @@
                 if (imovel.latitude && imovel.longitude) {
                     const icon = imovel.contrato_ativo ? blueIcon : redIcon;
                     const marker = L.marker([imovel.latitude, imovel.longitude], { icon }).addTo(map);
-                    marker.bindPopup(`<b>ID:</b> ${imovel.id}<br><b>Matrícula:</b> ${imovel.matricula || 'N/A'}`);
+                    marker.bindPopup(
+                        `<b>ID:</b> ${imovel.id}<br>` +
+                        `<b>Matrícula:</b> ${imovel.matricula || 'N/A'}<br>` +
+                        `<button type="button" class="btn-primary mt-2 view-photos-btn" data-id="${imovel.id}">Ver Fotos</button>`
+                    );
                     const tooltipContent =
                         `<b>${imovel.endereco}, ${imovel.bairro}</b><br>` +
                         `IPTU: ${imovel.inscricao_iptu || 'N/A'}<br>` +
@@ -65,6 +79,49 @@
                     marker.on('mouseout', function () { this.closeTooltip(); });
                 }
             });
+            
+            map.on('popupopen', function(e) {
+                const btn = e.popup.getElement().querySelector('.view-photos-btn');
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        const id = btn.getAttribute('data-id');
+                        openPhotosModal(id);
+                    });
+                }
+            });
+
+            function openPhotosModal(id) {
+                fetch(`/imoveis/fotos/${id}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        const main = document.getElementById('main-photo');
+                        const thumbs = document.getElementById('thumbs-container');
+                        thumbs.innerHTML = '';
+                        if (data.length === 0) {
+                            main.style.display = 'none';
+                            thumbs.innerHTML = '<p class="text-center">Sem fotos cadastradas.</p>';
+                        } else {
+                            main.style.display = '';
+                            main.src = data[0];
+                            data.forEach(url => {
+                                const img = document.createElement('img');
+                                img.src = url;
+                                img.className = 'photo-thumb object-cover rounded cursor-pointer';
+                                img.addEventListener('click', () => {
+                                    const current = main.src;
+                                    main.src = url;
+                                    img.src = current;
+                                });
+                                thumbs.appendChild(img);
+                            });
+                        }
+                        document.getElementById('photos-modal').style.display = 'flex';
+                    });
+            }
+
+            window.closePhotosModal = function() {
+                document.getElementById('photos-modal').style.display = 'none';
+            }
         });
     </script>
 {% endblock %}
