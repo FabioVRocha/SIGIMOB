@@ -691,7 +691,11 @@ def imoveis_list():
     if search_query:
         cur.execute(
             """
-            SELECT * FROM imoveis
+            SELECT i.*, EXISTS (
+                SELECT 1 FROM contratos_aluguel c
+                WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+            ) AS contrato_ativo
+            FROM imoveis i
             WHERE endereco ILIKE %s OR bairro ILIKE %s OR cidade ILIKE %s OR inscricao_iptu ILIKE %s
             ORDER BY data_cadastro DESC
         """,
@@ -703,7 +707,16 @@ def imoveis_list():
             ),
         )
     else:
-        cur.execute("SELECT * FROM imoveis ORDER BY data_cadastro DESC")
+        cur.execute(
+            """
+            SELECT i.*, EXISTS (
+                SELECT 1 FROM contratos_aluguel c
+                WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+            ) AS contrato_ativo
+            FROM imoveis i
+            ORDER BY data_cadastro DESC
+        """
+        )
     imoveis = cur.fetchall()
     cur.close()
     conn.close()
