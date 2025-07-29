@@ -777,7 +777,7 @@ def imoveis_add():
             valor_imovel = parse_decimal(request.form.get("valor_imovel"))
             valor_previsto_aluguel = parse_decimal(
                 request.form.get("valor_previsto_aluguel")
-            )
+            ) or 0.0
             max_contratos = request.form.get("max_contratos") or 1
             destinacao = request.form.get("destinacao") or None
             observacao = request.form.get("observacao")
@@ -903,7 +903,7 @@ def imoveis_edit(id):
             valor_imovel = parse_decimal(request.form.get("valor_imovel"))
             valor_previsto_aluguel = parse_decimal(
                 request.form.get("valor_previsto_aluguel")
-            )
+            ) or 0.0
             max_contratos = request.form.get("max_contratos") or 1
             destinacao = request.form.get("destinacao") or None
             observacao = request.form.get("observacao")

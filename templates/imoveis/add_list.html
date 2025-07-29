@@ -149,3 +149,18 @@
     {% endif %}
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const valorPrevisto = document.getElementById('valor_previsto_aluguel');
+    if (valorPrevisto) {
+        valorPrevisto.addEventListener('blur', () => {
+            if (valorPrevisto.value.trim() === '') {
+                valorPrevisto.value = '0';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
