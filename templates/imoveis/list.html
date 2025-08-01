@@ -46,7 +46,7 @@
             <tbody>
                 {% for imovel in imoveis %}
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.id }}</td>
+                    <td class="py-3 px-4 text-sm {% if not imovel.latitude or not imovel.longitude %}text-red-600 font-bold{% else %}text-gray-700{% endif %}">{{ imovel.id }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.tipo_imovel | default('N/A') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.cidade }}/{{ imovel.estado }}</td>
