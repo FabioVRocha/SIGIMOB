@@ -2402,11 +2402,12 @@ def contas_a_receber_pagar(id):
         )
         conn.commit()
         
+        valor_total = valor_pago + valor_juros + valor_multa - valor_desconto
         data = {
             "conta_origem_id": conta_id,
             "conta_origem_tipo": conta_tipo,
             "tipo": "entrada",
-            "valor": valor_pago,
+            "valor": valor_total,
             "historico": historico,
             "receita_id": conta["receita_id"],
             "data_movimento": data_movimento,
