@@ -46,6 +46,11 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.status_contrato }}</td>
                     <td class="py-3 px-4 text-sm">
                         <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
+                        {% if contrato.status_contrato != 'Encerrado' %}
+                        <form action="{{ url_for('contratos_encerrar', id=contrato.id) }}" method="POST" class="inline-block mr-3" onsubmit="return confirm('Tem certeza que deseja encerrar este contrato?');">
+                            <button type="submit" class="text-yellow-600 hover:text-yellow-800" title="Encerrar"><i class="fas fa-ban"></i></button>
+                        </form>
+                        {% endif %}
                         <form action="{{ url_for('contratos_delete', id=contrato.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este contrato e todos os seus anexos?');">
                             <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
                         </form>

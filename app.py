@@ -1827,6 +1827,36 @@ def contratos_edit(id):
     )
 
 
+@app.route("/contratos/encerrar/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_encerrar(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            "UPDATE contratos_aluguel SET status_contrato = %s WHERE id = %s",
+            ("Encerrado", id),
+        )
+        cur.execute(
+            """
+            UPDATE contas_a_receber
+            SET status_conta = 'Cancelada'
+            WHERE contrato_id = %s AND status_conta IN ('Aberta', 'Vencida')
+            """,
+            (id,),
+        )
+        conn.commit()
+        flash("Contrato encerrado com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao encerrar contrato: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contratos_list"))
+
+
 @app.route("/contratos/delete/<int:id>", methods=["POST"])
 @login_required
 @permission_required("Gestao Contratos", "Excluir")
