@@ -2766,11 +2766,20 @@ def movimento_novo(tipo, conta_id):
         flash("Conta não encontrada.", "danger")
         return redirect(url_for("caixas_list" if tipo == "caixa" else "bancos_list"))
     if request.method == "POST":
+        valor_pago = parse_decimal(request.form.get("valor_pago")) or Decimal("0")
+        valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+        valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+        valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
+        valor_total = valor_pago + valor_juros + valor_multa - valor_desconto
         data = {
             "conta_origem_id": conta_id,
             "conta_origem_tipo": tipo,
             "tipo": request.form["tipo"],
-            "valor": request.form["valor"],
+            "valor": valor_total,
+            "valor_pago": valor_pago,
+            "valor_desconto": valor_desconto,
+            "valor_multa": valor_multa,
+            "valor_juros": valor_juros,
             "categoria": request.form.get("categoria"),
             "historico": request.form.get("historico"),
             "data_movimento": request.form.get("data_movimento") or datetime.today().date(),
@@ -2808,11 +2817,20 @@ def lancamentos_novo():
     if request.method == "POST":
         conta_tipo = request.form["conta_tipo"]
         conta_id = int(request.form["conta_id"])
+        valor_pago = parse_decimal(request.form.get("valor_pago")) or Decimal("0")
+        valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+        valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+        valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
+        valor_total = valor_pago + valor_juros + valor_multa - valor_desconto
         data = {
             "conta_origem_id": conta_id,
             "conta_origem_tipo": conta_tipo,
             "tipo": request.form["tipo"],
-            "valor": request.form["valor"],
+            "valor": valor_total,
+            "valor_pago": valor_pago,
+            "valor_desconto": valor_desconto,
+            "valor_multa": valor_multa,
+            "valor_juros": valor_juros,
             "categoria": request.form.get("categoria"),
             "historico": request.form.get("historico"),
             "data_movimento": request.form.get("data_movimento") or datetime.today().date(),
@@ -2873,11 +2891,20 @@ def lancamentos_edit(id):
     contas_caixa = ContaCaixa.query.all()
     contas_banco = ContaBanco.query.all()
     if request.method == "POST":
+        valor_pago = parse_decimal(request.form.get("valor_pago")) or Decimal("0")
+        valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+        valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+        valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
+        valor_total = valor_pago + valor_juros + valor_multa - valor_desconto
         data = {
             "conta_origem_id": int(request.form["conta_id"]),
             "conta_origem_tipo": request.form["conta_tipo"],
             "tipo": request.form["tipo"],
-            "valor": request.form["valor"],
+            "valor": valor_total,
+            "valor_pago": valor_pago,
+            "valor_desconto": valor_desconto,
+            "valor_multa": valor_multa,
+            "valor_juros": valor_juros,
             "categoria": request.form.get("categoria"),
             "historico": request.form.get("historico"),
             "data_movimento": request.form.get("data_movimento") or datetime.today().date(),
