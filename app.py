@@ -2352,12 +2352,26 @@ def contas_a_receber_delete(id):
 def contas_a_receber_pagar(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cur.execute("SELECT * FROM contas_a_receber WHERE id = %s", (id,))
+    cur.execute(
+        """
+        SELECT cr.*, p.razao_social_nome AS cliente_nome
+        FROM contas_a_receber cr
+        JOIN pessoas p ON cr.cliente_id = p.id
+        WHERE cr.id = %s
+        """,
+        (id,),
+    )
     conta = cur.fetchone()
     if not conta:
         cur.close()
         conn.close()
         flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_receber_list"))
+    # Evita pagamento duplicado ou de títulos cancelados
+    if conta["status_conta"] not in ("Aberta", "Vencida"):
+        cur.close()
+        conn.close()
+        flash("Esta conta não pode ser paga novamente.", "warning")
         return redirect(url_for("contas_a_receber_list"))
     try:
         conta_tipo = request.form["conta_tipo"]
@@ -2368,7 +2382,11 @@ def contas_a_receber_pagar(id):
         valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
         valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
         data_movimento = request.form.get("data_movimento") or datetime.today().date()
-        historico = request.form.get("historico")
+        titulo = conta["titulo"] or ""
+        historico_padrao = (
+            f"{titulo} - {conta['cliente_nome']}" if titulo else conta["cliente_nome"]
+        )
+        historico = request.form.get("historico") or historico_padrao
 
         cur.execute(
             """UPDATE contas_a_receber SET data_pagamento=%s, valor_pago=%s, valor_desconto=%s,

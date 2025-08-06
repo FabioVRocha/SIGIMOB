@@ -47,9 +47,11 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_previsto) }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.status_conta }}</td>
                     <td class="py-3 px-4 text-sm">
+                        {% if conta.status_conta in ['Aberta', 'Vencida'] %}
                         <button type="button" class="text-green-600 hover:text-green-800 mr-3" title="Pagar" onclick="openPagarModal({{ conta.id }})">
                             <i class="fas fa-dollar-sign"></i>
                         </button>
+                        {% endif %}
                         <a href="{{ url_for('contas_a_receber_edit', id=conta.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
@@ -68,7 +70,7 @@
     <p class="text-center text-gray-600">Nenhuma conta encontrada.</p>
     {% endif %}
 </div>
-{% for conta in contas %}
+{% for conta in contas if conta.status_conta in ['Aberta', 'Vencida'] %}
 <div id="pagar-modal-{{ conta.id }}" class="modal">
     <div class="modal-content">
         <span class="close-button" onclick="closePagarModal({{ conta.id }})">&times;</span>
@@ -101,7 +103,7 @@
                 </div>
                 <div class="form-group md:col-span-2">
                     <label for="historico_{{ conta.id }}" class="form-label">Histórico:</label>
-                    <textarea id="historico_{{ conta.id }}" name="historico" class="form-input"></textarea>
+                    <textarea id="historico_{{ conta.id }}" name="historico" class="form-input">{{ (conta.titulo ~ ' - ' if conta.titulo else '') ~ conta.cliente }}</textarea>
                 </div>
                 <div class="form-group">
                     <label for="valor_previsto_{{ conta.id }}" class="form-label">Valor Previsto:</label>
