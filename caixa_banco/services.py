@@ -1,5 +1,6 @@
 from datetime import datetime
 from io import StringIO
+from sqlalchemy import text
 from .models import db, ContaCaixa, ContaBanco, MovimentoFinanceiro, Conciliacao
 
 
@@ -77,6 +78,28 @@ def deletar_movimento(movimento):
         atualizar_saldo(movimento.conta_origem_tipo, movimento.conta_origem_id, valor)
         if movimento.conta_destino_id:
             atualizar_saldo(movimento.conta_destino_tipo, movimento.conta_destino_id, -valor)
+    # Se o movimento estiver vinculado a uma conta a receber, desfaz o pagamento
+    if movimento.documento and movimento.documento.startswith('CR-'):
+        try:
+            conta_id = int(movimento.documento.split('CR-')[1])
+        except ValueError:
+            conta_id = None
+        if conta_id:
+            db.session.execute(
+                text(
+                    """
+                    UPDATE contas_a_receber
+                       SET data_pagamento = NULL,
+                           valor_pago = NULL,
+                           valor_desconto = 0,
+                           valor_multa = 0,
+                           valor_juros = 0,
+                           status_conta = 'Aberta'
+                     WHERE id = :conta_id
+                    """
+                ),
+                {"conta_id": conta_id},
+            )
     db.session.delete(movimento)
     db.session.commit()
 
