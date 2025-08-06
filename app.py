@@ -2397,6 +2397,8 @@ def contas_a_receber_pagar(id):
             "valor_desconto": valor_desconto,
             "valor_multa": valor_multa,
             "valor_juros": valor_juros,
+            # associa o lançamento à conta a receber para permitir reversão
+            "documento": f"CR-{id}",
         }
         criar_movimento(data)
         cur.close()
@@ -2895,6 +2897,34 @@ def lancamentos_delete(id):
     if not lancamento:
         flash("Lançamento não encontrado.", "danger")
     else:
+        # Se o lançamento estiver vinculado a uma conta a receber, desfaz o pagamento
+        conta_id = None
+        if lancamento.documento and lancamento.documento.startswith("CR-"):
+            try:
+                conta_id = int(lancamento.documento.split("CR-")[1])
+            except ValueError:
+                conta_id = None
+
+        if conta_id:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute(
+                """
+                UPDATE contas_a_receber
+                   SET data_pagamento = NULL,
+                       valor_pago = NULL,
+                       valor_desconto = 0,
+                       valor_multa = 0,
+                       valor_juros = 0,
+                       status_conta = 'Aberta'
+                 WHERE id = %s
+                """,
+                (conta_id,),
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+
         deletar_movimento(lancamento)
         flash("Lançamento excluído com sucesso!", "success")
     return redirect(url_for("lancamentos_list"))
