@@ -22,6 +22,7 @@ from functools import wraps
 import subprocess
 import json
 from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
+from decimal import Decimal, InvalidOperation
 
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
@@ -117,8 +118,8 @@ def parse_decimal(value):
         value = value.replace(",", "")
 
     try:
-        return float(value)
-    except ValueError:
+        return Decimal(value)
+    except (ValueError, InvalidOperation):
         return None
 
 # Garante que a coluna max_contratos exista na tabela imoveis
@@ -916,7 +917,7 @@ def imoveis_edit(id):
             valor_imovel = parse_decimal(request.form.get("valor_imovel"))
             valor_previsto_aluguel = parse_decimal(
                 request.form.get("valor_previsto_aluguel")
-            ) or 0.0
+            ) or Decimal("0")
             max_contratos = request.form.get("max_contratos") or 1
             destinacao = request.form.get("destinacao") or None
             observacao = request.form.get("observacao")
@@ -2363,9 +2364,9 @@ def contas_a_receber_pagar(id):
         conta_id = int(request.form["conta_id"])
         valor_previsto = parse_decimal(request.form.get("valor_previsto")) or parse_decimal(conta["valor_previsto"])
         valor_pago = parse_decimal(request.form.get("valor_pago")) or valor_previsto
-        valor_desconto = parse_decimal(request.form.get("valor_desconto")) or 0
-        valor_multa = parse_decimal(request.form.get("valor_multa")) or 0
-        valor_juros = parse_decimal(request.form.get("valor_juros")) or 0
+        valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+        valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+        valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
         data_movimento = request.form.get("data_movimento") or datetime.today().date()
         historico = request.form.get("historico")
 
