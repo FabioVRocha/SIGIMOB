@@ -190,6 +190,42 @@ def ensure_max_contratos_column():
     conn.close()
 
 
+def ensure_finalidade_column():
+    """Garante que o tipo e a coluna de finalidade existam."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Garante que o tipo enum exista
+    cur.execute("SELECT 1 FROM pg_type WHERE typname = 'finalidade_contrato_enum'")
+    if cur.fetchone() is None:
+        cur.execute(
+            "CREATE TYPE finalidade_contrato_enum AS ENUM ('Comercial', 'Residencial', 'Comodato')"
+        )
+
+    # Garante que a coluna exista na tabela
+    cur.execute(
+        """
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='contratos_aluguel' AND column_name='finalidade'
+        """
+    )
+    exists = cur.fetchone() is not None
+    if not exists:
+        cur.execute(
+            """
+            ALTER TABLE contratos_aluguel
+            ADD COLUMN finalidade finalidade_contrato_enum NOT NULL DEFAULT 'Residencial'
+            """
+        )
+        cur.execute(
+            "ALTER TABLE contratos_aluguel ALTER COLUMN finalidade DROP DEFAULT"
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def ensure_calcao_columns():
     """Garante que as colunas de calção existam em contratos_aluguel."""
     conn = get_db_connection()
