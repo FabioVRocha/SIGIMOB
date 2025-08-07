@@ -514,7 +514,7 @@ def dashboard():
     )
     total_contratos_ativos = cur.fetchone()[0]
     cur.execute(
-        "SELECT COUNT(DISTINCT imovel_id) FROM contratos_aluguel WHERE status_contrato = 'Ativo'"
+        "SELECT COUNT(DISTINCT imovel_id) FROM  contratos_aluguel WHERE status_contrato = 'Ativo'"
     )
     imoveis_com_contrato = cur.fetchone()[0]
     percent_imoveis_alugados = (
@@ -564,7 +564,7 @@ def dashboard():
     )
 
 
-# --- Módulo de Cadastros Essenciais ---
+# --- Módulo de Cadastros ---
 
 
 # 1.1. Cadastro de Fornecedores e Clientes (Pessoas)

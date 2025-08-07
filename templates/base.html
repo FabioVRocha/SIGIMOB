@@ -354,7 +354,7 @@
                 </li>
                 <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="cadastros-essenciais-toggle">
-                        <span><i class="fas fa-users"></i> Cadastros Essenciais</span>
+                        <span><i class="fas fa-users"></i> Cadastros</span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
                     </div>
                     <ul id="cadastros-essenciais-submenu" class="ml-6 mt-1 hidden">
@@ -461,7 +461,7 @@
                     }
                 });
 
-                // Lógica para o menu expansível "Cadastros Essenciais"
+                // Lógica para o menu expansível "Cadastros"
                 const cadastrosToggle = document.getElementById('cadastros-essenciais-toggle');
                 const cadastrosSubmenu = document.getElementById('cadastros-essenciais-submenu');
                 const cadastrosSubmenuItems = cadastrosSubmenu ? cadastrosSubmenu.querySelectorAll('.sidebar-nav-item') : [];
@@ -567,7 +567,7 @@
 
                 };
 
-            // Event listener para o toggle do menu "Cadastros Essenciais"
+            // Event listener para o toggle do menu "Cadastros"
             const cadastrosToggle = document.getElementById('cadastros-essenciais-toggle');
             if (cadastrosToggle) {
                 cadastrosToggle.addEventListener('click', () => {
