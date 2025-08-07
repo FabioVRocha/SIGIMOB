@@ -148,14 +148,14 @@ def atualizar_status_contas_a_receber(cur):
         """
         UPDATE contas_a_receber cr
            SET status_conta = CASE
-                WHEN cr.data_pagamento IS NOT NULL THEN 'Paga'
+                WHEN cr.data_pagamento IS NOT NULL THEN 'Paga'::status_conta_enum
                 WHEN cr.contrato_id IS NOT NULL AND EXISTS (
                     SELECT 1 FROM contratos_aluguel ca
                      WHERE ca.id = cr.contrato_id
-                       AND ca.status_contrato = 'Encerrado'
-                ) AND cr.data_vencimento >= CURRENT_DATE THEN 'Cancelada'
-                WHEN cr.data_vencimento < CURRENT_DATE THEN 'Vencida'
-                ELSE 'Aberta'
+                       AND ca.status_contrato = 'Encerrado'::status_contrato_enum
+                ) AND cr.data_vencimento >= CURRENT_DATE THEN 'Cancelada'::status_conta_enum
+                WHEN cr.data_vencimento < CURRENT_DATE THEN 'Vencida'::status_conta_enum
+                ELSE 'Aberta'::status_conta_enum
            END
         """
     )
