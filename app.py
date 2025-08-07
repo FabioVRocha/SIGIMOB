@@ -2472,6 +2472,37 @@ def contas_a_receber_add():
     )
 
 
+@app.route("/contas-a-receber/view/<int:id>")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def contas_a_receber_view(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    atualizar_status_contas_a_receber(cur)
+    conn.commit()
+    cur.execute(
+        """
+        SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita, o.descricao AS origem
+        FROM contas_a_receber cr
+        JOIN pessoas p ON cr.cliente_id = p.id
+        JOIN receitas_cadastro r ON cr.receita_id = r.id
+        LEFT JOIN origens_cadastro o ON cr.origem_id = o.id
+        WHERE cr.id = %s
+        """,
+        (id,),
+    )
+    conta = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not conta:
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_receber_list"))
+    return render_template(
+        "financeiro/contas_a_receber/view.html",
+        conta=conta,
+    )
+
+
 @app.route("/contas-a-receber/edit/<int:id>", methods=["GET", "POST"])
 @login_required
 @permission_required("Financeiro", "Editar")
