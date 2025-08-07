@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Consultar Conta a Pagar{% endblock %}
+{% block page_title %}Consultar Conta a Pagar{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <dt class="font-semibold">Fornecedor:</dt>
+            <dd>{{ conta.fornecedor }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Despesa:</dt>
+            <dd>{{ conta.despesa }}</dd>
+        </div>
+        {% if conta.titulo %}
+        <div class="md:col-span-2">
+            <dt class="font-semibold">Título:</dt>
+            <dd>{{ conta.titulo }}</dd>
+        </div>
+        {% endif %}
+        <div>
+            <dt class="font-semibold">Data Vencimento:</dt>
+            <dd>{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Valor Previsto:</dt>
+            <dd>{{ '{:.2f}'.format(conta.valor_previsto) }}</dd>
+        </div>
+        {% if conta.data_pagamento %}
+        <div>
+            <dt class="font-semibold">Data Pagamento:</dt>
+            <dd>{{ conta.data_pagamento.strftime('%d/%m/%Y') }}</dd>
+        </div>
+        {% endif %}
+        {% if conta.valor_pago %}
+        <div>
+            <dt class="font-semibold">Valor Pago:</dt>
+            <dd>{{ '{:.2f}'.format(conta.valor_pago) }}</dd>
+        </div>
+        {% endif %}
+        {% if conta.valor_desconto %}
+        <div>
+            <dt class="font-semibold">Desconto:</dt>
+            <dd>{{ '{:.2f}'.format(conta.valor_desconto) }}</dd>
+        </div>
+        {% endif %}
+        {% if conta.valor_multa %}
+        <div>
+            <dt class="font-semibold">Multa:</dt>
+            <dd>{{ '{:.2f}'.format(conta.valor_multa) }}</dd>
+        </div>
+        {% endif %}
+        {% if conta.valor_juros %}
+        <div>
+            <dt class="font-semibold">Juros:</dt>
+            <dd>{{ '{:.2f}'.format(conta.valor_juros) }}</dd>
+        </div>
+        {% endif %}
+        {% if conta.centro_custo %}
+        <div>
+            <dt class="font-semibold">Centro de Custo:</dt>
+            <dd>{{ conta.centro_custo }}</dd>
+        </div>
+        {% endif %}
+        <div>
+            <dt class="font-semibold">Status:</dt>
+            <dd>{{ conta.status_conta }}</dd>
+        </div>
+        {% if conta.origem %}
+        <div>
+            <dt class="font-semibold">Origem:</dt>
+            <dd>{{ conta.origem }}</dd>
+        </div>
+        {% endif %}
+        {% if conta.observacao %}
+        <div class="md:col-span-2">
+            <dt class="font-semibold">Observação:</dt>
+            <dd>{{ conta.observacao }}</dd>
+        </div>
+        {% endif %}
+    </dl>
+    <div class="flex justify-end mt-6">
+        <a href="{{ url_for('contas_a_pagar_list') }}" class="btn-secondary">Voltar</a>
+    </div>
+</div>
+{% endblock %}

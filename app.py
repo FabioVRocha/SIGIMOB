@@ -2814,6 +2814,37 @@ def contas_a_pagar_add():
     )
 
 
+@app.route("/contas-a-pagar/view/<int:id>")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def contas_a_pagar_view(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    atualizar_status_contas_a_pagar(cur)
+    conn.commit()
+    cur.execute(
+        """
+        SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa, o.descricao AS origem
+        FROM contas_a_pagar cp
+        JOIN pessoas p ON cp.fornecedor_id = p.id
+        JOIN despesas_cadastro d ON cp.despesa_id = d.id
+        LEFT JOIN origens_cadastro o ON cp.origem_id = o.id
+        WHERE cp.id = %s
+        """,
+        (id,),
+    )
+    conta = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not conta:
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_pagar_list"))
+    return render_template(
+        "financeiro/contas_a_pagar/view.html",
+        conta=conta,
+    )
+
+
 @app.route("/contas-a-pagar/edit/<int:id>", methods=["GET", "POST"])
 @login_required
 @permission_required("Financeiro", "Editar")
