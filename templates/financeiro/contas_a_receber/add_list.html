@@ -68,12 +68,8 @@
                 <input type="number" step="0.01" id="valor_juros" name="valor_juros" class="form-input" value="{{ conta.valor_juros | default('0.00') }}">
             </div>
             <div class="form-group">
-                <label for="status_conta" class="form-label">Status:</label>
-                <select id="status_conta" name="status_conta" class="form-select" required>
-                    {% for status in ['Aberta','Paga','Vencida','Cancelada'] %}
-                    <option value="{{ status }}" {% if conta.status_conta == status %}selected{% endif %}>{{ status }}</option>
-                    {% endfor %}
-                </select>
+                <label class="form-label">Status:</label>
+                <p class="form-input bg-gray-100" readonly>{{ conta.get('status_conta', 'Aberta') }}</p>
             </div>
             <div class="form-group">
                 <label for="origem_id" class="form-label">Origem:</label>

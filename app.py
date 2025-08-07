@@ -122,6 +122,44 @@ def parse_decimal(value):
     except (ValueError, InvalidOperation):
         return None
 
+
+def calcular_status_conta(data_vencimento, data_pagamento, contrato_id, cur):
+    if data_pagamento:
+        return "Paga"
+    data_venc = datetime.strptime(data_vencimento, "%Y-%m-%d").date()
+    status = "Vencida" if data_venc < datetime.today().date() else "Aberta"
+    if contrato_id:
+        cur.execute(
+            "SELECT status_contrato FROM contratos_aluguel WHERE id = %s",
+            (contrato_id,),
+        )
+        contrato = cur.fetchone()
+        if (
+            contrato
+            and contrato.get("status_contrato") == "Cancelada"
+            and status == "Aberta"
+        ):
+            status = "Cancelada"
+    return status
+
+
+def atualizar_status_contas_a_receber(cur):
+    cur.execute(
+        """
+        UPDATE contas_a_receber cr
+           SET status_conta = CASE
+                WHEN cr.data_pagamento IS NOT NULL THEN 'Paga'
+                WHEN cr.contrato_id IS NOT NULL AND EXISTS (
+                    SELECT 1 FROM contratos_aluguel ca
+                     WHERE ca.id = cr.contrato_id
+                       AND ca.status_contrato = 'Cancelada'
+                ) AND cr.data_vencimento >= CURRENT_DATE THEN 'Cancelada'
+                WHEN cr.data_vencimento < CURRENT_DATE THEN 'Vencida'
+                ELSE 'Aberta'
+           END
+        """
+    )
+
 # Garante que a coluna max_contratos exista na tabela imoveis
 def ensure_max_contratos_column():
     conn = get_db_connection()
@@ -1843,7 +1881,7 @@ def contratos_encerrar(id):
             """
             UPDATE contas_a_receber
             SET status_conta = 'Cancelada'
-            WHERE contrato_id = %s AND status_conta IN ('Aberta', 'Vencida')
+            WHERE contrato_id = %s AND status_conta = 'Aberta'
             """,
             (id,),
         )
@@ -2136,6 +2174,8 @@ def contrato_info(contrato_id):
 def contas_a_receber_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    atualizar_status_contas_a_receber(cur)
+    conn.commit()
     search_query = request.args.get("search", "")
     if search_query:
         cur.execute(
@@ -2193,8 +2233,10 @@ def contas_a_receber_add():
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
-            status_conta = request.form.get("status_conta")
             origem_id = request.form.get("origem_id") or None
+            status_conta = calcular_status_conta(
+                data_vencimento, data_pagamento, contrato_id, cur
+            )
 
             cur.execute(
                 """
@@ -2267,8 +2309,10 @@ def contas_a_receber_edit(id):
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
-            status_conta = request.form.get("status_conta")
             origem_id = request.form.get("origem_id") or None
+            status_conta = calcular_status_conta(
+                data_vencimento, data_pagamento, contrato_id, cur
+            )
 
             cur.execute(
                 """
@@ -2303,6 +2347,8 @@ def contas_a_receber_edit(id):
         except Exception as e:
             conn.rollback()
             flash(f"Erro ao atualizar conta: {e}", "danger")
+    atualizar_status_contas_a_receber(cur)
+    conn.commit()
     cur.execute("SELECT * FROM contas_a_receber WHERE id = %s", (id,))
     conta = cur.fetchone()
     cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
@@ -2352,6 +2398,8 @@ def contas_a_receber_delete(id):
 def contas_a_receber_pagar(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    atualizar_status_contas_a_receber(cur)
+    conn.commit()
     cur.execute(
         """
         SELECT cr.*, p.razao_social_nome AS cliente_nome
