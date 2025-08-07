@@ -136,7 +136,7 @@ def calcular_status_conta(data_vencimento, data_pagamento, contrato_id, cur):
         contrato = cur.fetchone()
         if (
             contrato
-            and contrato.get("status_contrato") == "Cancelada"
+            and contrato.get("status_contrato") == "Encerrado"
             and status == "Aberta"
         ):
             status = "Cancelada"
@@ -152,7 +152,7 @@ def atualizar_status_contas_a_receber(cur):
                 WHEN cr.contrato_id IS NOT NULL AND EXISTS (
                     SELECT 1 FROM contratos_aluguel ca
                      WHERE ca.id = cr.contrato_id
-                       AND ca.status_contrato = 'Cancelada'
+                       AND ca.status_contrato = 'Encerrado'
                 ) AND cr.data_vencimento >= CURRENT_DATE THEN 'Cancelada'
                 WHEN cr.data_vencimento < CURRENT_DATE THEN 'Vencida'
                 ELSE 'Aberta'
