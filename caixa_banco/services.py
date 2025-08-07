@@ -100,6 +100,28 @@ def deletar_movimento(movimento):
                 ),
                 {"conta_id": conta_id},
             )
+    # Se o movimento estiver vinculado a uma conta a pagar, desfaz o pagamento
+    if movimento.documento and movimento.documento.startswith('CP-'):
+        try:
+            conta_id = int(movimento.documento.split('CP-')[1])
+        except ValueError:
+            conta_id = None
+        if conta_id:
+            db.session.execute(
+                text(
+                    """
+                    UPDATE contas_a_pagar
+                       SET data_pagamento = NULL,
+                           valor_pago = NULL,
+                           valor_desconto = 0,
+                           valor_multa = 0,
+                           valor_juros = 0,
+                           status_conta = 'Aberta'
+                     WHERE id = :conta_id
+                    """
+                ),
+                {"conta_id": conta_id},
+            )
     db.session.delete(movimento)
     db.session.commit()
 

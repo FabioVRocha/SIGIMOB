@@ -47,6 +47,11 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_previsto) }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.status_conta }}</td>
                     <td class="py-3 px-4 text-sm">
+                        {% if conta.status_conta in ['Aberta', 'Vencida'] %}
+                        <button type="button" class="text-green-600 hover:text-green-800 mr-3" title="Pagar" onclick="openPagarModal({{ conta.id }})">
+                            <i class="fas fa-dollar-sign"></i>
+                        </button>
+                        {% endif %}
                         <a href="{{ url_for('contas_a_pagar_edit', id=conta.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
@@ -65,4 +70,89 @@
     <p class="text-center text-gray-600">Nenhuma conta encontrada.</p>
     {% endif %}
 </div>
+{% for conta in contas if conta.status_conta in ['Aberta', 'Vencida'] %}
+<div id="pagar-modal-{{ conta.id }}" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closePagarModal({{ conta.id }})">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Registrar Pagamento</h2>
+        <form action="{{ url_for('contas_a_pagar_pagar', id=conta.id) }}" method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="form-group">
+                    <label for="conta_tipo_{{ conta.id }}" class="form-label">Tipo de Conta:</label>
+                    <select id="conta_tipo_{{ conta.id }}" name="conta_tipo" class="form-select" onchange="filterPayAccounts('{{ conta.id }}')" required>
+                        <option value="caixa">Caixa</option>
+                        <option value="banco">Banco</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="conta_id_{{ conta.id }}" class="form-label">Conta:</label>
+                    <select id="conta_id_{{ conta.id }}" name="conta_id" class="form-select" required>
+                        {% for c in contas_caixa %}
+                        <option data-tipo="caixa" value="{{ c.id }}">{{ c.nome }}</option>
+                        {% endfor %}
+                        {% for b in contas_banco %}
+                        <option data-tipo="banco" value="{{ b.id }}">{{ b.nome_banco }} {{ b.conta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input type="hidden" name="tipo" value="saida">
+                <div class="form-group">
+                    <label for="data_movimento_{{ conta.id }}" class="form-label">Data:</label>
+                    <input type="date" id="data_movimento_{{ conta.id }}" name="data_movimento" class="form-input" value="{{ conta.data_pagamento or '' }}">
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label for="historico_{{ conta.id }}" class="form-label">Histórico:</label>
+                    <textarea id="historico_{{ conta.id }}" name="historico" class="form-input">{{ (conta.titulo ~ ' - ' if conta.titulo else '') ~ conta.fornecedor }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="valor_previsto_{{ conta.id }}" class="form-label">Valor Previsto:</label>
+                    <input type="number" step="0.01" id="valor_previsto_{{ conta.id }}" name="valor_previsto" class="form-input" value="{{ '{:.2f}'.format(conta.valor_previsto) }}">
+                </div>
+                <div class="form-group">
+                    <label for="valor_pago_{{ conta.id }}" class="form-label">Valor Pago:</label>
+                    <input type="number" step="0.01" id="valor_pago_{{ conta.id }}" name="valor_pago" class="form-input" value="{{ conta.valor_pago or conta.valor_previsto }}">
+                </div>
+                <div class="form-group">
+                    <label for="valor_desconto_{{ conta.id }}" class="form-label">Desconto:</label>
+                    <input type="number" step="0.01" id="valor_desconto_{{ conta.id }}" name="valor_desconto" class="form-input" value="{{ conta.valor_desconto or 0 }}">
+                </div>
+                <div class="form-group">
+                    <label for="valor_multa_{{ conta.id }}" class="form-label">Multa:</label>
+                    <input type="number" step="0.01" id="valor_multa_{{ conta.id }}" name="valor_multa" class="form-input" value="{{ conta.valor_multa or 0 }}">
+                </div>
+                <div class="form-group">
+                    <label for="valor_juros_{{ conta.id }}" class="form-label">Juros:</label>
+                    <input type="number" step="0.01" id="valor_juros_{{ conta.id }}" name="valor_juros" class="form-input" value="{{ conta.valor_juros or 0 }}">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closePagarModal({{ conta.id }})">Cancelar</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openPagarModal(id){
+    filterPayAccounts(id);
+    document.getElementById('pagar-modal-'+id).style.display='flex';
+}
+function closePagarModal(id){
+    document.getElementById('pagar-modal-'+id).style.display='none';
+}
+function filterPayAccounts(id){
+    const tipoSelect = document.getElementById('conta_tipo_'+id);
+    const contaSelect = document.getElementById('conta_id_'+id);
+    const tipo = tipoSelect.value;
+    Array.from(contaSelect.options).forEach(o=>{
+        o.style.display = o.getAttribute('data-tipo') === tipo ? 'block':'none';
+    });
+    const opt = contaSelect.querySelector('option[data-tipo="'+tipo+'"]');
+    if(opt){ contaSelect.value = opt.value; }
+}
+</script>
 {% endblock %}

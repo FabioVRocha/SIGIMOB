@@ -170,6 +170,19 @@ def atualizar_status_contas_a_receber(cur):
         """
     )
 
+
+def atualizar_status_contas_a_pagar(cur):
+    cur.execute(
+        """
+        UPDATE contas_a_pagar cp
+           SET status_conta = CASE
+                WHEN cp.data_pagamento IS NOT NULL THEN 'Paga'::status_conta_enum
+                WHEN cp.data_vencimento < CURRENT_DATE THEN 'Vencida'::status_conta_enum
+                ELSE 'Aberta'::status_conta_enum
+           END
+        """
+    )
+
 # Garante que a coluna max_contratos exista na tabela imoveis
 def ensure_max_contratos_column():
     conn = get_db_connection()
@@ -2655,6 +2668,8 @@ def contas_a_receber_pagar(id):
 def contas_a_pagar_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    atualizar_status_contas_a_pagar(cur)
+    conn.commit()
     search_query = request.args.get("search", "")
     if search_query:
         cur.execute(
@@ -2681,10 +2696,14 @@ def contas_a_pagar_list():
     contas = cur.fetchall()
     cur.close()
     conn.close()
+    contas_caixa = ContaCaixa.query.all()
+    contas_banco = ContaBanco.query.all()
     return render_template(
         "financeiro/contas_a_pagar/list.html",
         contas=contas,
         search_query=search_query,
+        contas_caixa=contas_caixa,
+        contas_banco=contas_banco,
     )
 
 
@@ -2708,8 +2727,10 @@ def contas_a_pagar_add():
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
             centro_custo = request.form.get("centro_custo")
-            status_conta = request.form.get("status_conta")
             origem_id = request.form.get("origem_id") or None
+            status_conta = calcular_status_conta(
+                data_vencimento, data_pagamento, None, cur
+            )
 
             cur.execute(
                 """
@@ -2782,8 +2803,10 @@ def contas_a_pagar_edit(id):
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
             centro_custo = request.form.get("centro_custo")
-            status_conta = request.form.get("status_conta")
             origem_id = request.form.get("origem_id") or None
+            status_conta = calcular_status_conta(
+                data_vencimento, data_pagamento, None, cur
+            )
 
             cur.execute(
                 """
@@ -2858,6 +2881,89 @@ def contas_a_pagar_delete(id):
     finally:
         cur.close()
         conn.close()
+    return redirect(url_for("contas_a_pagar_list"))
+
+
+@app.route("/contas-a-pagar/pagar/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_pagar_pagar(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    atualizar_status_contas_a_pagar(cur)
+    conn.commit()
+    cur.execute(
+        """
+        SELECT cp.*, p.razao_social_nome AS fornecedor
+        FROM contas_a_pagar cp
+        JOIN pessoas p ON cp.fornecedor_id = p.id
+        WHERE cp.id = %s
+        """,
+        (id,),
+    )
+    conta = cur.fetchone()
+    if not conta:
+        cur.close()
+        conn.close()
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_pagar_list"))
+    if conta["status_conta"] not in ("Aberta", "Vencida"):
+        cur.close()
+        conn.close()
+        flash("Esta conta não pode ser paga novamente.", "warning")
+        return redirect(url_for("contas_a_pagar_list"))
+    try:
+        conta_tipo = request.form["conta_tipo"]
+        conta_id = int(request.form["conta_id"])
+        valor_previsto = parse_decimal(request.form.get("valor_previsto")) or parse_decimal(conta["valor_previsto"])
+        valor_pago = parse_decimal(request.form.get("valor_pago")) or valor_previsto
+        valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+        valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+        valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
+        data_movimento = request.form.get("data_movimento") or datetime.today().date()
+        titulo = conta["titulo"] or ""
+        historico_padrao = f"{titulo} - {conta['fornecedor']}" if titulo else conta["fornecedor"]
+        historico = request.form.get("historico") or historico_padrao
+
+        cur.execute(
+            """UPDATE contas_a_pagar SET data_pagamento=%s, valor_pago=%s, valor_desconto=%s,
+                valor_multa=%s, valor_juros=%s, status_conta='Paga' WHERE id=%s""",
+            (
+                data_movimento,
+                valor_pago,
+                valor_desconto,
+                valor_multa,
+                valor_juros,
+                id,
+            ),
+        )
+        conn.commit()
+
+        valor_total = valor_pago + valor_juros + valor_multa - valor_desconto
+        data = {
+            "conta_origem_id": conta_id,
+            "conta_origem_tipo": conta_tipo,
+            "tipo": "saida",
+            "valor": valor_total,
+            "historico": historico,
+            "despesa_id": conta["despesa_id"],
+            "data_movimento": data_movimento,
+            "valor_previsto": valor_previsto,
+            "valor_pago": valor_pago,
+            "valor_desconto": valor_desconto,
+            "valor_multa": valor_multa,
+            "valor_juros": valor_juros,
+            "documento": f"CP-{id}",
+        }
+        criar_movimento(data)
+        cur.close()
+        conn.close()
+        flash("Pagamento registrado com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        flash(f"Erro ao registrar pagamento: {e}", "danger")
     return redirect(url_for("contas_a_pagar_list"))
 
 

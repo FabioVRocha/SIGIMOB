@@ -68,12 +68,8 @@
                 <input type="text" id="centro_custo" name="centro_custo" class="form-input" value="{{ conta.centro_custo | default('') }}">
             </div>
             <div class="form-group">
-                <label for="status_conta" class="form-label">Status:</label>
-                <select id="status_conta" name="status_conta" class="form-select" required>
-                    {% for status in ['Aberta','Paga','Vencida','Cancelada'] %}
-                    <option value="{{ status }}" {% if conta.status_conta == status %}selected{% endif %}>{{ status }}</option>
-                    {% endfor %}
-                </select>
+                <label class="form-label">Status:</label>
+                <p class="form-input bg-gray-100" readonly>{{ conta.get('status_conta', 'Aberta') }}</p>
             </div>
             <div class="form-group">
                 <label for="origem_id" class="form-label">Origem:</label>
