@@ -190,6 +190,35 @@ def ensure_max_contratos_column():
     conn.close()
 
 
+def ensure_calcao_columns():
+    """Garante que as colunas de calção existam em contratos_aluguel."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name='contratos_aluguel'
+          AND column_name IN ('quantidade_calcao', 'valor_calcao')
+        """
+    )
+    existing = {row[0] for row in cur.fetchall()}
+    if "quantidade_calcao" not in existing:
+        cur.execute(
+            "ALTER TABLE contratos_aluguel ADD COLUMN quantidade_calcao INTEGER"
+        )
+    if "valor_calcao" not in existing:
+        cur.execute(
+            "ALTER TABLE contratos_aluguel ADD COLUMN valor_calcao NUMERIC(10,2)"
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+# Assegura colunas necessárias no banco de dados
+ensure_max_contratos_column()
+ensure_calcao_columns()
+
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
