@@ -45,6 +45,26 @@
                 <input type="text" id="variacao" name="variacao" class="form-input" value="{{ conta.variacao | default('') }}">
             </div>
             <div class="form-group">
+                <label for="contrato" class="form-label">Contrato:</label>
+                <input type="text" id="contrato" name="contrato" class="form-input" value="{{ conta.contrato | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="juros_mora" class="form-label">Juros de Mora (%):</label>
+                <input type="number" step="0.01" id="juros_mora" name="juros_mora" class="form-input" value="{{ conta.juros_mora | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="multa" class="form-label">Multa (%):</label>
+                <input type="number" step="0.01" id="multa" name="multa" class="form-input" value="{{ conta.multa | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="dias_protesto" class="form-label">Dias para Protesto:</label>
+                <input type="number" id="dias_protesto" name="dias_protesto" class="form-input" value="{{ conta.dias_protesto | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="especie_documento" class="form-label">Espécie do Documento:</label>
+                <input type="text" id="especie_documento" name="especie_documento" class="form-input" value="{{ conta.especie_documento | default('') }}">
+            </div>
+            <div class="form-group">
                 <label for="saldo_inicial" class="form-label">Saldo Inicial:</label>
                 <input type="number" step="0.01" id="saldo_inicial" name="saldo_inicial" class="form-input" value="{{ conta.saldo_inicial | default('0.00') }}">
             </div>

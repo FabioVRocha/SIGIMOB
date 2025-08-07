@@ -22,6 +22,11 @@
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Agência</th>
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Conta</th>
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Saldo Atual</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Contrato</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Juros Mora (%)</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Multa (%)</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Dias Protesto</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Espécie Doc</th>
                 <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
             </tr>
         </thead>
@@ -34,6 +39,11 @@
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.agencia }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.conta }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(b.saldo_atual or 0) }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.contrato }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.juros_mora }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.multa }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.dias_protesto }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ b.especie_documento }}</td>
                 <td class="py-3 px-4 text-sm">
                     <a href="{{ url_for('bancos_edit', id=b.id) }}" class="text-blue-600 hover:text-blue-800 mr-3">
                         <i class="fas fa-edit"></i> Editar

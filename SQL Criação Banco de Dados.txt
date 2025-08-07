@@ -244,3 +244,11 @@ CREATE INDEX idx_contas_a_receber_data_vencimento ON contas_a_receber(data_venci
 CREATE INDEX idx_contas_a_pagar_fornecedor_id ON contas_a_pagar(fornecedor_id);
 CREATE INDEX idx_contas_a_pagar_data_vencimento ON contas_a_pagar(data_vencimento);
 CREATE INDEX idx_usuarios_nome_usuario ON usuarios(nome_usuario);
+
+- Ajustes para a tabela de contas bancárias para geração de boletos
+ALTER TABLE conta_banco
+    ADD COLUMN contrato VARCHAR(50),
+    ADD COLUMN juros_mora NUMERIC(5,2),
+    ADD COLUMN multa NUMERIC(5,2),
+    ADD COLUMN dias_protesto INTEGER,
+    ADD COLUMN especie_documento VARCHAR(50);

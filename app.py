@@ -2937,6 +2937,11 @@ def bancos_add():
             convenio=request.form.get("convenio"),
             carteira=request.form.get("carteira"),
             variacao=request.form.get("variacao"),
+            contrato=request.form.get("contrato"),
+            juros_mora=request.form.get("juros_mora"),
+            multa=request.form.get("multa"),
+            dias_protesto=request.form.get("dias_protesto"),
+            especie_documento=request.form.get("especie_documento"),
             saldo_inicial=request.form.get("saldo_inicial") or 0,
             saldo_atual=request.form.get("saldo_inicial") or 0,
         )
@@ -2965,6 +2970,11 @@ def bancos_edit(id):
         conta.convenio = request.form.get("convenio")
         conta.carteira = request.form.get("carteira")
         conta.variacao = request.form.get("variacao")
+        conta.contrato = request.form.get("contrato")
+        conta.juros_mora = request.form.get("juros_mora")
+        conta.multa = request.form.get("multa")
+        conta.dias_protesto = request.form.get("dias_protesto")
+        conta.especie_documento = request.form.get("especie_documento")
         conta.saldo_inicial = request.form.get("saldo_inicial") or 0
         db.session.commit()
         flash("Conta bancária atualizada com sucesso!", "success")

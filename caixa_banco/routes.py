@@ -43,6 +43,14 @@ def listar_bancos():
             'agencia': c.agencia,
             'conta': c.conta,
             'tipo': c.tipo,
+            'convenio': c.convenio,
+            'carteira': c.carteira,
+            'variacao': c.variacao,
+            'contrato': c.contrato,
+            'juros_mora': float(c.juros_mora or 0) if c.juros_mora is not None else None,
+            'multa': float(c.multa or 0) if c.multa is not None else None,
+            'dias_protesto': c.dias_protesto,
+            'especie_documento': c.especie_documento,
             'saldo_atual': float(c.saldo_atual or 0)
         } for c in contas
     ])
@@ -60,6 +68,11 @@ def criar_banco():
         convenio=data.get('convenio'),
         carteira=data.get('carteira'),
         variacao=data.get('variacao'),
+        contrato=data.get('contrato'),
+        juros_mora=data.get('juros_mora'),
+        multa=data.get('multa'),
+        dias_protesto=data.get('dias_protesto'),
+        especie_documento=data.get('especie_documento'),
         saldo_inicial=data.get('saldo_inicial', 0),
         saldo_atual=data.get('saldo_inicial', 0)
     )

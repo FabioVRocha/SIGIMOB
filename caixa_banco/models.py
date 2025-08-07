@@ -29,6 +29,11 @@ class ContaBanco(db.Model):
     convenio = db.Column(db.String(50))
     carteira = db.Column(db.String(50))
     variacao = db.Column(db.String(50))
+    contrato = db.Column(db.String(50))
+    juros_mora = db.Column(db.Numeric(5, 2))
+    multa = db.Column(db.Numeric(5, 2))
+    dias_protesto = db.Column(db.Integer)
+    especie_documento = db.Column(db.String(50))
     saldo_inicial = db.Column(db.Numeric(12, 2), default=0)
     saldo_atual = db.Column(db.Numeric(12, 2), default=0)
 
