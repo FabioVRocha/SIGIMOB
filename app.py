@@ -1663,6 +1663,7 @@ def contratos_add():
             valor_parcela = request.form["valor_parcela"]
             quantidade_calcao = int(request.form.get("quantidade_calcao") or 0)
             valor_calcao = request.form.get("valor_calcao")
+            finalidade = request.form["finalidade"]
             status_contrato = request.form["status_contrato"]
             observacao = request.form.get("observacao")
 
@@ -1684,10 +1685,10 @@ def contratos_add():
                 INSERT INTO contratos_aluguel (
                     imovel_id, cliente_id, nome_inquilino, endereco_inquilino,
                     bairro_inquilino, cidade_inquilino, estado_inquilino,
-                    cep_inquilino, telefone_inquilino, data_inicio, data_fim,
+                    cep_inquilino, telefone_inquilino, finalidade, data_inicio, data_fim,
                     quantidade_parcelas, valor_parcela, quantidade_calcao,
                     valor_calcao, status_contrato, observacao
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -1700,6 +1701,7 @@ def contratos_add():
                     estado_inquilino,
                     cep_inquilino,
                     telefone_inquilino,
+                    finalidade,
                     data_inicio,
                     data_fim,
                     quantidade_parcelas,
@@ -1848,6 +1850,7 @@ def contratos_edit(id):
             valor_parcela = request.form["valor_parcela"]
             quantidade_calcao = int(request.form.get("quantidade_calcao") or 0)
             valor_calcao = request.form.get("valor_calcao")
+            finalidade = request.form["finalidade"]
             status_contrato = request.form["status_contrato"]
             observacao = request.form.get("observacao")
 
@@ -1871,6 +1874,7 @@ def contratos_edit(id):
                     endereco_inquilino = %s, bairro_inquilino = %s,
                     cidade_inquilino = %s, estado_inquilino = %s,
                     cep_inquilino = %s, telefone_inquilino = %s,
+                    finalidade = %s,
                     data_inicio = %s, data_fim = %s,
                     quantidade_parcelas = %s, valor_parcela = %s,
                     quantidade_calcao = %s, valor_calcao = %s,
@@ -1887,6 +1891,7 @@ def contratos_edit(id):
                     estado_inquilino,
                     cep_inquilino,
                     telefone_inquilino,
+                    finalidade,
                     data_inicio,
                     data_fim,
                     quantidade_parcelas,
@@ -1898,6 +1903,47 @@ def contratos_edit(id):
                     id,
                 ),
             )
+
+            if quantidade_calcao > 0 and valor_calcao:
+                cur.execute(
+                    "SELECT COUNT(*) FROM contas_a_receber WHERE contrato_id = %s AND titulo LIKE 'C%%'",
+                    (id,),
+                )
+                existing_calcao = cur.fetchone()[0]
+                if existing_calcao == 0:
+                    cur.execute(
+                        "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+                        ("CALÇOES",),
+                    )
+                    calcao_result = cur.fetchone()
+                    if calcao_result:
+                        calcao_receita_id = calcao_result[0]
+                    else:
+                        cur.execute(
+                            "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
+                            ("CALÇOES",),
+                        )
+                        calcao_receita_id = cur.fetchone()[0]
+
+                    for numero in range(1, quantidade_calcao + 1):
+                        titulo_calcao = f"C{id}-{numero}/{quantidade_calcao}"
+                        venc_calcao = data_inicio + timedelta(days=30 * (numero - 1))
+                        cur.execute(
+                            """
+                            INSERT INTO contas_a_receber (
+                                contrato_id, receita_id, cliente_id, titulo,
+                                data_vencimento, valor_previsto
+                            ) VALUES (%s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                id,
+                                calcao_receita_id,
+                                cliente_id,
+                                titulo_calcao,
+                                venc_calcao,
+                                valor_calcao,
+                            ),
+                        )
 
             if "anexos" in request.files:
                 files = request.files.getlist("anexos")

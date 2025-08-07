@@ -95,6 +95,7 @@ CREATE TABLE movimentacoes_imovel (
 
 -- Tabela para Contrato de Aluguel
 CREATE TYPE status_contrato_enum AS ENUM ('Ativo', 'Encerrado', 'Pendente');
+CREATE TYPE finalidade_contrato_enum AS ENUM ('Comercial', 'Residencial', 'Comodato');
 
 CREATE TABLE contratos_aluguel (
     id SERIAL PRIMARY KEY,
@@ -107,6 +108,7 @@ CREATE TABLE contratos_aluguel (
     estado_inquilino CHAR(2), -- Preenchido automaticamente
     cep_inquilino VARCHAR(10), -- Preenchido automaticamente
     telefone_inquilino VARCHAR(20), -- Preenchido automaticamente
+    finalidade finalidade_contrato_enum NOT NULL,
     data_inicio DATE NOT NULL,
     data_fim DATE NOT NULL,
     quantidade_parcelas INTEGER NOT NULL,

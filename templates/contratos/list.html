@@ -29,6 +29,7 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Imóvel</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Inquilino</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Finalidade</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Período</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor Parcela</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
@@ -41,6 +42,7 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.id }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.endereco_imovel }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.nome_inquilino }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.finalidade }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.data_inicio }} - {{ contrato.data_fim }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f"|format(contrato.valor_parcela) }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.status_contrato }}</td>
