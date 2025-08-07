@@ -410,11 +410,15 @@ def index():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    # Dados de exemplo para o dashboard
-    exames_vencidos = 2
-    exames_proximos = 0
     conn = get_db_connection()
     cur = conn.cursor()
+    atualizar_status_contas_a_receber(cur)
+    conn.commit()
+    cur.execute(
+        "SELECT COUNT(*), COALESCE(SUM(valor_previsto), 0) FROM contas_a_receber WHERE status_conta = 'Vencida'"
+    )
+    qtd_titulos_atrasados, valor_total_titulos_atrasados = cur.fetchone()
+    valor_total_titulos_atrasados = float(valor_total_titulos_atrasados)
     cur.execute("SELECT COUNT(*) FROM imoveis")
     total_imoveis_ativos = cur.fetchone()[0]
     cur.execute(
@@ -458,8 +462,8 @@ def dashboard():
 
     return render_template(
         "dashboard.html",
-        exames_vencidos=exames_vencidos,
-        exames_proximos=exames_proximos,
+        qtd_titulos_atrasados=qtd_titulos_atrasados,
+        valor_total_titulos_atrasados=valor_total_titulos_atrasados,
         total_imoveis_ativos=total_imoveis_ativos,
         total_contratos_ativos=total_contratos_ativos,
         percent_imoveis_alugados=percent_imoveis_alugados,
