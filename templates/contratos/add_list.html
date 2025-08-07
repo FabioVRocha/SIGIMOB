@@ -80,6 +80,14 @@
                 <input type="number" step="0.01" id="valor_parcela" name="valor_parcela" class="form-input" value="{{ contrato.valor_parcela | default('') }}" required>
             </div>
             <div class="form-group">
+                <label for="quantidade_calcao" class="form-label">Qtd. Calção:</label>
+                <input type="number" id="quantidade_calcao" name="quantidade_calcao" class="form-input" value="{{ contrato.quantidade_calcao | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="valor_calcao" class="form-label">Valor do Calção:</label>
+                <input type="number" step="0.01" id="valor_calcao" name="valor_calcao" class="form-input" value="{{ contrato.valor_calcao | default('') }}">
+            </div>
+            <div class="form-group">
                 <label for="status_contrato" class="form-label">Status:</label>
                 <select id="status_contrato" name="status_contrato" class="form-select" required>
                     <option value="Ativo" {% if contrato.status_contrato == 'Ativo' %}selected{% endif %}>Ativo</option>

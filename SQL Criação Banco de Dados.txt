@@ -111,6 +111,8 @@ CREATE TABLE contratos_aluguel (
     data_fim DATE NOT NULL,
     quantidade_parcelas INTEGER NOT NULL,
     valor_parcela NUMERIC(10,2) NOT NULL,
+    quantidade_calcao INTEGER,
+    valor_calcao NUMERIC(10,2),
     status_contrato status_contrato_enum NOT NULL DEFAULT 'Ativo',
     observacao TEXT,
     data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()

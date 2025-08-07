@@ -1618,6 +1618,8 @@ def contratos_add():
             data_fim = datetime.strptime(request.form["data_fim"], "%Y-%m-%d").date()
             quantidade_parcelas = request.form["quantidade_parcelas"]
             valor_parcela = request.form["valor_parcela"]
+            quantidade_calcao = int(request.form.get("quantidade_calcao") or 0)
+            valor_calcao = request.form.get("valor_calcao")
             status_contrato = request.form["status_contrato"]
             observacao = request.form.get("observacao")
 
@@ -1640,8 +1642,9 @@ def contratos_add():
                     imovel_id, cliente_id, nome_inquilino, endereco_inquilino,
                     bairro_inquilino, cidade_inquilino, estado_inquilino,
                     cep_inquilino, telefone_inquilino, data_inicio, data_fim,
-                    quantidade_parcelas, valor_parcela, status_contrato, observacao
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    quantidade_parcelas, valor_parcela, quantidade_calcao,
+                    valor_calcao, status_contrato, observacao
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
@@ -1658,6 +1661,8 @@ def contratos_add():
                     data_fim,
                     quantidade_parcelas,
                     valor_parcela,
+                    quantidade_calcao,
+                    valor_calcao,
                     status_contrato,
                     observacao,
                 ),
@@ -1699,6 +1704,41 @@ def contratos_add():
                         valor_parcela,
                     ),
                 )
+
+            if quantidade_calcao > 0 and valor_calcao:
+                cur.execute(
+                    "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+                    ("CALÇOES",),
+                )
+                calcao_result = cur.fetchone()
+                if calcao_result:
+                    calcao_receita_id = calcao_result[0]
+                else:
+                    cur.execute(
+                        "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
+                        ("CALÇOES",),
+                    )
+                    calcao_receita_id = cur.fetchone()[0]
+
+                for numero in range(1, quantidade_calcao + 1):
+                    titulo_calcao = f"C{contrato_id}-{numero}/{quantidade_calcao}"
+                    venc_calcao = data_inicio + timedelta(days=30 * (numero - 1))
+                    cur.execute(
+                        """
+                        INSERT INTO contas_a_receber (
+                            contrato_id, receita_id, cliente_id, titulo,
+                            data_vencimento, valor_previsto
+                        ) VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            contrato_id,
+                            calcao_receita_id,
+                            cliente_id,
+                            titulo_calcao,
+                            venc_calcao,
+                            valor_calcao,
+                        ),
+                    )
 
             if "anexos" in request.files:
                 files = request.files.getlist("anexos")
@@ -1763,6 +1803,8 @@ def contratos_edit(id):
             data_fim = datetime.strptime(request.form["data_fim"], "%Y-%m-%d").date()
             quantidade_parcelas = request.form["quantidade_parcelas"]
             valor_parcela = request.form["valor_parcela"]
+            quantidade_calcao = int(request.form.get("quantidade_calcao") or 0)
+            valor_calcao = request.form.get("valor_calcao")
             status_contrato = request.form["status_contrato"]
             observacao = request.form.get("observacao")
 
@@ -1788,6 +1830,7 @@ def contratos_edit(id):
                     cep_inquilino = %s, telefone_inquilino = %s,
                     data_inicio = %s, data_fim = %s,
                     quantidade_parcelas = %s, valor_parcela = %s,
+                    quantidade_calcao = %s, valor_calcao = %s,
                     status_contrato = %s, observacao = %s
                 WHERE id = %s
                 """,
@@ -1805,6 +1848,8 @@ def contratos_edit(id):
                     data_fim,
                     quantidade_parcelas,
                     valor_parcela,
+                    quantidade_calcao,
+                    valor_calcao,
                     status_contrato,
                     observacao,
                     id,
