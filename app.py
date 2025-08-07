@@ -123,6 +123,16 @@ def parse_decimal(value):
         return None
 
 
+def format_currency(value):
+    try:
+        return f"R$ {float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (TypeError, ValueError):
+        return "R$ 0,00"
+
+
+app.jinja_env.filters["currency"] = format_currency
+
+
 def calcular_status_conta(data_vencimento, data_pagamento, contrato_id, cur):
     if data_pagamento:
         return "Paga"
