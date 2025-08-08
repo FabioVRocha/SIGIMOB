@@ -44,6 +44,9 @@ def test_gerar_boletos(tmp_path):
         resultado = gerar_boletos([1])
         assert os.path.exists(resultado['remessa'])
         assert len(resultado['pdfs']) == 1
+        with open(resultado['pdfs'][0], 'rb') as f:
+            conteudo = f.read()
+        assert '(Boleto - Título 1) Tj'.encode('latin-1') in conteudo
 
 
 def test_importar_retorno(tmp_path):

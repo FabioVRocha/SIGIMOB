@@ -1,32 +1,61 @@
 def gerar_pdf_boleto(titulo, filepath: str):
-    """Gera um arquivo PDF simples com informações básicas do boleto.
+    """Gera um arquivo PDF simples contendo informações do boleto.
 
-    Esta implementação não depende de bibliotecas externas e grava um
-    PDF mínimo contendo texto plano. É suficiente para testes e para
-    oferecer um arquivo para download.
+    A implementação continua independente de bibliotecas externas, porém
+    agora escreve um conteúdo que os visualizadores de PDF conseguem
+    renderizar corretamente. O arquivo final possui uma página com texto
+    básico descrevendo o título gerado.
     """
-    conteudo = (
-        f"Boleto - Título {titulo.id}\n"
-        f"Nosso número: {titulo.nosso_numero}\n"
-        f"Valor: {float(titulo.valor_previsto):.2f}\n"
-        f"Vencimento: {titulo.data_vencimento.isoformat()}\n"
+    
+    linhas = [
+        f"Boleto - Título {titulo.id}",
+        f"Nosso número: {titulo.nosso_numero}",
+        f"Valor: {float(titulo.valor_previsto):.2f}",
+        f"Vencimento: {titulo.data_vencimento.isoformat()}",
+    ]
+
+    # Monta o stream de conteúdo com comandos PDF para exibir texto
+    y = 750
+    conteudo_pdf = ["BT", "/F1 12 Tf"]
+    for linha in linhas:
+        conteudo_pdf.append(f"72 {y} Td ({linha}) Tj")
+        y -= 14
+    conteudo_pdf.append("ET")
+    conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
+
+    header = b"%PDF-1.4\n"
+    objs = []
+    offsets = []
+
+    def add_obj(data: bytes):
+        offsets.append(len(header) + sum(len(o) for o in objs))
+        objs.append(data)
+
+    add_obj(b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n")
+    add_obj(b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n")
+    add_obj(
+        b"3 0 obj << /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> "
+        b"/MediaBox [0 0 612 792] /Contents 5 0 R >> endobj\n"
     )
-    # Construção de um PDF mínimo com uma página e texto simples
-    texto_bytes = conteudo.encode('latin-1')
-    header = b"%PDF-1.1\n1 0 obj<<>>endobj\n"
-    stream = (
-        b"2 0 obj<< /Length "
-        + str(len(texto_bytes) + 1).encode()
-        + b" >>stream\n"
-        + texto_bytes
+    add_obj(b"4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n")
+    add_obj(
+        b"5 0 obj << /Length "
+        + str(len(conteudo_bytes)).encode("latin-1")
+        + b" >> stream\n"
+        + conteudo_bytes
         + b"\nendstream endobj\n"
     )
-    body = (
-        b"3 0 obj<< /Type /Page /Parent 4 0 R /Contents 2 0 R>>endobj\n"
-        b"4 0 obj<< /Type /Pages /Kids [3 0 R] /Count 1>>endobj\n"
-        b"5 0 obj<< /Type /Catalog /Pages 4 0 R>>endobj\n"
-    )
-    xref = b"xref\n0 6\n0000000000 65535 f \n0000000010 00000 n \n0000000053 00000 n \n0000000114 00000 n \n0000000165 00000 n \n0000000223 00000 n \n"
-    trailer = b"trailer<< /Root 5 0 R /Size 6>>\nstartxref\n274\n%%EOF"
-    with open(filepath, 'wb') as f:
-        f.write(header + stream + body + xref + trailer)
+    
+    xref_inicio = len(header) + sum(len(o) for o in objs)
+    xref = ["xref", "0 6", "0000000000 65535 f "]
+    for off in offsets:
+        xref.append(f"{off:010d} 00000 n ")
+    xref_bytes = "\n".join(xref).encode("latin-1") + b"\n"
+    trailer = (
+        "trailer<< /Size 6 /Root 1 0 R >>\nstartxref\n"
+        + str(xref_inicio)
+        + "\n%%EOF"
+    ).encode("latin-1")
+
+    with open(filepath, "wb") as f:
+        f.write(header + b"".join(objs) + xref_bytes + trailer)
