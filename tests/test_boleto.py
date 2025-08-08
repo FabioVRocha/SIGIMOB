@@ -1,0 +1,59 @@
+import os
+import sys
+from pathlib import Path
+from datetime import date
+from flask import Flask
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from caixa_banco import init_app as init_caixa, db
+from contas_receber import init_app as init_contas
+from caixa_banco.models import ContaBanco
+from contas_receber.models import EmpresaLicenciada, ContaReceber
+from contas_receber.services import gerar_boletos, importar_retorno
+from contas_receber.cnab import CNAB240Writer, Titulo
+
+
+def setup_app(tmp_path):
+    app = Flask(__name__)
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['UPLOAD_FOLDER'] = str(tmp_path)
+    init_caixa(app)
+    init_contas(app)
+    with app.app_context():
+        db.create_all()
+        emp = EmpresaLicenciada(documento='123', razao_social_nome='Empresa Teste')
+        db.session.add(emp)
+        conta = ContaBanco(banco='001', nome_banco='Banco', agencia='1234', conta='5678')
+        db.session.add(conta)
+        titulo = ContaReceber(
+            cliente_id=1,
+            titulo='Teste',
+            data_vencimento=date.today(),
+            valor_previsto=100.00
+        )
+        db.session.add(titulo)
+        db.session.commit()
+    return app
+
+
+def test_gerar_boletos(tmp_path):
+    app = setup_app(tmp_path)
+    with app.app_context():
+        resultado = gerar_boletos([1])
+        assert os.path.exists(resultado['remessa'])
+        assert len(resultado['pdfs']) == 1
+
+
+def test_importar_retorno(tmp_path):
+    app = setup_app(tmp_path)
+    with app.app_context():
+        gerar_boletos([1])
+        titulo = ContaReceber.query.get(1)
+        writer = CNAB240Writer(EmpresaLicenciada.query.first(), ContaBanco.query.first())
+        cnab = writer.gerar([Titulo(titulo.nosso_numero, float(titulo.valor_previsto))])
+        resultado = importar_retorno(cnab)
+        titulo = ContaReceber.query.get(1)
+        assert titulo.status_conta == 'Paga'
+        assert resultado['baixados'][0]['id'] == 1

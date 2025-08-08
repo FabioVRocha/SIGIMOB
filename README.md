@@ -59,3 +59,43 @@ A aplicação é executada ouvindo em todas as interfaces de rede
    está liberada no firewall do servidor.
 
 As pastas de upload serão criadas automaticamente no primeiro uso.
+
+## Boletos e CNAB240
+
+O módulo de Contas a Receber expõe dois endpoints REST para geração de
+boletos e processamento de arquivos de retorno no layout CNAB240.
+
+### Gerar boleto
+
+`POST /api/contas-receber/{id}/boleto`
+
+Exemplo de requisição:
+
+```json
+{
+  "ids": [1, 2]
+}
+```
+
+Resposta bem-sucedida:
+
+```json
+{
+  "pdfs": ["/uploads/boletos/boleto_1.pdf", "/uploads/boletos/boleto_2.pdf"],
+  "remessa": "/uploads/remessas/remessa_20240101120000.rem"
+}
+```
+
+### Importar arquivo de retorno
+
+`POST /api/contas-receber/retorno`
+
+Envie o arquivo CNAB240 no campo `arquivo` do formulário. Exemplo de
+resposta:
+
+```json
+{
+  "baixados": [{"id": 1, "valor_pago": 100.0}],
+  "erros": []
+}
+```

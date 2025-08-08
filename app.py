@@ -27,6 +27,7 @@ from decimal import Decimal, InvalidOperation
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
 from caixa_banco import init_app as init_caixa_banco, db
+from contas_receber import init_app as init_contas_receber
 from caixa_banco.models import (
     ContaCaixa,
     ContaBanco,
@@ -63,7 +64,7 @@ os.makedirs(
 
 # Inicializa o módulo de Caixa e Banco (SQLAlchemy e rotas REST)
 init_caixa_banco(app)
-
+init_contas_receber(app)
 
 # Variáveis globais para o sistema (exemplo)
 SYSTEM_VERSION = "1.0"
