@@ -31,7 +31,7 @@ def setup_app(tmp_path):
             cliente_id=1,
             titulo='Teste',
             data_vencimento=date.today(),
-            valor_previsto=100.00
+            valor_previsto=100.00,
         )
         db.session.add(titulo)
         db.session.commit()
@@ -57,3 +57,19 @@ def test_importar_retorno(tmp_path):
         titulo = ContaReceber.query.get(1)
         assert titulo.status_conta == 'Paga'
         assert resultado['baixados'][0]['id'] == 1
+
+
+def test_gerar_boleto_handles_unexpected_error(tmp_path, monkeypatch):
+    app = setup_app(tmp_path)
+    with app.app_context():
+        def boom(ids):
+            raise RuntimeError('boom')
+
+        import contas_receber.routes as routes
+        monkeypatch.setattr(routes, 'gerar_boletos', boom)
+
+        client = app.test_client()
+        resp = client.post('/api/contas-receber/1/boleto')
+        assert resp.status_code == 500
+        data = resp.get_json()
+        assert data['error'] == 'boom'

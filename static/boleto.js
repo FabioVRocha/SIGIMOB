@@ -1,8 +1,11 @@
 async function gerarBoleto(id) {
   try {
     const resp = await fetch(`/api/contas-receber/${id}/boleto`, { method: 'POST' });
-    if (!resp.ok) throw new Error('Erro ao gerar boleto');
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      alert(data.error || 'Erro ao gerar boleto');
+      return;
+    }
     const toUrl = (p) => {
       const unixIdx = p.indexOf('/uploads/');
       if (unixIdx >= 0) {
@@ -21,6 +24,6 @@ async function gerarBoleto(id) {
       window.open(toUrl(data.remessa), '_blank');
     }
   } catch (err) {
-    alert('Erro ao gerar boleto');
+    alert(err.message || 'Erro ao gerar boleto');
   }
 }
