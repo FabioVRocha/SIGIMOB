@@ -33,12 +33,10 @@ def gerar_pdf_boleto(titulo, filepath: str) -> None:
     # coordenadas absolutas com "Td", o que fazia apenas a primeira linha
     # ficar visível no documento gerado.
 
-    conteudo_pdf.append(f"60 {y} Td ({linha}) Tj")
-    primeira = True
-    for linha in linhas:
-        if primeira:
+    conteudo_pdf.append(f"60 {y} Td")
+    for i, linha in enumerate(linhas):
+        if i == 0:
             conteudo_pdf.append(f"({linha}) Tj")
-            primeira = False
         else:
             # Move 14 pontos para baixo a cada nova linha
             conteudo_pdf.append(f"0 -14 Td ({linha}) Tj")
