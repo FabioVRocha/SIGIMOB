@@ -46,7 +46,11 @@ def test_gerar_boletos(tmp_path):
         assert len(resultado['pdfs']) == 1
         with open(resultado['pdfs'][0], 'rb') as f:
             conteudo = f.read()
+        # Verifica se os principais campos do layout foram inseridos
         assert b'Boleto Bancario' in conteudo
+        assert b'Local do Pagamento' in conteudo
+        assert b'Data de Vencimento' in conteudo
+        assert b'Nosso numero' in conteudo
 
 
 def test_importar_retorno(tmp_path):

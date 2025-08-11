@@ -4,43 +4,53 @@ O objetivo desta rotina é produzir um arquivo PDF com layout básico de
 boleto bancário sem depender de bibliotecas externas. São utilizados
 comandos PDF diretos para desenhar caixas e textos, possibilitando que o
 arquivo final seja visualizado em leitores de PDF comuns.
+
+Esta implementação foi ajustada para que o layout se aproxime do arquivo
+``Modelo Boleto.pdf`` disponibilizado na raiz do projeto. O desenho dos
+principais campos do boleto é feito manualmente através de comandos PDF
+como ``re`` (retângulos) e ``m/l`` (movimentos de linha).
 """
 
 
 def gerar_pdf_boleto(titulo, filepath: str) -> None:
-    """Gera um PDF de boleto com informações principais do título."""
-    
-    linhas = [
-        "Boleto Bancario",
-        f"Titulo: {titulo.id}",
-        f"Nosso numero: {titulo.nosso_numero}",
-        f"Valor: {float(titulo.valor_previsto):.2f}",
-        f"Vencimento: {titulo.data_vencimento.strftime('%d/%m/%Y')}",
-    ]
+    """Gera um PDF de boleto com layout semelhante ao modelo fornecido."""
 
-    # Conteúdo com comandos de desenho e texto
-    y = 740
+    due_date = titulo.data_vencimento.strftime('%d/%m/%Y')
+    valor = f"{float(titulo.valor_previsto):.2f}"
+    nosso_numero = titulo.nosso_numero or ""
+    doc_num = str(titulo.id)
+
     conteudo_pdf = [
         "0.5 w",  # espessura das linhas
-        "50 500 500 200 re S",  # grande retângulo inferior
-        "50 730 500 80 re S",  # retângulo superior
-        "BT",
-        "/F1 12 Tf",
+        # Moldura principal
+        "50 450 500 300 re S",
+        # Linhas horizontais
+        "50 720 m 550 720 l S",
+        "50 680 m 550 680 l S",
+        "50 640 m 550 640 l S",
+        "50 600 m 550 600 l S",
+        # Linhas verticais para dividir colunas
+        "300 720 m 300 750 l S",
+        "300 680 m 300 720 l S",
+        "200 640 m 200 680 l S",
+        "360 640 m 360 720 l S",
+        # Textos
+        "BT /F1 14 Tf 60 730 Td (Boleto Bancario) Tj ET",
+        "BT /F1 8 Tf 60 705 Td (Local do Pagamento) Tj ET",
+        "BT /F1 8 Tf 360 705 Td (Data de Vencimento) Tj ET",
+        "BT /F1 10 Tf 60 690 Td (Pagavel em qualquer banco ate o vencimento.) Tj ET",
+        f"BT /F1 10 Tf 360 690 Td ({due_date}) Tj ET",
+        "BT /F1 8 Tf 60 665 Td (Nome do Beneficiario) Tj ET",
+        "BT /F1 8 Tf 360 665 Td (Agencia/Codigo do Beneficiario) Tj ET",
+        "BT /F1 10 Tf 60 650 Td (Empresa Teste) Tj ET",
+        "BT /F1 10 Tf 360 650 Td (0001/0001) Tj ET",
+        "BT /F1 8 Tf 60 625 Td (Nosso numero) Tj ET",
+        "BT /F1 8 Tf 200 625 Td (Numero do documento) Tj ET",
+        "BT /F1 8 Tf 360 625 Td (Valor do Documento) Tj ET",
+        f"BT /F1 10 Tf 60 610 Td ({nosso_numero}) Tj ET",
+        f"BT /F1 10 Tf 200 610 Td ({doc_num}) Tj ET",
+        f"BT /F1 10 Tf 360 610 Td ({valor}) Tj ET",
     ]
-    # O operador "Td" posiciona o texto de forma relativa, por isso
-    # definimos a posição inicial uma única vez e depois movimentamos o
-    # cursor apenas na direção vertical. A forma anterior usava
-    # coordenadas absolutas com "Td", o que fazia apenas a primeira linha
-    # ficar visível no documento gerado.
-
-    conteudo_pdf.append(f"60 {y} Td")
-    for i, linha in enumerate(linhas):
-        if i == 0:
-            conteudo_pdf.append(f"({linha}) Tj")
-        else:
-            # Move 14 pontos para baixo a cada nova linha
-            conteudo_pdf.append(f"0 -14 Td ({linha}) Tj")
-    conteudo_pdf.append("ET")
     conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
 
     header = b"%PDF-1.4\n"
