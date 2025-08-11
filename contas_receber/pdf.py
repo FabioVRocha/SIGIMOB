@@ -15,11 +15,21 @@ def gerar_pdf_boleto(titulo, filepath: str):
     ]
 
     # Monta o stream de conteúdo com comandos PDF para exibir texto
-    y = 750
-    conteudo_pdf = ["BT", "/F1 12 Tf"]
+    # O operador "Td" posiciona o texto de forma relativa, por isso
+    # definimos a posição inicial uma única vez e depois movimentamos o
+    # cursor apenas na direção vertical. A forma anterior usava
+    # coordenadas absolutas com "Td", o que fazia apenas a primeira linha
+    # ficar visível no documento gerado.
+
+    conteudo_pdf = ["BT", "/F1 12 Tf", "72 750 Td"]
+    primeira = True
     for linha in linhas:
-        conteudo_pdf.append(f"72 {y} Td ({linha}) Tj")
-        y -= 14
+        if primeira:
+            conteudo_pdf.append(f"({linha}) Tj")
+            primeira = False
+        else:
+            # Move 14 pontos para baixo a cada nova linha
+            conteudo_pdf.append(f"0 -14 Td ({linha}) Tj")
     conteudo_pdf.append("ET")
     conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
 
