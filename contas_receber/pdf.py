@@ -1,27 +1,39 @@
-def gerar_pdf_boleto(titulo, filepath: str):
-    """Gera um arquivo PDF simples contendo informações do boleto.
+"""Geração simplificada de boletos em PDF.
 
-    A implementação continua independente de bibliotecas externas, porém
-    agora escreve um conteúdo que os visualizadores de PDF conseguem
-    renderizar corretamente. O arquivo final possui uma página com texto
-    básico descrevendo o título gerado.
-    """
+O objetivo desta rotina é produzir um arquivo PDF com layout básico de
+boleto bancário sem depender de bibliotecas externas. São utilizados
+comandos PDF diretos para desenhar caixas e textos, possibilitando que o
+arquivo final seja visualizado em leitores de PDF comuns.
+"""
+
+
+def gerar_pdf_boleto(titulo, filepath: str) -> None:
+    """Gera um PDF de boleto com informações principais do título."""
     
     linhas = [
-        f"Boleto - Título {titulo.id}",
-        f"Nosso número: {titulo.nosso_numero}",
+        "Boleto Bancario",
+        f"Titulo: {titulo.id}",
+        f"Nosso numero: {titulo.nosso_numero}",
         f"Valor: {float(titulo.valor_previsto):.2f}",
-        f"Vencimento: {titulo.data_vencimento.isoformat()}",
+        f"Vencimento: {titulo.data_vencimento.strftime('%d/%m/%Y')}",
     ]
 
-    # Monta o stream de conteúdo com comandos PDF para exibir texto
+    # Conteúdo com comandos de desenho e texto
+    y = 740
+    conteudo_pdf = [
+        "0.5 w",  # espessura das linhas
+        "50 500 500 200 re S",  # grande retângulo inferior
+        "50 730 500 80 re S",  # retângulo superior
+        "BT",
+        "/F1 12 Tf",
+    ]
     # O operador "Td" posiciona o texto de forma relativa, por isso
     # definimos a posição inicial uma única vez e depois movimentamos o
     # cursor apenas na direção vertical. A forma anterior usava
     # coordenadas absolutas com "Td", o que fazia apenas a primeira linha
     # ficar visível no documento gerado.
 
-    conteudo_pdf = ["BT", "/F1 12 Tf", "72 750 Td"]
+    conteudo_pdf.append(f"60 {y} Td ({linha}) Tj")
     primeira = True
     for linha in linhas:
         if primeira:
@@ -37,7 +49,7 @@ def gerar_pdf_boleto(titulo, filepath: str):
     objs = []
     offsets = []
 
-    def add_obj(data: bytes):
+    def add_obj(data: bytes) -> None:
         offsets.append(len(header) + sum(len(o) for o in objs))
         objs.append(data)
 
