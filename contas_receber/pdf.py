@@ -12,13 +12,20 @@ como ``re`` (retângulos) e ``m/l`` (movimentos de linha).
 """
 
 
-def gerar_pdf_boleto(titulo, filepath: str) -> None:
-    """Gera um PDF de boleto com layout semelhante ao modelo fornecido."""
+def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
+    """Gera um PDF de boleto com layout semelhante ao modelo fornecido.
+
+    Os dados do beneficiário e da conta bancária são preenchidos de acordo
+    com os registros ``Empresa Licenciada`` e ``Contas Bancárias``
+    cadastrados no sistema.
+    """
 
     due_date = titulo.data_vencimento.strftime('%d/%m/%Y')
     valor = f"{float(titulo.valor_previsto):.2f}"
     nosso_numero = titulo.nosso_numero or ""
     doc_num = str(titulo.id)
+    beneficiario = empresa.razao_social_nome
+    agencia_conta = f"{conta.agencia}/{conta.conta}"
 
     conteudo_pdf = [
         "0.5 w",  # espessura das linhas
@@ -42,8 +49,8 @@ def gerar_pdf_boleto(titulo, filepath: str) -> None:
         f"BT /F1 10 Tf 360 690 Td ({due_date}) Tj ET",
         "BT /F1 8 Tf 60 665 Td (Nome do Beneficiario) Tj ET",
         "BT /F1 8 Tf 360 665 Td (Agencia/Codigo do Beneficiario) Tj ET",
-        "BT /F1 10 Tf 60 650 Td (Empresa Teste) Tj ET",
-        "BT /F1 10 Tf 360 650 Td (0001/0001) Tj ET",
+        f"BT /F1 10 Tf 60 650 Td ({beneficiario}) Tj ET",
+        f"BT /F1 10 Tf 360 650 Td ({agencia_conta}) Tj ET",
         "BT /F1 8 Tf 60 625 Td (Nosso numero) Tj ET",
         "BT /F1 8 Tf 200 625 Td (Numero do documento) Tj ET",
         "BT /F1 8 Tf 360 625 Td (Valor do Documento) Tj ET",

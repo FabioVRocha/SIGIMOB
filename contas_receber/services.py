@@ -33,7 +33,7 @@ def gerar_boletos(ids):
     pdfs = []
     for t in titulos:
         pdf_path = os.path.join(boletos_dir, f"boleto_{t.id}.pdf")
-        gerar_pdf_boleto(t, pdf_path)
+        gerar_pdf_boleto(t, empresa, conta, pdf_path)
         pdfs.append(pdf_path)
     rem_path = os.path.join(rem_dir, f"remessa_{datetime.now().strftime('%Y%m%d%H%M%S')}.rem")
     with open(rem_path, 'w') as f:
