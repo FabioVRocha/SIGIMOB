@@ -17,6 +17,7 @@ from psycopg2 import extras
 import os
 import posixpath
 from datetime import datetime, timedelta
+import calendar
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import subprocess
@@ -133,6 +134,15 @@ def format_currency(value):
 
 
 app.jinja_env.filters["currency"] = format_currency
+
+
+def add_months(date_obj, months):
+    """Retorna a data acrescida do número de meses informado."""
+    month = date_obj.month - 1 + months
+    year = date_obj.year + month // 12
+    month = month % 12 + 1
+    day = min(date_obj.day, calendar.monthrange(year, month)[1])
+    return date_obj.replace(year=year, month=month, day=day)
 
 
 def calcular_status_conta(data_vencimento, data_pagamento, contrato_id, cur):
@@ -2984,7 +2994,7 @@ def contas_a_pagar_replicar(id):
         for i in range(1, quantidade + 1):
             novo_vencimento = conta["data_vencimento"] + timedelta(days=30 * i)
             nova_competencia = (
-                conta["competencia"] + timedelta(days=30 * i)
+                add_months(conta["competencia"], i)
                 if conta["competencia"]
                 else None
             )
