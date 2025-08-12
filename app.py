@@ -21,6 +21,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
 import subprocess
 import json
+import re
 from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
 from decimal import Decimal, InvalidOperation
 
@@ -2941,6 +2942,72 @@ def contas_a_pagar_delete(id):
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir conta: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contas_a_pagar_list"))
+
+
+@app.route("/contas-a-pagar/replicar/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_pagar_replicar(id):
+    quantidade = int(request.form.get("quantidade", 0))
+    if quantidade < 1:
+        flash("Quantidade inválida.", "warning")
+        return redirect(url_for("contas_a_pagar_list"))
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM contas_a_pagar WHERE id = %s", (id,))
+    conta = cur.fetchone()
+    if not conta:
+        cur.close()
+        conn.close()
+        flash("Conta não encontrada.", "danger")
+        return redirect(url_for("contas_a_pagar_list"))
+    try:
+        for i in range(1, quantidade + 1):
+            novo_vencimento = conta["data_vencimento"] + timedelta(days=30 * i)
+            match = re.match(r"^(.*?)-(\d+)/(\d+)$", conta["titulo"])
+            if match:
+                prefixo, numero, total = match.groups()
+                novo_titulo = f"{prefixo}-{int(numero) + i}/{total}"
+            else:
+                novo_titulo = f"{conta['titulo']}-{i}"
+            status_conta = calcular_status_conta(
+                novo_vencimento.strftime("%Y-%m-%d"), None, None, cur
+            )
+            cur.execute(
+                """
+                INSERT INTO contas_a_pagar (
+                    despesa_id, fornecedor_id, titulo, data_vencimento,
+                    valor_previsto, data_pagamento, valor_pago, valor_desconto,
+                    valor_multa, valor_juros, observacao, centro_custo,
+                    status_conta, origem_id
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    conta["despesa_id"],
+                    conta["fornecedor_id"],
+                    novo_titulo,
+                    novo_vencimento,
+                    conta["valor_previsto"],
+                    None,
+                    None,
+                    0,
+                    0,
+                    0,
+                    conta["observacao"],
+                    conta["centro_custo"],
+                    status_conta,
+                    conta["origem_id"],
+                ),
+            )
+        conn.commit()
+        flash("Títulos replicados com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao replicar títulos: {e}", "danger")
     finally:
         cur.close()
         conn.close()

@@ -30,6 +30,7 @@
                 <tr>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Fornecedor</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Título</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Despesa</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Vencimento</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor</th>
@@ -42,6 +43,7 @@
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.id }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.fornecedor }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.titulo }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.despesa }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_previsto) }}</td>
@@ -58,6 +60,9 @@
                         <a href="{{ url_for('contas_a_pagar_edit', id=conta.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
+                        <button type="button" class="text-purple-600 hover:text-purple-800 mr-3" title="Replicar" onclick="openReplicarModal({{ conta.id }})">
+                            <i class="fas fa-clone"></i>
+                        </button>
                         <form action="{{ url_for('contas_a_pagar_delete', id=conta.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta conta?');">
                             <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
                                 <i class="fas fa-trash-alt"></i>
@@ -136,6 +141,24 @@
     </div>
 </div>
 {% endfor %}
+{% for conta in contas %}
+<div id="replicar-modal-{{ conta.id }}" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeReplicarModal({{ conta.id }})">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Replicar Título</h2>
+        <form action="{{ url_for('contas_a_pagar_replicar', id=conta.id) }}" method="POST">
+            <div class="form-group mb-4">
+                <label for="quantidade_{{ conta.id }}" class="form-label">Quantidade:</label>
+                <input type="number" id="quantidade_{{ conta.id }}" name="quantidade" min="1" class="form-input" required>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closeReplicarModal({{ conta.id }})">Cancelar</button>
+                <button type="submit" class="btn-primary">Replicar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
 
 {% block scripts %}
@@ -156,6 +179,12 @@ function filterPayAccounts(id){
     });
     const opt = contaSelect.querySelector('option[data-tipo="'+tipo+'"]');
     if(opt){ contaSelect.value = opt.value; }
+}
+function openReplicarModal(id){
+    document.getElementById('replicar-modal-'+id).style.display='flex';
+}
+function closeReplicarModal(id){
+    document.getElementById('replicar-modal-'+id).style.display='none';
 }
 </script>
 {% endblock %}
