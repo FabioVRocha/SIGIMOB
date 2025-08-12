@@ -28,12 +28,12 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
                 </tr>
                 <tr>
-                    <th class="py-2 px-4"><input data-col="0" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
-                    <th class="py-2 px-4"><input data-col="1" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
-                    <th class="py-2 px-4"><input data-col="2" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
-                    <th class="py-2 px-4"><input data-col="3" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
-                    <th class="py-2 px-4"><input data-col="4" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
-                    <th class="py-2 px-4"><input data-col="5" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="0" type="text" placeholder="Filtrar" class="form-input column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="1" type="text" placeholder="Filtrar" class="form-input column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="2" type="text" placeholder="Filtrar" class="form-input column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="3" type="text" placeholder="Filtrar" class="form-input column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="4" type="text" placeholder="Filtrar" class="form-input column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="5" type="text" placeholder="Filtrar" class="form-input column-filter"></th>
                     <th class="py-2 px-4"></th>
                 </tr>
             </thead>
@@ -168,6 +168,9 @@ document.querySelectorAll('.column-filter').forEach(input => {
     input.addEventListener('input', filterTable);
 });
 
+window.addEventListener('load', adjustFilterWidths);
+window.addEventListener('resize', adjustFilterWidths);
+
 function filterTable(){
     const filters = Array.from(document.querySelectorAll('.column-filter')).map(i => i.value.toLowerCase());
     document.querySelectorAll('#contas-tbody tr').forEach(row => {
@@ -179,6 +182,25 @@ function filterTable(){
             }
         });
         row.style.display = visible ? '' : 'none';
+    });
+    adjustFilterWidths();
+}
+
+function adjustFilterWidths(){
+    const table = document.querySelector('.min-w-full');
+    document.querySelectorAll('.column-filter').forEach(input => {
+        input.style.width = 'auto';
+        const colIndex = parseInt(input.dataset.col) + 1;
+        const headerCell = table.querySelector('thead tr:first-child th:nth-child(' + colIndex + ')');
+        let maxWidth = headerCell ? headerCell.offsetWidth : 0;
+        table.querySelectorAll('tbody tr').forEach(row => {
+            if(row.style.display === 'none') return;
+            const cell = row.querySelector('td:nth-child(' + colIndex + ')');
+            if(cell && cell.offsetWidth > maxWidth){
+                maxWidth = cell.offsetWidth;
+            }
+        });
+        input.style.width = maxWidth + 'px';
     });
 }
 </script>
