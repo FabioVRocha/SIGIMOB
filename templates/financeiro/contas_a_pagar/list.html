@@ -14,15 +14,6 @@
         </a>
     </div>
 
-    <form action="{{ url_for('contas_a_pagar_list') }}" method="GET" class="mb-6">
-        <div class="flex items-center space-x-2">
-            <input type="text" name="search" placeholder="Buscar por fornecedor ou despesa..." class="form-input flex-grow" value="{{ search_query }}">
-            <button type="submit" class="btn-primary">
-                <i class="fas fa-search"></i> Buscar
-            </button>
-        </div>
-    </form>
-
     {% if contas %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
@@ -36,6 +27,16 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                </tr>
+                <tr>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search" placeholder="Buscar ID"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search" placeholder="Buscar Fornecedor"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search" placeholder="Buscar Título"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search" placeholder="Buscar Despesa"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search" placeholder="Buscar Vencimento"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search" placeholder="Buscar Valor"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search" placeholder="Buscar Status"></th>
+                    <th class="py-2 px-4"></th>
                 </tr>
             </thead>
             <tbody>
@@ -163,6 +164,25 @@
 
 {% block scripts %}
 <script>
+document.addEventListener('DOMContentLoaded', function(){
+    const inputs = document.querySelectorAll('.column-search');
+    const rows = document.querySelectorAll('tbody tr');
+    function filterTable(){
+        rows.forEach(row => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = input.value.toLowerCase();
+                const cell = row.querySelectorAll('td')[index];
+                if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
+                    visible = false;
+                }
+            });
+            row.style.display = visible ? '' : 'none';
+        });
+    }
+    inputs.forEach(input => input.addEventListener('input', filterTable));
+});
+
 function openPagarModal(id){
     filterPayAccounts(id);
     document.getElementById('pagar-modal-'+id).style.display='flex';

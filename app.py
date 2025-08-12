@@ -624,7 +624,6 @@ def pessoas_list():
     cur.close()
     conn.close()
     return render_template(
-        "pessoas/list.html", pessoas=pessoas, search_query=search_query, status_filter=status_filter
     )
 
 
@@ -872,7 +871,6 @@ def imoveis_list():
     cur.close()
     conn.close()
     return render_template(
-        "imoveis/list.html", imoveis=imoveis, search_query=search_query
     )
 
 
@@ -2410,7 +2408,6 @@ def contas_a_receber_list():
     return render_template(
         "financeiro/contas_a_receber/list.html",
         contas=contas,
-        search_query=search_query,
         contas_caixa=contas_caixa,
         contas_banco=contas_banco,
     )
@@ -2721,29 +2718,15 @@ def contas_a_pagar_list():
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     atualizar_status_contas_a_pagar(cur)
     conn.commit()
-    search_query = request.args.get("search", "")
-    if search_query:
-        cur.execute(
-            """
-            SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa
-            FROM contas_a_pagar cp
-            JOIN pessoas p ON cp.fornecedor_id = p.id
-            JOIN despesas_cadastro d ON cp.despesa_id = d.id
-            WHERE p.razao_social_nome ILIKE %s OR d.descricao ILIKE %s
-            ORDER BY cp.data_vencimento DESC
-            """,
-            (f"%{search_query}%", f"%{search_query}%"),
-        )
-    else:
-        cur.execute(
-            """
-            SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa
-            FROM contas_a_pagar cp
-            JOIN pessoas p ON cp.fornecedor_id = p.id
-            JOIN despesas_cadastro d ON cp.despesa_id = d.id
-            ORDER BY cp.data_vencimento DESC
-            """
-        )
+    cur.execute(
+        """
+        SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa
+        FROM contas_a_pagar cp
+        JOIN pessoas p ON cp.fornecedor_id = p.id
+        JOIN despesas_cadastro d ON cp.despesa_id = d.id
+        ORDER BY cp.data_vencimento DESC
+        """
+    )
     contas = cur.fetchall()
     cur.close()
     conn.close()
@@ -2752,7 +2735,6 @@ def contas_a_pagar_list():
     return render_template(
         "financeiro/contas_a_pagar/list.html",
         contas=contas,
-        search_query=search_query,
         contas_caixa=contas_caixa,
         contas_banco=contas_banco,
     )
@@ -3472,7 +3454,6 @@ def lancamentos_list():
         movimentos=movimentos,
         contas_caixa=contas_caixa,
         contas_banco=contas_banco,
-        search_query=search_query,
     )
 
 
