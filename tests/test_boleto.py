@@ -54,6 +54,10 @@ def test_gerar_boletos(tmp_path):
         assert b'Nosso numero' in conteudo
         assert b'Empresa Teste' in conteudo
         assert b'1234/5678' in conteudo
+        assert b'Recibo do Pagador' in conteudo
+        assert b'CNPJ' in conteudo
+        assert b'Uso do Banco' in conteudo
+        assert b'CPF' in conteudo
 
 
 def test_importar_retorno(tmp_path):

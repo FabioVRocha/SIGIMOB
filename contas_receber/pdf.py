@@ -11,6 +11,7 @@ principais campos do boleto é feito manualmente através de comandos PDF
 como ``re`` (retângulos) e ``m/l`` (movimentos de linha).
 """
 
+from datetime import datetime
 
 def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
     """Gera um PDF de boleto com layout semelhante ao modelo fornecido.
@@ -28,9 +29,12 @@ def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
     agencia_conta = f"{conta.agencia}/{conta.conta}"
     banco_nome = conta.nome_banco or conta.banco
     linha_digitavel = "Linha Digitavel"
+    cnpj = empresa.documento or ""
+    data_doc = datetime.now().strftime('%d/%m/%Y')
 
     conteudo_pdf = [
         "0.5 w",  # espessura das linhas
+        "BT /F1 12 Tf 60 780 Td (Recibo do Pagador) Tj ET",
         # Cabeçalho superior com banco e linha digitável
         "50 750 500 25 re S",
         "200 750 m 200 775 l S",
@@ -64,6 +68,33 @@ def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
         f"BT /F1 10 Tf 60 610 Td ({nosso_numero}) Tj ET",
         f"BT /F1 10 Tf 200 610 Td ({doc_num}) Tj ET",
         f"BT /F1 10 Tf 360 610 Td ({valor}) Tj ET",
+        "BT /F1 8 Tf 60 585 Td (CNPJ) Tj ET",
+        "BT /F1 8 Tf 140 585 Td (Nr. do documento) Tj ET",
+        "BT /F1 8 Tf 260 585 Td (Esp. Doc) Tj ET",
+        "BT /F1 8 Tf 340 585 Td (Aceite) Tj ET",
+        "BT /F1 8 Tf 420 585 Td (Data Proces.) Tj ET",
+        "BT /F1 8 Tf 500 585 Td (Nosso numero) Tj ET",
+        f"BT /F1 10 Tf 60 570 Td ({cnpj}) Tj ET",
+        f"BT /F1 10 Tf 140 570 Td ({doc_num}) Tj ET",
+        "BT /F1 10 Tf 260 570 Td (DM) Tj ET",
+        "BT /F1 10 Tf 340 570 Td (N) Tj ET",
+        f"BT /F1 10 Tf 420 570 Td ({data_doc}) Tj ET",
+        f"BT /F1 10 Tf 500 570 Td ({nosso_numero}) Tj ET",
+        "BT /F1 8 Tf 60 545 Td (Uso do Banco) Tj ET",
+        "BT /F1 8 Tf 140 545 Td (Data Documento) Tj ET",
+        "BT /F1 8 Tf 260 545 Td (Carteira) Tj ET",
+        "BT /F1 8 Tf 340 545 Td (Especie) Tj ET",
+        "BT /F1 8 Tf 420 545 Td (Quantidade) Tj ET",
+        "BT /F1 8 Tf 500 545 Td ((x) Valor) Tj ET",
+        f"BT /F1 10 Tf 140 530 Td ({data_doc}) Tj ET",
+        "BT /F1 10 Tf 260 530 Td (17) Tj ET",
+        "BT /F1 10 Tf 340 530 Td (R$) Tj ET",
+        f"BT /F1 10 Tf 500 530 Td ({valor}) Tj ET",
+        "BT /F1 8 Tf 60 505 Td (Informacoes de Responsabilidade do Beneficiario) Tj ET",
+        "BT /F1 8 Tf 500 505 Td ((=) Valor do Documento) Tj ET",
+        f"BT /F1 10 Tf 500 490 Td ({valor}) Tj ET",
+        "BT /F1 8 Tf 60 470 Td (Nome do Pagador / Endereco) Tj ET",
+        "BT /F1 8 Tf 500 470 Td (CPF) Tj ET",
     ]
     conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
 
@@ -79,7 +110,7 @@ def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
     add_obj(b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n")
     add_obj(
         b"3 0 obj << /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> "
-        b"/MediaBox [0 0 612 792] /Contents 5 0 R >> endobj\n"
+        b"/MediaBox [0 0 595 842] /Contents 5 0 R >> endobj\n"
     )
     add_obj(b"4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n")
     add_obj(
