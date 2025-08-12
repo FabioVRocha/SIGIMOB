@@ -26,9 +26,16 @@ def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
     doc_num = str(titulo.id)
     beneficiario = empresa.razao_social_nome
     agencia_conta = f"{conta.agencia}/{conta.conta}"
+    banco_nome = conta.nome_banco or conta.banco
+    linha_digitavel = "Linha Digitavel"
 
     conteudo_pdf = [
         "0.5 w",  # espessura das linhas
+        # Cabeçalho superior com banco e linha digitável
+        "50 750 500 25 re S",
+        "200 750 m 200 775 l S",
+        f"BT /F1 12 Tf 60 760 Td ({banco_nome}) Tj ET",
+        f"BT /F1 12 Tf 210 760 Td ({linha_digitavel}) Tj ET",
         # Moldura principal
         "50 450 500 300 re S",
         # Linhas horizontais

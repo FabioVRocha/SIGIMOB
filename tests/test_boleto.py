@@ -50,6 +50,7 @@ def test_gerar_boletos(tmp_path):
         assert b'Boleto Bancario' in conteudo
         assert b'Local do Pagamento' in conteudo
         assert b'Data de Vencimento' in conteudo
+        assert b'Linha Digitavel' in conteudo
         assert b'Nosso numero' in conteudo
         assert b'Empresa Teste' in conteudo
         assert b'1234/5678' in conteudo
