@@ -513,12 +513,18 @@ def dashboard():
     conn = get_db_connection()
     cur = conn.cursor()
     atualizar_status_contas_a_receber(cur)
+    atualizar_status_contas_a_pagar(cur)
     conn.commit()
     cur.execute(
         "SELECT COUNT(*), COALESCE(SUM(valor_previsto), 0) FROM contas_a_receber WHERE status_conta = 'Vencida'"
     )
     qtd_titulos_atrasados, valor_total_titulos_atrasados = cur.fetchone()
     valor_total_titulos_atrasados = float(valor_total_titulos_atrasados)
+    cur.execute(
+        "SELECT COUNT(*), COALESCE(SUM(valor_previsto), 0) FROM contas_a_pagar WHERE status_conta = 'Vencida'"
+    )
+    qtd_titulos_atrasados_pagar, valor_total_titulos_atrasados_pagar = cur.fetchone()
+    valor_total_titulos_atrasados_pagar = float(valor_total_titulos_atrasados_pagar)
     cur.execute("SELECT COUNT(*) FROM imoveis")
     total_imoveis_ativos = cur.fetchone()[0]
     cur.execute(
@@ -564,6 +570,8 @@ def dashboard():
         "dashboard.html",
         qtd_titulos_atrasados=qtd_titulos_atrasados,
         valor_total_titulos_atrasados=valor_total_titulos_atrasados,
+        qtd_titulos_atrasados_pagar=qtd_titulos_atrasados_pagar,
+        valor_total_titulos_atrasados_pagar=valor_total_titulos_atrasados_pagar,
         total_imoveis_ativos=total_imoveis_ativos,
         total_contratos_ativos=total_contratos_ativos,
         percent_imoveis_alugados=percent_imoveis_alugados,
