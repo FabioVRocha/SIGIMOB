@@ -14,15 +14,6 @@
         </a>
     </div>
 
-    <form action="{{ url_for('contas_a_receber_list') }}" method="GET" class="mb-6">
-        <div class="flex items-center space-x-2">
-            <input type="text" name="search" placeholder="Buscar por cliente ou receita..." class="form-input flex-grow" value="{{ search_query }}">
-            <button type="submit" class="btn-primary">
-                <i class="fas fa-search"></i> Buscar
-            </button>
-        </div>
-    </form>
-
     {% if contas %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
@@ -36,8 +27,17 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
                 </tr>
+                <tr>
+                    <th class="py-2 px-4"><input data-col="0" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="1" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="2" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="3" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="4" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
+                    <th class="py-2 px-4"><input data-col="5" type="text" placeholder="Filtrar" class="form-input w-full column-filter"></th>
+                    <th class="py-2 px-4"></th>
+                </tr>
             </thead>
-            <tbody>
+            <tbody id="contas-tbody">
                 {% for conta in contas %}
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.id }}</td>
@@ -162,6 +162,24 @@ function filterPayAccounts(id){
     });
     const opt = contaSelect.querySelector('option[data-tipo="'+tipo+'"]');
     if(opt){ contaSelect.value = opt.value; }
+}
+
+document.querySelectorAll('.column-filter').forEach(input => {
+    input.addEventListener('input', filterTable);
+});
+
+function filterTable(){
+    const filters = Array.from(document.querySelectorAll('.column-filter')).map(i => i.value.toLowerCase());
+    document.querySelectorAll('#contas-tbody tr').forEach(row => {
+        const cells = row.querySelectorAll('td');
+        let visible = true;
+        filters.forEach((val, idx) => {
+            if(val && !cells[idx].textContent.toLowerCase().includes(val)){
+                visible = false;
+            }
+        });
+        row.style.display = visible ? '' : 'none';
+    });
 }
 </script>
 {% endblock %}

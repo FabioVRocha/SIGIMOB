@@ -2377,29 +2377,15 @@ def contas_a_receber_list():
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     atualizar_status_contas_a_receber(cur)
     conn.commit()
-    search_query = request.args.get("search", "")
-    if search_query:
-        cur.execute(
-            """
-            SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita
-            FROM contas_a_receber cr
-            JOIN pessoas p ON cr.cliente_id = p.id
-            JOIN receitas_cadastro r ON cr.receita_id = r.id
-            WHERE p.razao_social_nome ILIKE %s OR r.descricao ILIKE %s
-            ORDER BY cr.data_vencimento DESC
-            """,
-            (f"%{search_query}%", f"%{search_query}%"),
-        )
-    else:
-        cur.execute(
-            """
-            SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita
-            FROM contas_a_receber cr
-            JOIN pessoas p ON cr.cliente_id = p.id
-            JOIN receitas_cadastro r ON cr.receita_id = r.id
-            ORDER BY cr.data_vencimento DESC
-            """
-        )
+    cur.execute(
+        """
+        SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita
+        FROM contas_a_receber cr
+        JOIN pessoas p ON cr.cliente_id = p.id
+        JOIN receitas_cadastro r ON cr.receita_id = r.id
+        ORDER BY cr.data_vencimento DESC
+        """
+    )
     contas = cur.fetchall()
     cur.close()
     conn.close()
