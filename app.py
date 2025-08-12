@@ -2997,10 +2997,10 @@ def contas_a_pagar_replicar(id):
                 if conta["competencia"]
                 else None
             )
-            match = re.match(r"^(.*?)-(\d+)/(\d+)$", conta["titulo"])
+            match = re.match(r"^(.*?)-(\s*)(\d+)\s*/\s*(\d+)$", conta["titulo"])
             if match:
-                prefixo, numero, total = match.groups()
-                novo_titulo = f"{prefixo}-{int(numero) + i}/{total}"
+                prefixo, espaco, numero, total = match.groups()
+                novo_titulo = f"{prefixo}-{espaco}{int(numero) + i}/{total}"
             else:
                 novo_titulo = f"{conta['titulo']}-{i}"
             status_conta = calcular_status_conta(

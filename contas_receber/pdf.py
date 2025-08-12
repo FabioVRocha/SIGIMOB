@@ -7,9 +7,12 @@ comandos PDF diretos (``re`` para retângulos, ``m``/``l`` para linhas e
 leitor de PDF.
 
 O desenho foi calibrado para se assemelhar ao arquivo ``Modelo
-Boleto.pdf`` disponível na raiz do projeto, servindo como referência de
-layout. A ideia é gerar um boleto funcional o suficiente para testes e
-integrações, contendo os campos usuais do documento bancário.
+Boleto.pdf`` disponível na raiz do projeto. O arquivo serve como base de
+referência visual e os elementos abaixo procuram replicar seus campos
+principais, permitindo que o boleto gerado seja facilmente reconhecido
+por sistemas bancários e usuários finais. A ideia é gerar um boleto
+funcional o suficiente para testes e integrações, contendo os campos
+usuais do documento bancário.
 """
 
 from datetime import datetime
