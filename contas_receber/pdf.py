@@ -17,12 +17,35 @@ usuais do documento bancário.
 
 from datetime import datetime
 
-def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
+
+def _codigo_barras_pdf(numero: str, x: int, y: int) -> list[str]:
+    """Gera comandos PDF simples para um código de barras.
+
+    O algoritmo abaixo não implementa nenhum padrão específico de
+    codificação; ele apenas alterna barras finas e grossas de acordo com
+    os dígitos fornecidos. O objetivo é produzir um código de barras
+    visual para fins de teste em ambientes sem dependências externas.
+    """
+
+    comandos = ["0 g"]  # garante cor preta
+    altura = 40
+    for digito in numero:
+        try:
+            d = int(digito)
+        except ValueError:
+            d = 0
+        largura = 1 if d % 2 else 2
+        comandos.append(f"{x} {y} {largura} {altura} re f")
+        x += largura + 1
+    return comandos
+
+
+def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
     """Gera um PDF de boleto com layout semelhante ao modelo fornecido.
 
-    Os dados do beneficiário e da conta bancária são preenchidos de acordo
-    com os registros ``Empresa Licenciada`` e ``Contas Bancárias``
-    cadastrados no sistema.
+    Os dados do beneficiário, da conta bancária e do sacado (cliente) são
+    preenchidos de acordo com os registros ``Empresa Licenciada``,
+    ``Contas Bancárias`` e ``Pessoas`` cadastrados no sistema.
     """
 
     due_date = titulo.data_vencimento.strftime('%d/%m/%Y')
@@ -35,6 +58,19 @@ def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
     linha_digitavel = "Linha Digitavel"
     cnpj = empresa.documento or ""
     data_doc = datetime.now().strftime('%d/%m/%Y')
+    pagador_nome = cliente.razao_social_nome or ""
+    pagador_doc = cliente.documento or ""
+    pagador_endereco = " ".join(
+        filter(
+            None,
+            [
+                cliente.endereco,
+                cliente.bairro,
+                f"{cliente.cidade}/{cliente.estado}" if cliente.cidade and cliente.estado else None,
+                cliente.cep,
+            ],
+        )
+    )
 
     conteudo_pdf = [
         "0.5 w",  # espessura das linhas
@@ -98,8 +134,23 @@ def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
         "BT /F1 8 Tf 500 505 Td ((=) Valor do Documento) Tj ET",
         f"BT /F1 10 Tf 500 490 Td ({valor}) Tj ET",
         "BT /F1 8 Tf 60 470 Td (Nome do Pagador / Endereco) Tj ET",
-        "BT /F1 8 Tf 500 470 Td (CPF) Tj ET",
+        "BT /F1 8 Tf 500 470 Td (CPF/CNPJ) Tj ET",
+        f"BT /F1 10 Tf 60 455 Td ({pagador_nome}) Tj ET",
+        f"BT /F1 10 Tf 60 440 Td ({pagador_endereco}) Tj ET",
+        f"BT /F1 10 Tf 500 455 Td ({pagador_doc}) Tj ET",
+        # --- Ficha de Compensacao ---
+        "50 50 500 350 re S",
+        "BT /F1 12 Tf 60 380 Td (Ficha de Compensacao) Tj ET",
+        "BT /F1 8 Tf 60 360 Td (Nome do Beneficiario) Tj ET",
+        "BT /F1 8 Tf 360 360 Td (Agencia/Codigo do Beneficiario) Tj ET",
+        f"BT /F1 10 Tf 60 345 Td ({beneficiario}) Tj ET",
+        f"BT /F1 10 Tf 360 345 Td ({agencia_conta}) Tj ET",
+        "BT /F1 8 Tf 60 320 Td (Pagador) Tj ET",
+        "BT /F1 8 Tf 360 320 Td (CPF/CNPJ) Tj ET",
+        "BT /F1 8 Tf 60 90 Td (Codigo de Barras) Tj ET",
     ]
+    # código de barras posicionado no rodapé da ficha de compensação
+    conteudo_pdf.extend(_codigo_barras_pdf(nosso_numero or doc_num, 60, 60))
     conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
 
     header = b"%PDF-1.4\n"

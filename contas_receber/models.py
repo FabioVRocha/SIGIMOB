@@ -19,6 +19,19 @@ class EmpresaLicenciada(db.Model):
     status = db.Column(db.String(10), default='Ativo')
     data_cadastro = db.Column(db.DateTime, default=db.func.now())
 
+class Pessoa(db.Model):
+    __tablename__ = 'pessoas'
+
+    id = db.Column(db.Integer, primary_key=True)
+    documento = db.Column(db.String(20))
+    razao_social_nome = db.Column(db.String(255))
+    endereco = db.Column(db.String(255))
+    bairro = db.Column(db.String(100))
+    cidade = db.Column(db.String(100))
+    estado = db.Column(db.String(2))
+    cep = db.Column(db.String(10))
+
+
 
 class ContaReceber(db.Model):
     __tablename__ = 'contas_a_receber'

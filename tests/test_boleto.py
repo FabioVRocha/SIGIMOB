@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from caixa_banco import init_app as init_caixa, db
 from contas_receber import init_app as init_contas
 from caixa_banco.models import ContaBanco
-from contas_receber.models import EmpresaLicenciada, ContaReceber
+from contas_receber.models import EmpresaLicenciada, ContaReceber, Pessoa
 from contas_receber.services import gerar_boletos, importar_retorno
 from contas_receber.cnab import CNAB240Writer, Titulo
 
@@ -27,8 +27,19 @@ def setup_app(tmp_path):
         db.session.add(emp)
         conta = ContaBanco(banco='001', nome_banco='Banco', agencia='1234', conta='5678')
         db.session.add(conta)
+        cliente = Pessoa(
+            documento='00000000000',
+            razao_social_nome='Cliente Teste',
+            endereco='Rua 1',
+            bairro='Centro',
+            cidade='Cidade',
+            estado='ST',
+            cep='00000-000',
+        )
+        db.session.add(cliente)
+        db.session.flush()
         titulo = ContaReceber(
-            cliente_id=1,
+            cliente_id=cliente.id,
             titulo='Teste',
             data_vencimento=date.today(),
             valor_previsto=100.00,
@@ -55,9 +66,13 @@ def test_gerar_boletos(tmp_path):
         assert b'Empresa Teste' in conteudo
         assert b'1234/5678' in conteudo
         assert b'Recibo do Pagador' in conteudo
+        assert b'Ficha de Compensacao' in conteudo
+        assert b'Codigo de Barras' in conteudo
         assert b'CNPJ' in conteudo
         assert b'Uso do Banco' in conteudo
-        assert b'CPF' in conteudo
+        assert b'CPF/CNPJ' in conteudo
+        assert b'Cliente Teste' in conteudo
+        assert b'00000000000' in conteudo
 
 
 def test_importar_retorno(tmp_path):

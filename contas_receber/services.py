@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import current_app
 from caixa_banco import db
 from caixa_banco.models import ContaBanco
-from .models import EmpresaLicenciada, ContaReceber
+from .models import EmpresaLicenciada, ContaReceber, Pessoa
 from .cnab import CNAB240Writer, CNAB240Reader, Titulo
 from .pdf import gerar_pdf_boleto
 
@@ -32,8 +32,11 @@ def gerar_boletos(ids):
     os.makedirs(rem_dir, exist_ok=True)
     pdfs = []
     for t in titulos:
+        cliente = Pessoa.query.get(t.cliente_id)
+        if not cliente:
+            raise ValueError("Cliente não encontrado")
         pdf_path = os.path.join(boletos_dir, f"boleto_{t.id}.pdf")
-        gerar_pdf_boleto(t, empresa, conta, pdf_path)
+        gerar_pdf_boleto(t, empresa, conta, cliente, pdf_path)
         pdfs.append(pdf_path)
     rem_path = os.path.join(rem_dir, f"remessa_{datetime.now().strftime('%Y%m%d%H%M%S')}.rem")
     with open(rem_path, 'w') as f:
