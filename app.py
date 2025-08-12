@@ -2899,7 +2899,6 @@ def contas_a_pagar_edit(id):
                 """
                 UPDATE contas_a_pagar
                 SET despesa_id=%s, fornecedor_id=%s, titulo=%s, data_vencimento=%s,
-                    valor_previsto=%s, data_pagamento=%s, valor_pago=%s,
                     competencia=%s, valor_previsto=%s, data_pagamento=%s, valor_pago=%s,
                     valor_desconto=%s, valor_multa=%s, valor_juros=%s,
                     observacao=%s, centro_custo=%s, status_conta=%s, origem_id=%s

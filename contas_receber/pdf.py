@@ -1,14 +1,15 @@
 """Geração simplificada de boletos em PDF.
 
-O objetivo desta rotina é produzir um arquivo PDF com layout básico de
-boleto bancário sem depender de bibliotecas externas. São utilizados
-comandos PDF diretos para desenhar caixas e textos, possibilitando que o
-arquivo final seja visualizado em leitores de PDF comuns.
+Esta rotina produz um boleto bancário em formato PDF sem depender de
+bibliotecas externas. Todo o layout é desenhado "na mão" por meio de
+comandos PDF diretos (``re`` para retângulos, ``m``/``l`` para linhas e
+``Tj`` para textos), o que garante portabilidade do arquivo para qualquer
+leitor de PDF.
 
-Esta implementação foi ajustada para que o layout se aproxime do arquivo
-``Modelo Boleto.pdf`` disponibilizado na raiz do projeto. O desenho dos
-principais campos do boleto é feito manualmente através de comandos PDF
-como ``re`` (retângulos) e ``m/l`` (movimentos de linha).
+O desenho foi calibrado para se assemelhar ao arquivo ``Modelo
+Boleto.pdf`` disponível na raiz do projeto, servindo como referência de
+layout. A ideia é gerar um boleto funcional o suficiente para testes e
+integrações, contendo os campos usuais do documento bancário.
 """
 
 from datetime import datetime
@@ -133,4 +134,5 @@ def gerar_pdf_boleto(titulo, empresa, conta, filepath: str) -> None:
     ).encode("latin-1")
 
     with open(filepath, "wb") as f:
+        # Escreve o conteúdo completo do PDF no caminho indicado.
         f.write(header + b"".join(objs) + xref_bytes + trailer)
