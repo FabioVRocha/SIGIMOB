@@ -40,6 +40,10 @@
                 <input type="date" id="data_vencimento" name="data_vencimento" class="form-input" value="{{ conta.data_vencimento | default('') }}" required>
             </div>
             <div class="form-group">
+                <label for="competencia" class="form-label">Competência:</label>
+                <input type="text" id="competencia" name="competencia" class="form-input" placeholder="MM/AAAA" pattern="\d{2}/\d{4}" value="{{ conta.competencia.strftime('%m/%Y') if conta.competencia and not (conta.competencia is string) else (conta.competencia or '') }}">
+            </div>
+            <div class="form-group">
                 <label for="valor_previsto" class="form-label">Valor Previsto:</label>
                 <input type="number" step="0.01" id="valor_previsto" name="valor_previsto" class="form-input" value="{{ conta.valor_previsto | default('') }}" required>
             </div>
@@ -93,4 +97,22 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('competencia');
+    if (input) {
+        input.addEventListener('input', (e) => {
+            let v = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
+            if (v.length >= 2) {
+                e.target.value = v.slice(0,2) + '/' + v.slice(2);
+            } else {
+                e.target.value = v;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

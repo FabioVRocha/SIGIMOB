@@ -2752,6 +2752,12 @@ def contas_a_pagar_add():
             fornecedor_id = request.form["fornecedor_id"]
             titulo = request.form["titulo"]
             data_vencimento = request.form["data_vencimento"]
+            competencia_str = request.form.get("competencia")
+            competencia = (
+                datetime.strptime(competencia_str, "%m/%Y").date().replace(day=1)
+                if competencia_str
+                else None
+            )
             valor_previsto = request.form["valor_previsto"]
             data_pagamento = request.form.get("data_pagamento") or None
             valor_pago = request.form.get("valor_pago") or None
@@ -2769,16 +2775,17 @@ def contas_a_pagar_add():
                 """
                 INSERT INTO contas_a_pagar (
                     despesa_id, fornecedor_id, titulo, data_vencimento,
-                    valor_previsto, data_pagamento, valor_pago, valor_desconto,
-                    valor_multa, valor_juros, observacao, centro_custo,
-                    status_conta, origem_id
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    competencia, valor_previsto, data_pagamento, valor_pago,
+                    valor_desconto, valor_multa, valor_juros, observacao,
+                    centro_custo, status_conta, origem_id
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     despesa_id,
                     fornecedor_id,
                     titulo,
                     data_vencimento,
+                    competencia,
                     valor_previsto,
                     data_pagamento,
                     valor_pago,
@@ -2859,6 +2866,12 @@ def contas_a_pagar_edit(id):
             fornecedor_id = request.form["fornecedor_id"]
             titulo = request.form["titulo"]
             data_vencimento = request.form["data_vencimento"]
+            competencia_str = request.form.get("competencia")
+            competencia = (
+                datetime.strptime(competencia_str, "%m/%Y").date().replace(day=1)
+                if competencia_str
+                else None
+            )
             valor_previsto = request.form["valor_previsto"]
             data_pagamento = request.form.get("data_pagamento") or None
             valor_pago = request.form.get("valor_pago") or None
@@ -2877,6 +2890,7 @@ def contas_a_pagar_edit(id):
                 UPDATE contas_a_pagar
                 SET despesa_id=%s, fornecedor_id=%s, titulo=%s, data_vencimento=%s,
                     valor_previsto=%s, data_pagamento=%s, valor_pago=%s,
+                    competencia=%s, valor_previsto=%s, data_pagamento=%s, valor_pago=%s,
                     valor_desconto=%s, valor_multa=%s, valor_juros=%s,
                     observacao=%s, centro_custo=%s, status_conta=%s, origem_id=%s
                 WHERE id=%s
@@ -2886,6 +2900,7 @@ def contas_a_pagar_edit(id):
                     fornecedor_id,
                     titulo,
                     data_vencimento,
+                    competencia,
                     valor_previsto,
                     data_pagamento,
                     valor_pago,
@@ -2968,6 +2983,11 @@ def contas_a_pagar_replicar(id):
     try:
         for i in range(1, quantidade + 1):
             novo_vencimento = conta["data_vencimento"] + timedelta(days=30 * i)
+            nova_competencia = (
+                conta["competencia"] + timedelta(days=30 * i)
+                if conta["competencia"]
+                else None
+            )
             match = re.match(r"^(.*?)-(\d+)/(\d+)$", conta["titulo"])
             if match:
                 prefixo, numero, total = match.groups()
@@ -2981,16 +3001,17 @@ def contas_a_pagar_replicar(id):
                 """
                 INSERT INTO contas_a_pagar (
                     despesa_id, fornecedor_id, titulo, data_vencimento,
-                    valor_previsto, data_pagamento, valor_pago, valor_desconto,
+                    competencia, valor_previsto, data_pagamento, valor_pago, valor_desconto,
                     valor_multa, valor_juros, observacao, centro_custo,
                     status_conta, origem_id
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     conta["despesa_id"],
                     conta["fornecedor_id"],
                     novo_titulo,
                     novo_vencimento,
+                     nova_competencia,
                     conta["valor_previsto"],
                     None,
                     None,

@@ -24,6 +24,12 @@
             <dt class="font-semibold">Data Vencimento:</dt>
             <dd>{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</dd>
         </div>
+        {% if conta.competencia %}
+        <div>
+            <dt class="font-semibold">Competência:</dt>
+            <dd>{{ conta.competencia.strftime('%m/%Y') }}</dd>
+        </div>
+        {% endif %}
         <div>
             <dt class="font-semibold">Valor Previsto:</dt>
             <dd>{{ '{:.2f}'.format(conta.valor_previsto) }}</dd>

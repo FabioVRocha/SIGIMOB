@@ -170,6 +170,7 @@ CREATE TABLE contas_a_pagar (
     fornecedor_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Fornecedor'
     titulo VARCHAR(255) NOT NULL,
     data_vencimento DATE NOT NULL,
+    competencia DATE,
     valor_previsto NUMERIC(10,2) NOT NULL,
     data_pagamento DATE,
     valor_pago NUMERIC(10,2),
