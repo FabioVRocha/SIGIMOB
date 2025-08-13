@@ -27,7 +27,6 @@ import re
 from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
 from decimal import Decimal, InvalidOperation
 import io
-import math
 from fpdf import FPDF
 
 # Importa a configuração do banco de dados e outras variáveis
@@ -3553,26 +3552,18 @@ def relatorio_contas_a_pagar_periodo():
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(200, 200, 200)
     headers = [
-        ("Título", 36),
-        ("Fornecedor", 68),
-        ("Despesa", 24),
-        ("Data Vencimento", 30),
-        ("Valor Previsto", 20),
+        ("Título\n ", 36),
+        ("Fornecedor\n ", 68),
+        ("Despesa\n ", 24),
+        ("Data\nVencimento", 30),
+        ("Valor\nPrevisto", 30),
     ]
     line_height = 8
-    line_counts = []
-    max_lines = 1
-    for text, width in headers:
-        text_width = pdf.get_string_width(text)
-        lines = math.ceil(text_width / width) if width else 1
-        line_counts.append(lines)
-        max_lines = max(max_lines, lines)
-    row_height = line_height * max_lines
+    row_height = line_height * 2
     y_start = pdf.get_y()
-    for (text, width), lines in zip(headers, line_counts):
+    for text, width in headers:
         x_start = pdf.get_x()
-        padded_text = text + ("\n" * (max_lines - lines))
-        pdf.multi_cell(width, line_height, padded_text, border=1, align="L", fill=True)
+        pdf.multi_cell(width, line_height, text, border=1, align="L", fill=True)
         pdf.set_xy(x_start + width, y_start)
     pdf.ln(row_height)
 
@@ -3582,11 +3573,11 @@ def relatorio_contas_a_pagar_periodo():
         pdf.cell(68, 8, c["fornecedor"], 1)
         pdf.cell(24, 8, c["despesa"] or "", 1)
         pdf.cell(30, 8, c["data_vencimento"].strftime("%d/%m/%Y"), 1)
-        pdf.cell(20, 8, f"{c['valor_previsto']:.2f}", 1, 1, "R")
+        pdf.cell(30, 8, format_currency(c["valor_previsto"]), 1, 1, "R")
 
     pdf.set_font("Arial", "B", 10)
     pdf.cell(158, 8, "Total", 1, 0, "R")
-    pdf.cell(20, 8, f"{total_valor_previsto:.2f}", 1, 1, "R")
+    pdf.cell(30, 8, format_currency(total_valor_previsto), 1, 1, "R")
 
     pdf_bytes = pdf.output(dest="S").encode("latin1")
     return send_file(
