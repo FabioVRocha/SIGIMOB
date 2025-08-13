@@ -394,6 +394,16 @@
                     </ul>
                 </li>
                 <li>
+                    <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="relatorios-toggle">
+                        <span><i class="fas fa-chart-bar"></i> Relatórios</span>
+                        <i class="fas fa-chevron-right arrow-icon"></i>
+                    </div>
+                    <ul id="relatorios-submenu" class="ml-6 mt-1 hidden">
+                        <li><a href="{{ url_for('relatorios_contas_a_pagar') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-invoice-dollar"></i> Contas a Pagar</a></li>
+                        <li><a href="{{ url_for('relatorios_contas_a_receber') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-invoice"></i> Contas a Receber</a></li>
+                    </ul>
+                </li>
+                <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="gerencial-toggle">
                         <span><i class="fas fa-cogs"></i> Gerencial</span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
@@ -533,6 +543,30 @@
                     finToggleEl.classList.remove('active');
                 }
 
+                // Lógica para o menu expansível "Relatórios"
+                const relatoriosToggleEl = document.getElementById('relatorios-toggle');
+                const relatoriosSubmenu = document.getElementById('relatorios-submenu');
+                const relatoriosSubmenuItems = relatoriosSubmenu ? relatoriosSubmenu.querySelectorAll('.sidebar-nav-item') : [];
+
+                let isRelatoriosActive = false;
+                relatoriosSubmenuItems.forEach(item => {
+                    const href = item.getAttribute('href');
+                    if (href === path || (path.startsWith(href + '/') && href !== '/')) {
+                        item.classList.add('active');
+                        isRelatoriosActive = true;
+                    }
+                });
+
+                if (isRelatoriosActive) {
+                    relatoriosSubmenu.classList.remove('hidden');
+                    relatoriosToggleEl.querySelector('.arrow-icon').classList.add('rotate-90');
+                    relatoriosToggleEl.classList.add('active');
+                } else {
+                    relatoriosSubmenu.classList.add('hidden');
+                    relatoriosToggleEl.querySelector('.arrow-icon').classList.remove('rotate-90');
+                    relatoriosToggleEl.classList.remove('active');
+                }
+
                 // Ativa o dashboard se nenhuma outra rota for ativa
                 if (!foundActive && currentPath === '{{ url_for("dashboard") }}') {
                     const dashboardItem = document.querySelector('a[href="{{ url_for("dashboard") }}"]');
@@ -595,6 +629,17 @@
                 finToggleElement.addEventListener('click', () => {
                     const submenu = document.getElementById('financeiro-submenu');
                     const arrowIcon = finToggleElement.querySelector('.arrow-icon');
+                    submenu.classList.toggle('hidden');
+                    arrowIcon.classList.toggle('rotate-90');
+                });
+            }
+
+            // Event listener para o toggle do menu "Relatórios"
+            const relatoriosToggleElement = document.getElementById('relatorios-toggle');
+            if (relatoriosToggleElement) {
+                relatoriosToggleElement.addEventListener('click', () => {
+                    const submenu = document.getElementById('relatorios-submenu');
+                    const arrowIcon = relatoriosToggleElement.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
                     arrowIcon.classList.toggle('rotate-90');
                 });

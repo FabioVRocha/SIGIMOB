@@ -3464,6 +3464,26 @@ def banco_importar_cnab(conta_id):
     return redirect(url_for("bancos_list"))
 
 
+# --- Módulo de Relatórios ---
+
+@app.route("/relatorios/contas-a-pagar")
+@login_required
+def relatorios_contas_a_pagar():
+    return render_template("relatorios/contas_a_pagar/index.html")
+
+
+@app.route("/relatorios/contas-a-receber")
+@login_required
+def relatorios_contas_a_receber():
+    return render_template("relatorios/contas_a_receber/index.html")
+
+
+@app.route("/relatorios/contas-a-pagar/por-periodo")
+@login_required
+def relatorio_contas_a_pagar_periodo():
+    return render_template("relatorios/contas_a_pagar/por_periodo.html")
+
+
 # --- Módulo de Administração do Sistema ---
 @app.route("/admin/backup", methods=["GET", "POST"])
 @login_required
