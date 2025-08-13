@@ -27,6 +27,7 @@ import re
 from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
 from decimal import Decimal, InvalidOperation
 import io
+import math
 from fpdf import FPDF
 
 # Importa a configuração do banco de dados e outras variáveis
@@ -3521,6 +3522,7 @@ def relatorio_contas_a_pagar_periodo():
     query += " ORDER BY cp.data_vencimento"
     cur.execute(query, params)
     contas = cur.fetchall()
+    total_valor_previsto = sum(c["valor_previsto"] for c in contas)
 
     cur.execute(
         "SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1"
@@ -3550,19 +3552,38 @@ def relatorio_contas_a_pagar_periodo():
 
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(200, 200, 200)
-    pdf.cell(60, 8, "Título", 1, 0, "L", True)
-    pdf.cell(40, 8, "Fornecedor", 1, 0, "L", True)
-    pdf.cell(40, 8, "Despesa", 1, 0, "L", True)
-    pdf.cell(30, 8, "Data Vencimento", 1, 0, "L", True)
-    pdf.cell(20, 8, "Valor Previsto", 1, 1, "R", True)
+    headers = [
+        ("Título", 36),
+        ("Fornecedor", 52),
+        ("Despesa", 24),
+        ("Data Vencimento", 30),
+        ("Valor Previsto", 20),
+    ]
+    line_height = 8
+    max_lines = 1
+    for text, width in headers:
+        text_width = pdf.get_string_width(text)
+        lines = math.ceil(text_width / width) if width else 1
+        max_lines = max(max_lines, lines)
+    row_height = line_height * max_lines
+    y_start = pdf.get_y()
+    for text, width in headers:
+        x_start = pdf.get_x()
+        pdf.multi_cell(width, line_height, text, border=1, align="L", fill=True)
+        pdf.set_xy(x_start + width, y_start)
+    pdf.ln(row_height)
 
     pdf.set_font("Arial", "", 10)
     for c in contas:
-        pdf.cell(60, 8, c["titulo"] or "", 1)
-        pdf.cell(40, 8, c["fornecedor"], 1)
-        pdf.cell(40, 8, c["despesa"] or "", 1)
+        pdf.cell(36, 8, c["titulo"] or "", 1)
+        pdf.cell(52, 8, c["fornecedor"], 1)
+        pdf.cell(24, 8, c["despesa"] or "", 1)
         pdf.cell(30, 8, c["data_vencimento"].strftime("%d/%m/%Y"), 1)
         pdf.cell(20, 8, f"{c['valor_previsto']:.2f}", 1, 1, "R")
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(142, 8, "Total", 1, 0, "R")
+    pdf.cell(20, 8, f"{total_valor_previsto:.2f}", 1, 1, "R")
 
     pdf_bytes = pdf.output(dest="S").encode("latin1")
     return send_file(
