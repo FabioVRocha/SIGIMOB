@@ -5,10 +5,11 @@
 {% block page_title %}Relatórios de Contas a Pagar{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <h2 class="text-2xl font-semibold text-dark-blue mb-4">Relatórios disponíveis</h2>
-    <ul class="list-disc list-inside">
-        <li><a href="{{ url_for('relatorio_contas_a_pagar_periodo') }}" class="text-blue-600 hover:underline">Contas a Pagar por Período</a></li>
-    </ul>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <a href="{{ url_for('relatorio_contas_a_pagar_periodo') }}" class="card p-6 text-center flex flex-col items-center justify-center">
+        <div class="text-icon-blue mb-4"><i class="fas fa-calendar-alt fa-3x"></i></div>
+        <h2 class="text-xl font-semibold text-dark-blue mb-2">Por Período</h2>
+        <p class="text-medium-gray">Visualize contas a pagar entre datas.</p>
+    </a>
 </div>
 {% endblock %}
