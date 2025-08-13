@@ -3567,11 +3567,22 @@ def relatorio_contas_a_pagar_periodo():
         pdf.set_xy(x_start + width, y_start)
     pdf.ln(row_height)
 
+    def truncate_text(text, max_width):
+        """Limita o texto para caber na largura especificada."""
+        if not text:
+            return ""
+        text = str(text)
+        if pdf.get_string_width(text) <= max_width:
+            return text
+        while pdf.get_string_width(text + "...") > max_width and text:
+            text = text[:-1]
+        return text + "..."
+
     pdf.set_font("Arial", "", 10)
     for c in contas:
-        pdf.cell(36, 8, c["titulo"] or "", 1)
-        pdf.cell(68, 8, c["fornecedor"], 1)
-        pdf.cell(24, 8, c["despesa"] or "", 1)
+        pdf.cell(36, 8, truncate_text(c["titulo"] or "", 34), 1)
+        pdf.cell(68, 8, truncate_text(c["fornecedor"], 66), 1)
+        pdf.cell(24, 8, truncate_text(c["despesa"] or "", 22), 1)
         pdf.cell(30, 8, c["data_vencimento"].strftime("%d/%m/%Y"), 1)
         pdf.cell(30, 8, format_currency(c["valor_previsto"]), 1, 1, "R")
 
