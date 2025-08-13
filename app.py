@@ -624,6 +624,10 @@ def pessoas_list():
     cur.close()
     conn.close()
     return render_template(
+        "pessoas/list.html",
+        pessoas=pessoas,
+        search_query=search_query,
+        status_filter=status_filter,
     )
 
 
