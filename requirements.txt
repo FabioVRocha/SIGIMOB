@@ -3,4 +3,5 @@ psycopg2-binary==2.9.9
 Werkzeug==2.3.7
 # ORM para o módulo de Caixa e Banco
 Flask-SQLAlchemy==3.0.5
+fpdf==1.7.2
 pytest==8.2.2

@@ -11,6 +11,7 @@ from flask import (
     flash,
     send_from_directory,
     jsonify,
+    send_file,
 )
 import psycopg2
 from psycopg2 import extras
@@ -25,6 +26,8 @@ import json
 import re
 from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
 from decimal import Decimal, InvalidOperation
+import io
+from fpdf import FPDF
 
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
@@ -3469,7 +3472,17 @@ def banco_importar_cnab(conta_id):
 @app.route("/relatorios/contas-a-pagar")
 @login_required
 def relatorios_contas_a_pagar():
-    return render_template("relatorios/contas_a_pagar/index.html")
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+    )
+    fornecedores = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "relatorios/contas_a_pagar/index.html", fornecedores=fornecedores
+    )
 
 
 @app.route("/relatorios/contas-a-receber")
@@ -3478,10 +3491,86 @@ def relatorios_contas_a_receber():
     return render_template("relatorios/contas_a_receber/index.html")
 
 
-@app.route("/relatorios/contas-a-pagar/por-periodo")
+@app.route("/relatorios/contas-a-pagar/por-periodo", methods=["POST"])
 @login_required
 def relatorio_contas_a_pagar_periodo():
-    return render_template("relatorios/contas_a_pagar/por_periodo.html")
+    fornecedor_id = request.form.get("fornecedor_id")
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+    status = request.form.get("status")
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+    atualizar_status_contas_a_pagar(cur)
+
+    query = (
+        "SELECT cp.titulo, p.razao_social_nome AS fornecedor, d.descricao AS despesa, "
+        "cp.data_vencimento, cp.valor_previsto "
+        "FROM contas_a_pagar cp "
+        "JOIN pessoas p ON cp.fornecedor_id = p.id "
+        "LEFT JOIN despesas_cadastro d ON cp.despesa_id = d.id "
+        "WHERE cp.data_vencimento BETWEEN %s AND %s"
+    )
+    params = [data_inicio, data_fim]
+    if fornecedor_id:
+        query += " AND cp.fornecedor_id = %s"
+        params.append(fornecedor_id)
+    if status:
+        query += " AND cp.status_conta = %s"
+        params.append(status)
+    query += " ORDER BY cp.data_vencimento"
+    cur.execute(query, params)
+    contas = cur.fetchall()
+
+    cur.execute(
+        "SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1"
+    )
+    empresa = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            self.cell(0, 10, getattr(self, "empresa", ""), 0, 0, "L")
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, getattr(self, "gerado_em", ""), 0, 0, "R")
+            self.ln(15)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    pdf = PDF()
+    pdf.empresa = empresa["razao_social_nome"] if empresa else ""
+    pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(200, 200, 200)
+    pdf.cell(60, 8, "Título", 1, 0, "L", True)
+    pdf.cell(40, 8, "Fornecedor", 1, 0, "L", True)
+    pdf.cell(40, 8, "Despesa", 1, 0, "L", True)
+    pdf.cell(30, 8, "Data Vencimento", 1, 0, "L", True)
+    pdf.cell(20, 8, "Valor Previsto", 1, 1, "R", True)
+
+    pdf.set_font("Arial", "", 10)
+    for c in contas:
+        pdf.cell(60, 8, c["titulo"] or "", 1)
+        pdf.cell(40, 8, c["fornecedor"], 1)
+        pdf.cell(40, 8, c["despesa"] or "", 1)
+        pdf.cell(30, 8, c["data_vencimento"].strftime("%d/%m/%Y"), 1)
+        pdf.cell(20, 8, f"{c['valor_previsto']:.2f}", 1, 1, "R")
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="contas_a_pagar_periodo.pdf",
+    )
 
 
 # --- Módulo de Administração do Sistema ---
