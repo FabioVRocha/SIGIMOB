@@ -88,6 +88,24 @@ def test_importar_retorno(tmp_path):
         assert resultado['baixados'][0]['id'] == 1
 
 
+def test_pagamento_parcial(tmp_path):
+    app = setup_app(tmp_path)
+    with app.app_context():
+        client = app.test_client()
+        # paga parcialmente
+        resp = client.post('/api/contas-receber/1/pagamento', json={'valor': 40})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data['status'] == 'Parcial'
+        assert data['valor_pago'] == 40.0
+        # paga restante
+        resp = client.post('/api/contas-receber/1/pagamento', json={'valor': 60})
+        assert resp.status_code == 200
+        titulo = ContaReceber.query.get(1)
+        assert titulo.status_conta == 'Paga'
+        assert float(titulo.valor_pago) == 100.0
+
+
 def test_gerar_boleto_handles_unexpected_error(tmp_path, monkeypatch):
     app = setup_app(tmp_path)
     with app.app_context():

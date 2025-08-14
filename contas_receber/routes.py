@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify
+from caixa_banco import db
+from .models import ContaReceber
 from .services import gerar_boletos, importar_retorno
 
 bp = Blueprint('contas_receber', __name__)
@@ -25,3 +27,23 @@ def importar_retorno_endpoint():
     conteudo = arquivo.read().decode('utf-8')
     resultado = importar_retorno(conteudo)
     return jsonify(resultado)
+
+
+@bp.post('/contas-receber/<int:conta_id>/pagamento')
+def registrar_pagamento(conta_id):
+    data = request.get_json(silent=True) or {}
+    valor = data.get('valor')
+    if valor is None:
+        return jsonify({'error': 'valor obrigatório'}), 400
+    try:
+        valor = float(valor)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'valor inválido'}), 400
+    conta = ContaReceber.query.get_or_404(conta_id)
+    conta.marcar_pago(valor)
+    db.session.commit()
+    return jsonify({
+        'id': conta.id,
+        'status': conta.status_conta,
+        'valor_pago': float(conta.valor_pago or 0),
+    })

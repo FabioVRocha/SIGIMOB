@@ -47,6 +47,12 @@ class ContaReceber(db.Model):
     nosso_numero = db.Column(db.String(20))
 
     def marcar_pago(self, valor):
-        self.status_conta = 'Paga'
-        self.valor_pago = valor
+        valor_decimal = Decimal(str(valor))
+        pago_atual = Decimal(self.valor_pago or 0)
+        total_pago = pago_atual + valor_decimal
+        self.valor_pago = total_pago
         self.data_pagamento = date.today()
+        if total_pago >= Decimal(self.valor_previsto):
+            self.status_conta = 'Paga'
+        else:
+            self.status_conta = 'Parcial'
