@@ -152,6 +152,14 @@
                 <label for="quantidade_{{ conta.id }}" class="form-label">Quantidade:</label>
                 <input type="number" id="quantidade_{{ conta.id }}" name="quantidade" min="1" class="form-input" required>
             </div>
+            <div class="form-group mb-4">
+                <label for="same_day_{{ conta.id }}" class="form-label">Vencimento no mesmo dia:</label>
+                <input type="number" id="same_day_{{ conta.id }}" name="same_day" min="0" max="31" class="form-input" oninput="toggleReplicarFields({{ conta.id }})">
+            </div>
+            <div class="form-group mb-4">
+                <label for="days_interval_{{ conta.id }}" class="form-label">Dias e intervalo:</label>
+                <input type="number" id="days_interval_{{ conta.id }}" name="days_interval" min="0" class="form-input" oninput="toggleReplicarFields({{ conta.id }})">
+            </div>
             <div class="flex justify-end space-x-4">
                 <button type="button" class="btn-secondary" onclick="closeReplicarModal({{ conta.id }})">Cancelar</button>
                 <button type="submit" class="btn-primary">Replicar</button>
@@ -205,6 +213,14 @@ function openReplicarModal(id){
 }
 function closeReplicarModal(id){
     document.getElementById('replicar-modal-'+id).style.display='none';
+}
+function toggleReplicarFields(id){
+    const sameDay = document.getElementById('same_day_'+id);
+    const interval = document.getElementById('days_interval_'+id);
+    const sameDayVal = parseInt(sameDay.value || '0');
+    const intervalVal = parseInt(interval.value || '0');
+    interval.disabled = sameDayVal > 0;
+    sameDay.disabled = intervalVal > 0;
 }
 </script>
 {% endblock %}
