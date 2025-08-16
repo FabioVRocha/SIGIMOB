@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from caixa_banco import db
 
 
@@ -43,8 +44,15 @@ class ContaReceber(db.Model):
     valor_previsto = db.Column(db.Numeric(10, 2), nullable=False)
     data_pagamento = db.Column(db.Date)
     valor_pago = db.Column(db.Numeric(10, 2))
+    valor_pendente = db.Column(db.Numeric(10, 2), default=0)
     status_conta = db.Column(db.String(20), default='Aberta')
     nosso_numero = db.Column(db.String(20))
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.valor_previsto is not None:
+            pago = Decimal(self.valor_pago or 0)
+            self.valor_pendente = Decimal(self.valor_previsto) - pago
 
     def marcar_pago(self, valor):
         valor_decimal = Decimal(str(valor))
@@ -52,7 +60,9 @@ class ContaReceber(db.Model):
         total_pago = pago_atual + valor_decimal
         self.valor_pago = total_pago
         self.data_pagamento = date.today()
-        if total_pago >= Decimal(self.valor_previsto):
+        restante = Decimal(self.valor_previsto) - total_pago
+        self.valor_pendente = restante if restante > 0 else Decimal('0')
+        if restante <= 0:
             self.status_conta = 'Paga'
         else:
             self.status_conta = 'Parcial'

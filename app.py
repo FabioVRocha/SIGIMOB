@@ -173,7 +173,8 @@ def atualizar_status_contas_a_receber(cur):
         """
         UPDATE contas_a_receber cr
            SET status_conta = CASE
-                WHEN cr.data_pagamento IS NOT NULL THEN 'Paga'::status_conta_enum
+                WHEN cr.valor_pago >= cr.valor_previsto AND cr.valor_pago IS NOT NULL THEN 'Paga'::status_conta_enum
+                WHEN cr.valor_pago > 0 THEN 'Parcial'::status_conta_enum
                 WHEN cr.contrato_id IS NOT NULL AND EXISTS (
                     SELECT 1 FROM contratos_aluguel ca
                      WHERE ca.id = cr.contrato_id
@@ -181,7 +182,8 @@ def atualizar_status_contas_a_receber(cur):
                 ) AND cr.data_vencimento >= CURRENT_DATE THEN 'Cancelada'::status_conta_enum
                 WHEN cr.data_vencimento < CURRENT_DATE THEN 'Vencida'::status_conta_enum
                 ELSE 'Aberta'::status_conta_enum
-           END
+           END,
+               valor_pendente = cr.valor_previsto - COALESCE(cr.valor_pago,0)
         """
     )
 
@@ -1811,8 +1813,8 @@ def contratos_add():
                     """
                     INSERT INTO contas_a_receber (
                         contrato_id, receita_id, cliente_id, titulo,
-                        data_vencimento, valor_previsto
-                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                        data_vencimento, valor_previsto, valor_pendente
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         contrato_id,
@@ -1820,6 +1822,7 @@ def contratos_add():
                         cliente_id,
                         titulo_parcela,
                         vencimento,
+                        valor_parcela,
                         valor_parcela,
                     ),
                 )
@@ -1846,8 +1849,8 @@ def contratos_add():
                         """
                         INSERT INTO contas_a_receber (
                             contrato_id, receita_id, cliente_id, titulo,
-                            data_vencimento, valor_previsto
-                        ) VALUES (%s, %s, %s, %s, %s, %s)
+                            data_vencimento, valor_previsto, valor_pendente
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """,
                         (
                             contrato_id,
@@ -1855,6 +1858,7 @@ def contratos_add():
                             cliente_id,
                             titulo_calcao,
                             venc_calcao,
+                            valor_calcao,
                             valor_calcao,
                         ),
                     )
@@ -2006,8 +2010,8 @@ def contratos_edit(id):
                             """
                             INSERT INTO contas_a_receber (
                                 contrato_id, receita_id, cliente_id, titulo,
-                                data_vencimento, valor_previsto
-                            ) VALUES (%s, %s, %s, %s, %s, %s)
+                                data_vencimento, valor_previsto, valor_pendente
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                             """,
                             (
                                 id,
@@ -2015,6 +2019,7 @@ def contratos_edit(id):
                                 cliente_id,
                                 titulo_calcao,
                                 venc_calcao,
+                                valor_calcao,
                                 valor_calcao,
                             ),
                         )
@@ -2422,6 +2427,9 @@ def contas_a_receber_add():
             valor_previsto = request.form["valor_previsto"]
             data_pagamento = request.form.get("data_pagamento") or None
             valor_pago = request.form.get("valor_pago") or None
+            valor_prev_dec = Decimal(str(valor_previsto))
+            valor_pago_dec = Decimal(str(valor_pago)) if valor_pago else Decimal('0')
+            valor_pendente = valor_prev_dec - valor_pago_dec
             valor_desconto = request.form.get("valor_desconto") or 0
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
@@ -2430,15 +2438,21 @@ def contas_a_receber_add():
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, contrato_id, cur
             )
+            if valor_pago:
+                if valor_pendente <= 0:
+                    status_conta = "Paga"
+                    valor_pendente = Decimal('0')
+                elif valor_pago_dec > 0:
+                    status_conta = "Parcial"
 
             cur.execute(
                 """
                 INSERT INTO contas_a_receber (
                     contrato_id, receita_id, cliente_id, titulo,
                     data_vencimento, valor_previsto, data_pagamento, valor_pago,
-                    valor_desconto, valor_multa, valor_juros, observacao,
+                    valor_pendente, valor_desconto, valor_multa, valor_juros, observacao,
                     status_conta, origem_id
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
                     contrato_id,
@@ -2449,6 +2463,7 @@ def contas_a_receber_add():
                     valor_previsto,
                     data_pagamento,
                     valor_pago,
+                    valor_pendente,
                     valor_desconto,
                     valor_multa,
                     valor_juros,
@@ -2529,6 +2544,9 @@ def contas_a_receber_edit(id):
             valor_previsto = request.form["valor_previsto"]
             data_pagamento = request.form.get("data_pagamento") or None
             valor_pago = request.form.get("valor_pago") or None
+            valor_prev_dec = Decimal(str(valor_previsto))
+            valor_pago_dec = Decimal(str(valor_pago)) if valor_pago else Decimal('0')
+            valor_pendente = valor_prev_dec - valor_pago_dec
             valor_desconto = request.form.get("valor_desconto") or 0
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
@@ -2537,13 +2555,19 @@ def contas_a_receber_edit(id):
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, contrato_id, cur
             )
+            if valor_pago:
+                if valor_pendente <= 0:
+                    status_conta = "Paga"
+                    valor_pendente = Decimal('0')
+                elif valor_pago_dec > 0:
+                    status_conta = "Parcial"
 
             cur.execute(
                 """
                 UPDATE contas_a_receber
                 SET contrato_id=%s, receita_id=%s, cliente_id=%s, titulo=%s,
                     data_vencimento=%s, valor_previsto=%s, data_pagamento=%s,
-                    valor_pago=%s, valor_desconto=%s, valor_multa=%s, valor_juros=%s,
+                    valor_pago=%s, valor_pendente=%s, valor_desconto=%s, valor_multa=%s, valor_juros=%s,
                     observacao=%s, status_conta=%s, origem_id=%s
                 WHERE id=%s
                 """,
@@ -2556,6 +2580,7 @@ def contas_a_receber_edit(id):
                     valor_previsto,
                     data_pagamento,
                     valor_pago,
+                    valor_pendente,
                     valor_desconto,
                     valor_multa,
                     valor_juros,
@@ -2640,7 +2665,7 @@ def contas_a_receber_pagar(id):
         flash("Conta não encontrada.", "danger")
         return redirect(url_for("contas_a_receber_list"))
     # Evita pagamento duplicado ou de títulos cancelados
-    if conta["status_conta"] not in ("Aberta", "Vencida"):
+    if conta["status_conta"] not in ("Aberta", "Vencida", "Parcial"):
         cur.close()
         conn.close()
         flash("Esta conta não pode ser paga novamente.", "warning")
@@ -2649,7 +2674,12 @@ def contas_a_receber_pagar(id):
         conta_tipo = request.form["conta_tipo"]
         conta_id = int(request.form["conta_id"])
         valor_previsto = parse_decimal(request.form.get("valor_previsto")) or parse_decimal(conta["valor_previsto"])
-        valor_pago = parse_decimal(request.form.get("valor_pago")) or valor_previsto
+        valor_pagamento = parse_decimal(request.form.get("valor_pago")) or valor_previsto
+        valor_pago_atual = parse_decimal(conta["valor_pago"]) or Decimal("0")
+        total_pago = valor_pago_atual + valor_pagamento
+        valor_pendente = parse_decimal(conta["valor_previsto"]) - total_pago
+        status = "Paga" if valor_pendente <= 0 else "Parcial"
+        valor_pendente = Decimal('0') if valor_pendente < 0 else valor_pendente
         valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
         valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
         valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
@@ -2661,20 +2691,22 @@ def contas_a_receber_pagar(id):
         historico = request.form.get("historico") or historico_padrao
 
         cur.execute(
-            """UPDATE contas_a_receber SET data_pagamento=%s, valor_pago=%s, valor_desconto=%s,
-                valor_multa=%s, valor_juros=%s, status_conta='Paga' WHERE id=%s""",
+            """UPDATE contas_a_receber SET data_pagamento=%s, valor_pago=%s, valor_pendente=%s, valor_desconto=%s,
+                valor_multa=%s, valor_juros=%s, status_conta=%s WHERE id=%s""",
             (
                 data_movimento,
-                valor_pago,
+                total_pago,
+                valor_pendente,
                 valor_desconto,
                 valor_multa,
                 valor_juros,
+                status,
                 id,
             ),
         )
         conn.commit()
         
-        valor_total = valor_pago + valor_juros + valor_multa - valor_desconto
+        valor_total = valor_pagamento + valor_juros + valor_multa - valor_desconto
         data = {
             "conta_origem_id": conta_id,
             "conta_origem_tipo": conta_tipo,
@@ -2684,7 +2716,7 @@ def contas_a_receber_pagar(id):
             "receita_id": conta["receita_id"],
             "data_movimento": data_movimento,
             "valor_previsto": valor_previsto,
-            "valor_pago": valor_pago,
+            "valor_pago": valor_pagamento,
             "valor_desconto": valor_desconto,
             "valor_multa": valor_multa,
             "valor_juros": valor_juros,

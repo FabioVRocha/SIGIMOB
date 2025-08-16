@@ -98,12 +98,14 @@ def test_pagamento_parcial(tmp_path):
         data = resp.get_json()
         assert data['status'] == 'Parcial'
         assert data['valor_pago'] == 40.0
+        assert data['valor_pendente'] == 60.0
         # paga restante
         resp = client.post('/api/contas-receber/1/pagamento', json={'valor': 60})
         assert resp.status_code == 200
-        titulo = ContaReceber.query.get(1)
-        assert titulo.status_conta == 'Paga'
-        assert float(titulo.valor_pago) == 100.0
+        data = resp.get_json()
+        assert data['status'] == 'Paga'
+        assert data['valor_pago'] == 100.0
+        assert data['valor_pendente'] == 0.0
 
 
 def test_gerar_boleto_handles_unexpected_error(tmp_path, monkeypatch):

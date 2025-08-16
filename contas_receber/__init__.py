@@ -17,3 +17,12 @@ def init_app(app):
                 text('ALTER TABLE contas_a_receber ADD COLUMN nosso_numero VARCHAR(20)')
             )
             db.session.commit()
+
+        if 'valor_pendente' not in columns:
+            db.session.execute(
+                text('ALTER TABLE contas_a_receber ADD COLUMN valor_pendente NUMERIC(10,2) DEFAULT 0')
+            )
+            db.session.execute(
+                text('UPDATE contas_a_receber SET valor_pendente = valor_previsto - COALESCE(valor_pago,0)')
+            )
+            db.session.commit()

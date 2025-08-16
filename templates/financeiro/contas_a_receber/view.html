@@ -28,6 +28,10 @@
             <dt class="font-semibold">Valor Previsto:</dt>
             <dd>{{ '{:.2f}'.format(conta.valor_previsto) }}</dd>
         </div>
+        <div>
+            <dt class="font-semibold">Valor Pendente:</dt>
+            <dd>{{ '{:.2f}'.format(conta.valor_pendente) }}</dd>
+        </div>
         {% if conta.data_pagamento %}
         <div>
             <dt class="font-semibold">Data Pagamento:</dt>

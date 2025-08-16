@@ -46,4 +46,5 @@ def registrar_pagamento(conta_id):
         'id': conta.id,
         'status': conta.status_conta,
         'valor_pago': float(conta.valor_pago or 0),
+        'valor_pendente': float(conta.valor_pendente or 0),
     })

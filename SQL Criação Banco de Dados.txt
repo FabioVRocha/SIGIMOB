@@ -142,7 +142,7 @@ CREATE TABLE reajustes_contrato (
 );
 
 -- Tabela para Contas a Receber
-CREATE TYPE status_conta_enum AS ENUM ('Aberta', 'Paga', 'Vencida', 'Cancelada');
+CREATE TYPE status_conta_enum AS ENUM ('Aberta', 'Parcial', 'Paga', 'Vencida', 'Cancelada');
 
 CREATE TABLE contas_a_receber (
     id SERIAL PRIMARY KEY,
@@ -154,6 +154,7 @@ CREATE TABLE contas_a_receber (
     valor_previsto NUMERIC(10,2) NOT NULL,
     data_pagamento DATE,
     valor_pago NUMERIC(10,2),
+    valor_pendente NUMERIC(10,2) DEFAULT 0.00,
     valor_desconto NUMERIC(10,2) DEFAULT 0.00,
     valor_multa NUMERIC(10,2) DEFAULT 0.00,
     valor_juros NUMERIC(10,2) DEFAULT 0.00,

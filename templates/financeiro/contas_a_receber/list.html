@@ -24,10 +24,12 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Receita</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Vencimento</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Pendente</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
                 <tr>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
@@ -45,9 +47,10 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.receita }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_previsto) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_pendente) }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.status_conta }}</td>
                     <td class="py-3 px-4 text-sm">
-                        {% if conta.status_conta in ['Aberta', 'Vencida'] %}
+                        {% if conta.status_conta in ['Aberta', 'Vencida', 'Parcial'] %}
                         <button type="button" class="text-purple-600 hover:text-purple-800 mr-3" title="Gerar Boleto" onclick="gerarBoleto({{ conta.id }})">
                             <i class="fas fa-barcode"></i>
                         </button>
@@ -76,7 +79,7 @@
     <p class="text-center text-gray-600">Nenhuma conta encontrada.</p>
     {% endif %}
 </div>
-{% for conta in contas if conta.status_conta in ['Aberta', 'Vencida'] %}
+{% for conta in contas if conta.status_conta in ['Aberta', 'Vencida', 'Parcial'] %}
 <div id="pagar-modal-{{ conta.id }}" class="modal">
     <div class="modal-content">
         <span class="close-button" onclick="closePagarModal({{ conta.id }})">&times;</span>
@@ -117,7 +120,7 @@
                 </div>
                 <div class="form-group">
                     <label for="valor_pago_{{ conta.id }}" class="form-label">Valor Pago:</label>
-                    <input type="number" step="0.01" id="valor_pago_{{ conta.id }}" name="valor_pago" class="form-input" value="{{ conta.valor_pago or conta.valor_previsto }}">
+                    <input type="number" step="0.01" id="valor_pago_{{ conta.id }}" name="valor_pago" class="form-input" value="{{ conta.valor_pendente or conta.valor_previsto }}">
                 </div>
                 <div class="form-group">
                     <label for="valor_desconto_{{ conta.id }}" class="form-label">Desconto:</label>

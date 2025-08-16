@@ -94,6 +94,7 @@ def deletar_movimento(movimento):
                            valor_desconto = 0,
                            valor_multa = 0,
                            valor_juros = 0,
+                           valor_pendente = valor_previsto,
                            status_conta = 'Aberta'
                      WHERE id = :conta_id
                     """
