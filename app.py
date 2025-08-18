@@ -880,6 +880,7 @@ def imoveis_list():
     cur.close()
     conn.close()
     return render_template(
+        "imoveis/list.html", imoveis=imoveis, search_query=search_query
     )
 
 
