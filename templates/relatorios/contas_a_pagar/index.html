@@ -28,6 +28,15 @@
                         {% endfor %}
                     </select>
                 </div>
+                <div class="form-group md:col-span-2">
+                    <label for="imovel_id" class="form-label">Imóvel:</label>
+                    <select id="imovel_id" name="imovel_id" class="form-select">
+                        <option value="">Todos</option>
+                        {% for imovel in imoveis %}
+                        <option value="{{ imovel.id }}">{{ imovel.tipo_imovel }} / {{ imovel.endereco }} / {{ imovel.cidade }}/{{ imovel.estado }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="data_inicio" class="form-label">Data Vencimento Início:</label>
                     <input type="date" id="data_inicio" name="data_inicio" class="form-input" required>

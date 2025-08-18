@@ -3573,10 +3573,14 @@ def relatorios_contas_a_pagar():
         "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
+    cur.execute(
+        "SELECT id, tipo_imovel, endereco, cidade, estado FROM imoveis ORDER BY endereco"
+    )
+    imoveis = cur.fetchall()
     cur.close()
     conn.close()
     return render_template(
-        "relatorios/contas_a_pagar/index.html", fornecedores=fornecedores
+        "relatorios/contas_a_pagar/index.html", fornecedores=fornecedores, imoveis=imoveis
     )
 
 
@@ -3590,6 +3594,7 @@ def relatorios_contas_a_receber():
 @login_required
 def relatorio_contas_a_pagar_periodo():
     fornecedor_id = request.form.get("fornecedor_id")
+    imovel_id = request.form.get("imovel_id")
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
     status = request.form.get("status")
@@ -3610,6 +3615,9 @@ def relatorio_contas_a_pagar_periodo():
     if fornecedor_id:
         query += " AND cp.fornecedor_id = %s"
         params.append(fornecedor_id)
+    if imovel_id:
+        query += " AND cp.imovel_id = %s"
+        params.append(imovel_id)
     if status:
         query += " AND cp.status_conta = %s"
         params.append(status)
@@ -3622,6 +3630,13 @@ def relatorio_contas_a_pagar_periodo():
         "SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1"
     )
     empresa = cur.fetchone()
+    imovel = None
+    if imovel_id:
+        cur.execute(
+            "SELECT tipo_imovel, endereco, cidade, estado FROM imoveis WHERE id = %s",
+            (imovel_id,),
+        )
+        imovel = cur.fetchone()
     cur.close()
     conn.close()
 
@@ -3631,7 +3646,13 @@ def relatorio_contas_a_pagar_periodo():
             self.cell(0, 10, getattr(self, "empresa", ""), 0, 0, "L")
             self.set_font("Arial", "", 10)
             self.cell(0, 10, getattr(self, "gerado_em", ""), 0, 0, "R")
-            self.ln(15)
+            self.ln(5)
+            imovel_info = getattr(self, "imovel_info", "")
+            if imovel_info:
+                self.cell(0, 10, imovel_info, 0, 1, "L")
+                self.ln(5)
+            else:
+                self.ln(10)
 
         def footer(self):
             self.set_y(-15)
@@ -3641,6 +3662,12 @@ def relatorio_contas_a_pagar_periodo():
     pdf = PDF()
     pdf.empresa = empresa["razao_social_nome"] if empresa else ""
     pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    if imovel:
+        pdf.imovel_info = (
+            f"Imóvel {imovel['tipo_imovel']} / {imovel['endereco']} / {imovel['cidade']}/{imovel['estado']}"
+        )
+    else:
+        pdf.imovel_info = ""
     pdf.alias_nb_pages()
     pdf.add_page()
 
