@@ -3519,15 +3519,11 @@ def lancamentos_delete(id):
 @login_required
 @permission_required("Financeiro", "Consultar")
 def lancamentos_list():
-    search_query = request.args.get("search", "")
-    query = MovimentoFinanceiro.query
-    if search_query:
-        pattern = f"%{search_query}%"
-        query = query.filter(
-            MovimentoFinanceiro.historico.ilike(pattern)
-            | MovimentoFinanceiro.categoria.ilike(pattern)
-        )
-    movimentos = query.order_by(MovimentoFinanceiro.data_movimento.desc()).all()
+    movimentos = (
+        MovimentoFinanceiro.query
+        .order_by(MovimentoFinanceiro.data_movimento.desc())
+        .all()
+    )
     contas_caixa = {c.id: c.nome for c in ContaCaixa.query.all()}
     contas_banco = {
         b.id: f"{b.nome_banco} {b.conta}" for b in ContaBanco.query.all()
