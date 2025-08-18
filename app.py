@@ -921,16 +921,19 @@ def imoveis_mapa():
         }
         for row in imoveis
     ]
-    
+ 
     # Totais de imóveis para exibição no mapa
     cur.execute(
         """
         SELECT
             COUNT(*) AS total_imoveis,
-            COUNT(DISTINCT i.id) FILTER (WHERE c.id IS NOT NULL) AS total_alugados
+            COUNT(c.imovel_id) AS total_alugados
         FROM imoveis i
-        LEFT JOIN contratos_aluguel c
-            ON c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+        LEFT JOIN (
+            SELECT DISTINCT imovel_id
+            FROM contratos_aluguel
+            WHERE status_contrato = 'Ativo'
+        ) c ON c.imovel_id = i.id
         """
     )
     totals = cur.fetchone()
