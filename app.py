@@ -3618,13 +3618,6 @@ def relatorios_contas_a_pagar():
 def relatorios_contas_a_receber():
     return render_template("relatorios/contas_a_receber/index.html")
 
-
-@app.route("/relatorios/financeiro")
-@login_required
-def relatorios_financeiro():
-    return render_template("relatorios/financeiro/index.html")
-
-
 @app.route("/relatorios/contas-a-pagar/por-periodo", methods=["POST"])
 @login_required
 def relatorio_contas_a_pagar_periodo():
