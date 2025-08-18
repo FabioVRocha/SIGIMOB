@@ -3619,6 +3619,12 @@ def relatorios_contas_a_receber():
     return render_template("relatorios/contas_a_receber/index.html")
 
 
+@app.route("/relatorios/financeiro")
+@login_required
+def relatorios_financeiro():
+    return render_template("relatorios/financeiro/index.html")
+
+
 @app.route("/relatorios/contas-a-pagar/por-periodo", methods=["POST"])
 @login_required
 def relatorio_contas_a_pagar_periodo():
@@ -3747,6 +3753,156 @@ def relatorio_contas_a_pagar_periodo():
         mimetype="application/pdf",
         as_attachment=True,
         download_name="contas_a_pagar_periodo.pdf",
+    )
+
+
+@app.route("/relatorios/financeiro")
+@login_required
+def relatorios_financeiro():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+    cur.execute("SELECT id, nome FROM conta_caixa ORDER BY nome")
+    caixas = cur.fetchall()
+    cur.execute(
+        "SELECT id, nome_banco, agencia, conta FROM conta_banco ORDER BY nome_banco"
+    )
+    bancos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "relatorios/financeiro/index.html", caixas=caixas, bancos=bancos
+    )
+
+
+@app.route("/relatorios/financeiro/caixa-banco", methods=["POST"])
+@login_required
+def relatorio_financeiro_caixa_banco():
+    tipo_conta = request.form.get("tipo_conta")
+    conta_id = request.form.get("conta_id")
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+
+    if tipo_conta == "caixa":
+        cur.execute("SELECT nome FROM conta_caixa WHERE id = %s", (conta_id,))
+        conta = cur.fetchone()
+        conta_nome = conta["nome"] if conta else ""
+    else:
+        cur.execute(
+            "SELECT nome_banco, agencia, conta FROM conta_banco WHERE id = %s",
+            (conta_id,),
+        )
+        conta = cur.fetchone()
+        if conta:
+            conta_nome = (
+                f"{conta['nome_banco']} Ag {conta['agencia']} Conta {conta['conta']}"
+            )
+        else:
+            conta_nome = ""
+
+    cur.execute(
+        """
+        SELECT COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE -valor END),0) AS saldo
+        FROM movimento_financeiro
+        WHERE conta_origem_tipo = %s AND conta_origem_id = %s AND data_movimento < %s
+        """,
+        (tipo_conta, conta_id, data_inicio),
+    )
+    saldo_inicial = cur.fetchone()["saldo"]
+
+    cur.execute(
+        """
+        SELECT data_movimento, historico, tipo, valor
+        FROM movimento_financeiro
+        WHERE conta_origem_tipo = %s AND conta_origem_id = %s
+          AND data_movimento BETWEEN %s AND %s
+        ORDER BY data_movimento ASC, id ASC
+        """,
+        (tipo_conta, conta_id, data_inicio, data_fim),
+    )
+    movimentos = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    entradas = Decimal("0")
+    saidas = Decimal("0")
+    saldo = Decimal(saldo_inicial)
+    linhas = []
+    for m in movimentos:
+        entrada = m["valor"] if m["tipo"] == "entrada" else Decimal("0")
+        saida = m["valor"] if m["tipo"] == "saida" else Decimal("0")
+        entradas += entrada
+        saidas += saida
+        saldo += entrada - saida
+        linhas.append(
+            {
+                "data": m["data_movimento"],
+                "historico": m["historico"],
+                "entrada": entrada,
+                "saida": saida,
+                "saldo": saldo,
+            }
+        )
+
+    total_final = saldo_inicial + entradas - saidas
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            self.cell(0, 10, "Lançamentos Financeiros", 0, 0, "L")
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, getattr(self, "gerado_em", ""), 0, 1, "R")
+            conta = getattr(self, "conta", "")
+            if conta:
+                self.cell(0, 10, conta, 0, 1, "L")
+            self.ln(5)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    pdf = PDF()
+    pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.conta = conta_nome
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(200, 200, 200)
+    headers = [
+        ("Data", 25),
+        ("Histórico", 75),
+        ("Entrada (Valor)", 30),
+        ("Saída (Valor)", 30),
+        ("Saldo", 30),
+    ]
+    for text, width in headers:
+        pdf.cell(width, 8, text, 1, 0, "C", True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "", 10)
+    for linha in linhas:
+        pdf.cell(25, 8, linha["data"].strftime("%d/%m/%Y"), 1)
+        pdf.cell(75, 8, str(linha["historico"] or "")[:50], 1)
+        pdf.cell(30, 8, format_currency(linha["entrada"]), 1, 0, "R")
+        pdf.cell(30, 8, format_currency(linha["saida"]), 1, 0, "R")
+        pdf.cell(30, 8, format_currency(linha["saldo"]), 1, 1, "R")
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(100, 8, "Total", 1, 0, "R")
+    pdf.cell(30, 8, format_currency(entradas), 1, 0, "R")
+    pdf.cell(30, 8, format_currency(saidas), 1, 0, "R")
+    pdf.cell(30, 8, format_currency(total_final), 1, 1, "R")
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="lancamentos_financeiros.pdf",
     )
 
 

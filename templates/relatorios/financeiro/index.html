@@ -1,0 +1,78 @@
+<!-- templates/relatorios/financeiro/index.html -->
+{% extends "base.html" %}
+
+{% block title %}Relatórios - Financeiro{% endblock %}
+{% block page_title %}Relatórios Financeiros{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <button type="button" class="card p-6 text-center flex flex-col items-center justify-center" onclick="openContaModal()">
+        <div class="text-icon-blue mb-4"><i class="fas fa-file-invoice-dollar fa-3x"></i></div>
+        <h2 class="text-xl font-semibold text-dark-blue mb-2">Caixa/Banco</h2>
+        <p class="text-medium-gray">Relatório de lançamentos por conta.</p>
+    </button>
+</div>
+
+<div id="conta-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeContaModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Lançamentos por Conta</h2>
+        <form action="{{ url_for('relatorio_financeiro_caixa_banco') }}" method="POST" target="_blank">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="form-group md:col-span-2">
+                    <label for="tipo_conta" class="form-label">Tipo de Conta:</label>
+                    <select id="tipo_conta" name="tipo_conta" class="form-select" onchange="filtrarContas()" required>
+                        <option value="">Selecione</option>
+                        <option value="caixa">Caixa</option>
+                        <option value="banco">Banco</option>
+                    </select>
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label for="conta_id" class="form-label">Conta:</label>
+                    <select id="conta_id" name="conta_id" class="form-select" required>
+                        <option value="">Selecione</option>
+                        {% for c in caixas %}
+                        <option value="{{ c.id }}" data-tipo="caixa">{{ c.nome }}</option>
+                        {% endfor %}
+                        {% for b in bancos %}
+                        <option value="{{ b.id }}" data-tipo="banco">{{ b.nome_banco }} / {{ b.agencia }} / {{ b.conta }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="data_inicio" class="form-label">Data Início:</label>
+                    <input type="date" id="data_inicio" name="data_inicio" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="data_fim" class="form-label">Data Fim:</label>
+                    <input type="date" id="data_fim" name="data_fim" class="form-input" required>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closeContaModal()">Cancelar</button>
+                <button type="submit" class="btn-primary">Gerar PDF</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openContaModal(){
+    document.getElementById('conta-modal').style.display='flex';
+}
+function closeContaModal(){
+    document.getElementById('conta-modal').style.display='none';
+}
+function filtrarContas(){
+    const tipo = document.getElementById('tipo_conta').value;
+    const contaSelect = document.getElementById('conta_id');
+    Array.from(contaSelect.options).forEach(opt => {
+        if(!opt.value) return;
+        opt.style.display = opt.getAttribute('data-tipo') === tipo ? '' : 'none';
+    });
+    contaSelect.value = '';
+}
+</script>
+{% endblock %}
