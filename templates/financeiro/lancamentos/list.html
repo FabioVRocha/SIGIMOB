@@ -40,7 +40,7 @@
                     <th class="py-2 px-4"></th>
                 </tr>
             </thead>
-            <tbody id="lancamentos-tbody"></tbody>
+            <tbody id="lancamentos-tbody">
                 {% for m in movimentos %}
                 {% set text_color = 'text-gray-700' %}
                 {% if m.tipo == 'saida' %}
