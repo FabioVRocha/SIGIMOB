@@ -921,9 +921,35 @@ def imoveis_mapa():
         }
         for row in imoveis
     ]
+    
+    # Totais de imóveis para exibição no mapa
+    cur.execute(
+        """
+        SELECT
+            COUNT(*) AS total_imoveis,
+            COUNT(DISTINCT i.id) FILTER (WHERE c.id IS NOT NULL) AS total_alugados
+        FROM imoveis i
+        LEFT JOIN contratos_aluguel c
+            ON c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+        """
+    )
+    totals = cur.fetchone()
+    total_imoveis = totals["total_imoveis"]
+    total_alugados = totals["total_alugados"]
+    total_disponiveis = total_imoveis - total_alugados
+    vacancia_percent = (
+        (total_disponiveis / total_imoveis) * 100 if total_imoveis else 0
+    )
     cur.close()
     conn.close()
-    return render_template("imoveis/mapa.html", imoveis=imoveis)
+    return render_template(
+        "imoveis/mapa.html",
+        imoveis=imoveis,
+        total_imoveis=total_imoveis,
+        total_alugados=total_alugados,
+        total_disponiveis=total_disponiveis,
+        vacancia_percent=vacancia_percent,
+    )
 
 
 @app.route("/imoveis/add", methods=["GET", "POST"])

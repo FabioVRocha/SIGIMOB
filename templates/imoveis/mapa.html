@@ -25,6 +25,20 @@
         <span class="ml-2">Sem contrato de aluguel ativo</span>
     </div>
 </div>
+<div class="mt-4 flex flex-wrap gap-4">
+    <div class="bg-white rounded shadow px-4 py-2">
+        <span class="font-semibold">Total de Imóveis:</span> {{ total_imoveis }}
+    </div>
+    <div class="bg-white rounded shadow px-4 py-2">
+        <span class="font-semibold">Total de Imóveis Alugados:</span> {{ total_alugados }}
+    </div>
+    <div class="bg-white rounded shadow px-4 py-2">
+        <span class="font-semibold">Total de Imóveis Disponíveis:</span> {{ total_disponiveis }}
+    </div>
+    <div class="bg-white rounded shadow px-4 py-2">
+        <span class="font-semibold">% de Vacância:</span> {{ "%.2f"|format(vacancia_percent) }}%
+    </div>
+</div>
 <div class="flex justify-end mt-6">
     <a href="{{ url_for('imoveis_list') }}" class="btn btn-secondary">Voltar</a>
 </div>
