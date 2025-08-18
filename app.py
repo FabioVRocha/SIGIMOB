@@ -2791,7 +2791,7 @@ def contas_a_pagar_add():
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
-            centro_custo = request.form.get("centro_custo")
+            imovel_id = request.form.get("imovel_id") or None
             origem_id = request.form.get("origem_id") or None
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, None, cur
@@ -2803,7 +2803,7 @@ def contas_a_pagar_add():
                     despesa_id, fornecedor_id, titulo, data_vencimento,
                     competencia, valor_previsto, data_pagamento, valor_pago,
                     valor_desconto, valor_multa, valor_juros, observacao,
-                    centro_custo, status_conta, origem_id
+                    imovel_id, status_conta, origem_id
                 ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
@@ -2819,7 +2819,7 @@ def contas_a_pagar_add():
                     valor_multa,
                     valor_juros,
                     observacao,
-                    centro_custo,
+                    imovel_id,
                     status_conta,
                     origem_id,
                 ),
@@ -2838,6 +2838,8 @@ def contas_a_pagar_add():
     fornecedores = cur.fetchall()
     cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
     origens = cur.fetchall()
+    cur.execute("SELECT id, endereco, bairro FROM imoveis ORDER BY endereco")
+    imoveis = cur.fetchall()
     cur.close()
     conn.close()
     return render_template(
@@ -2846,6 +2848,7 @@ def contas_a_pagar_add():
         despesas=despesas,
         fornecedores=fornecedores,
         origens=origens,
+        imoveis=imoveis,
     )
 
 
@@ -2859,11 +2862,13 @@ def contas_a_pagar_view(id):
     conn.commit()
     cur.execute(
         """
-        SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa, o.descricao AS origem
+        SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa,
+               o.descricao AS origem, (i.endereco || ', ' || i.bairro) AS imovel
         FROM contas_a_pagar cp
         JOIN pessoas p ON cp.fornecedor_id = p.id
         JOIN despesas_cadastro d ON cp.despesa_id = d.id
         LEFT JOIN origens_cadastro o ON cp.origem_id = o.id
+        LEFT JOIN imoveis i ON cp.imovel_id = i.id
         WHERE cp.id = %s
         """,
         (id,),
@@ -2905,7 +2910,7 @@ def contas_a_pagar_edit(id):
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
-            centro_custo = request.form.get("centro_custo")
+            imovel_id = request.form.get("imovel_id") or None
             origem_id = request.form.get("origem_id") or None
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, None, cur
@@ -2917,7 +2922,7 @@ def contas_a_pagar_edit(id):
                 SET despesa_id=%s, fornecedor_id=%s, titulo=%s, data_vencimento=%s,
                     competencia=%s, valor_previsto=%s, data_pagamento=%s, valor_pago=%s,
                     valor_desconto=%s, valor_multa=%s, valor_juros=%s,
-                    observacao=%s, centro_custo=%s, status_conta=%s, origem_id=%s
+                    observacao=%s, imovel_id=%s, status_conta=%s, origem_id=%s
                 WHERE id=%s
                 """,
                 (
@@ -2933,7 +2938,7 @@ def contas_a_pagar_edit(id):
                     valor_multa,
                     valor_juros,
                     observacao,
-                    centro_custo,
+                    imovel_id,
                     status_conta,
                     origem_id,
                     id,
@@ -2955,6 +2960,8 @@ def contas_a_pagar_edit(id):
     fornecedores = cur.fetchall()
     cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
     origens = cur.fetchall()
+    cur.execute("SELECT id, endereco, bairro FROM imoveis ORDER BY endereco")
+    imoveis = cur.fetchall()
     cur.close()
     conn.close()
     if conta is None:
@@ -2966,6 +2973,7 @@ def contas_a_pagar_edit(id):
         despesas=despesas,
         fornecedores=fornecedores,
         origens=origens,
+        imoveis=imoveis,
     )
 
 
@@ -3040,7 +3048,7 @@ def contas_a_pagar_replicar(id):
                     INSERT INTO contas_a_pagar (
                         despesa_id, fornecedor_id, titulo, data_vencimento,
                         competencia, valor_previsto, data_pagamento, valor_pago, valor_desconto,
-                        valor_multa, valor_juros, observacao, centro_custo,
+                        valor_multa, valor_juros, observacao, imovel_id,
                         status_conta, origem_id
                     ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
@@ -3057,7 +3065,7 @@ def contas_a_pagar_replicar(id):
                         0,
                         0,
                         conta["observacao"],
-                        conta["centro_custo"],
+                        conta["imovel_id"],
                         status_conta,
                         conta["origem_id"],
                     ),
@@ -3085,7 +3093,7 @@ def contas_a_pagar_replicar(id):
                     INSERT INTO contas_a_pagar (
                         despesa_id, fornecedor_id, titulo, data_vencimento,
                         competencia, valor_previsto, data_pagamento, valor_pago, valor_desconto,
-                        valor_multa, valor_juros, observacao, centro_custo,
+                        valor_multa, valor_juros, observacao, imovel_id,
                         status_conta, origem_id
                     ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
@@ -3102,7 +3110,7 @@ def contas_a_pagar_replicar(id):
                         0,
                         0,
                         conta["observacao"],
-                        conta["centro_custo"],
+                        conta["imovel_id"],
                         status_conta,
                         conta["origem_id"],
                     ),

@@ -68,8 +68,21 @@
                 <input type="number" step="0.01" id="valor_juros" name="valor_juros" class="form-input" value="{{ conta.valor_juros | default('0.00') }}">
             </div>
             <div class="form-group">
-                <label for="centro_custo" class="form-label">Centro de Custo:</label>
-                <input type="text" id="centro_custo" name="centro_custo" class="form-input" value="{{ conta.centro_custo | default('') }}">
+                <label for="imovel_display" class="form-label">Imóvel:</label>
+                <div class="flex">
+                    {% set ns = namespace(text='') %}
+                    {% if conta.imovel_id %}
+                        {% for im in imoveis %}
+                            {% if im.id == conta.imovel_id %}
+                                {% set ns.text = im.endereco ~ ', ' ~ im.bairro %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    <input type="text" id="imovel_display" class="form-input flex-grow" readonly value="{{ ns.text }}">
+                    <button type="button" class="btn-secondary ml-2" onclick="openImovelModal()">Selecionar</button>
+                    <button type="button" class="btn-secondary ml-2" onclick="clearImovel()">Limpar</button>
+                </div>
+                <input type="hidden" id="imovel_id" name="imovel_id" value="{{ conta.imovel_id | default('') }}">
             </div>
             <div class="form-group">
                 <label class="form-label">Status:</label>
@@ -97,10 +110,56 @@
         </div>
     </form>
 </div>
+
+<div id="imovel-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeImovelModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Endereço</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for imovel in imoveis %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.id }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-imovel-btn" data-id="{{ imovel.id }}" data-text="{{ imovel.endereco }}, {{ imovel.bairro }}">Escolher</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
+function openImovelModal(){
+    document.getElementById('imovel-modal').style.display = 'flex';
+}
+function closeImovelModal(){
+    document.getElementById('imovel-modal').style.display = 'none';
+}
+function selectImovel(id, texto){
+    document.getElementById('imovel_id').value = id;
+    document.getElementById('imovel_display').value = texto;
+    closeImovelModal();
+}
+function clearImovel(){
+    document.getElementById('imovel_id').value = '';
+    document.getElementById('imovel_display').value = '';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('competencia');
     if (input) {
@@ -113,6 +172,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    document.querySelectorAll('.select-imovel-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectImovel(btn.dataset.id, btn.dataset.text);
+        });
+    });
 });
 </script>
 {% endblock %}

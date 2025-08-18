@@ -179,7 +179,7 @@ CREATE TABLE contas_a_pagar (
     valor_multa NUMERIC(10,2) DEFAULT 0.00,
     valor_juros NUMERIC(10,2) DEFAULT 0.00,
     observacao TEXT,
-    centro_custo VARCHAR(100), -- Ou FK para uma tabela de centros de custo
+    imovel_id INTEGER REFERENCES imoveis(id),
     status_conta status_conta_enum NOT NULL DEFAULT 'Aberta',
     origem_id INTEGER REFERENCES origens_cadastro(id),
     data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
