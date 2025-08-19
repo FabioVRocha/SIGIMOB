@@ -3736,9 +3736,11 @@ def relatorio_contas_a_pagar_periodo():
     class PDF(FPDF):
         def header(self):
             self.set_font("Arial", "B", 12)
-            self.cell(0, 10, getattr(self, "empresa", ""), 0, 0, "L")
+            page_width = self.w - self.l_margin - self.r_margin
+            self.cell(page_width / 3, 10, getattr(self, "empresa", ""), 0, 0, "L")
+            self.cell(page_width / 3, 10, "Contas a Pagar", 0, 0, "C")
             self.set_font("Arial", "", 10)
-            self.cell(0, 10, getattr(self, "gerado_em", ""), 0, 0, "R")
+            self.cell(page_width / 3, 10, getattr(self, "gerado_em", ""), 0, 0, "R")
             self.ln(5)
             imovel_info = getattr(self, "imovel_info", "")
             if imovel_info:
