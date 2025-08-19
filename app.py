@@ -3976,6 +3976,11 @@ def relatorio_financeiro_caixa_banco():
     )
 
 
+@app.route("/relatorios/gerencial")
+@login_required
+def relatorios_gerencial():
+    return render_template("relatorios/gerencial/index.html")
+
 # --- Módulo de Administração do Sistema ---
 @app.route("/admin/backup", methods=["GET", "POST"])
 @login_required
