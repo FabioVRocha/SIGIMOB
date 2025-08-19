@@ -78,3 +78,19 @@ class Conciliacao(db.Model):
     data_conciliacao = db.Column(db.DateTime)
 
     movimento = db.relationship('MovimentoFinanceiro', backref=db.backref('conciliacoes', lazy=True))
+
+
+class PosicaoDiaria(db.Model):
+    """Representa o fechamento diário de cada conta de caixa ou banco."""
+
+    __tablename__ = 'posicao_diaria'
+
+    id = db.Column(db.Integer, primary_key=True)
+    conta_id = db.Column(db.Integer, nullable=False)
+    conta_tipo = db.Column(db.String(10), nullable=False)  # 'caixa' ou 'banco'
+    data = db.Column(db.Date, nullable=False)
+    saldo = db.Column(db.Numeric(12, 2), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('conta_id', 'conta_tipo', 'data', name='uq_posicao_conta_data'),
+    )

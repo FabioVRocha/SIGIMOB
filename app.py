@@ -38,12 +38,14 @@ from caixa_banco.models import (
     ContaBanco,
     Conciliacao,
     MovimentoFinanceiro,
+    PosicaoDiaria,
 )
 from caixa_banco.services import (
     criar_movimento,
     importar_cnab,
     atualizar_movimento,
     deletar_movimento,
+    recalcular_posicoes,
 )
 from sqlalchemy import func
 from sqlalchemy.orm import load_only
@@ -3609,6 +3611,36 @@ def banco_importar_cnab(conta_id):
         resultados = importar_cnab(arquivo, conta_id, "banco")
         flash(f"{len(resultados)} lançamentos importados.", "success")
     return redirect(url_for("bancos_list"))
+
+
+@app.route("/posicoes", methods=["GET"])
+@login_required
+@permission_required("Financeiro", "Consultar")
+def posicoes_list():
+    posicoes = PosicaoDiaria.query.order_by(PosicaoDiaria.data.desc()).all()
+    contas_caixa = {c.id: c.nome for c in ContaCaixa.query.all()}
+    contas_banco = {
+        b.id: f"{b.nome_banco} {b.conta}" for b in ContaBanco.query.all()
+    }
+    return render_template(
+        "financeiro/posicoes/list.html",
+        posicoes=posicoes,
+        contas_caixa=contas_caixa,
+        contas_banco=contas_banco,
+    )
+
+
+@app.route("/posicoes/recalcular", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def posicoes_recalcular():
+    inicio_str = request.form.get("inicio")
+    inicio = (
+        datetime.strptime(inicio_str, "%Y-%m-%d").date() if inicio_str else None
+    )
+    quantidade = recalcular_posicoes(inicio)
+    flash(f"{quantidade} posições recalculadas.", "success")
+    return redirect(url_for("posicoes_list"))
 
 
 # --- Módulo de Relatórios ---

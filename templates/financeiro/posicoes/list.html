@@ -1,0 +1,47 @@
+<!-- templates/financeiro/posicoes/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Posições Diárias{% endblock %}
+{% block page_title %}Posições Diárias{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Posições</h2>
+        <form action="{{ url_for('posicoes_recalcular') }}" method="POST" class="flex items-center space-x-2">
+            <input type="date" name="inicio" class="form-input" />
+            <button type="submit" class="btn-primary flex items-center">
+                <i class="fas fa-sync-alt mr-2"></i> Recalcular
+            </button>
+        </form>
+    </div>
+    {% if posicoes %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Conta</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Tipo</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Saldo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in posicoes %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ p.data.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {{ contas_caixa.get(p.conta_id) if p.conta_tipo == 'caixa' else contas_banco.get(p.conta_id) }}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ p.conta_tipo|capitalize }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(p.saldo) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhuma posição encontrada.</p>
+    {% endif %}
+</div>
+{% endblock %}

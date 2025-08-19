@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from datetime import date
 from .models import db, ContaCaixa, ContaBanco, MovimentoFinanceiro
-from .services import criar_movimento, importar_cnab
+from .services import criar_movimento, importar_cnab, recalcular_posicoes
 
 bp = Blueprint('caixa_banco_api', __name__)
 
@@ -143,3 +143,13 @@ def importar_cnab_endpoint():
 
     resultados = importar_cnab(arquivo, int(conta_id), conta_tipo)
     return jsonify(resultados), 201
+
+
+@bp.post('/posicoes/recalcular')
+def recalcular_posicoes_endpoint():
+    data = request.get_json() or {}
+    inicio = data.get('inicio')
+    if inicio:
+        inicio = date.fromisoformat(inicio)
+    quantidade = recalcular_posicoes(inicio)
+    return jsonify({'posicoes': quantidade}), 200
