@@ -3745,6 +3745,7 @@ def relatorio_contas_a_pagar_periodo():
             self.cell(0, 10, getattr(self, "empresa", ""), 0, 1, "C")
             self.ln(5)
             imovel_info = getattr(self, "imovel_info", "")
+            periodo = getattr(self, "periodo", "")
             if imovel_info:
                 self.cell(0, 10, imovel_info, 0, 1, "L")
                 periodo = getattr(self, "periodo", "")
@@ -3760,6 +3761,9 @@ def relatorio_contas_a_pagar_periodo():
     pdf = PDF()
     pdf.empresa = empresa["razao_social_nome"] if empresa else ""
     pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    data_inicio_fmt = datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+    data_fim_fmt = datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+    pdf.periodo = f"Período de {data_inicio_fmt} até {data_fim_fmt}"
     if imovel:
         pdf.imovel_info = (
             f"Imóvel {imovel['tipo_imovel']} / {imovel['endereco']} / {imovel['cidade']}/{imovel['estado']}"
