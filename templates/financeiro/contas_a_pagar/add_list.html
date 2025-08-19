@@ -82,7 +82,7 @@
                     <button type="button" class="btn-secondary ml-2" onclick="openImovelModal()">Selecionar</button>
                     <button type="button" class="btn-secondary ml-2" onclick="clearImovel()">Limpar</button>
                 </div>
-                <input type="hidden" id="imovel_id" name="imovel_id" value="{{ conta.imovel_id | default('') }}">
+                <input type="hidden" id="imovel_id" name="imovel_id" value="{{ conta.imovel_id | default('', true) }}">
             </div>
             <div class="form-group">
                 <label class="form-label">Status:</label>

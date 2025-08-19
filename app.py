@@ -131,6 +131,19 @@ def parse_decimal(value):
         return None
 
 
+def parse_int(value):
+    """Converte valores para inteiro ou retorna None se vazio."""
+    if value is None:
+        return None
+    value = str(value).strip()
+    if value == "" or value.lower() == "none":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def format_currency(value):
     try:
         return f"R$ {float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -2822,8 +2835,8 @@ def contas_a_pagar_add():
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
-            imovel_id = request.form.get("imovel_id") or None
-            origem_id = request.form.get("origem_id") or None
+            imovel_id = parse_int(request.form.get("imovel_id"))
+            origem_id = parse_int(request.form.get("origem_id"))
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, None, cur
             )
@@ -2941,8 +2954,8 @@ def contas_a_pagar_edit(id):
             valor_multa = request.form.get("valor_multa") or 0
             valor_juros = request.form.get("valor_juros") or 0
             observacao = request.form.get("observacao")
-            imovel_id = request.form.get("imovel_id") or None
-            origem_id = request.form.get("origem_id") or None
+            imovel_id = parse_int(request.form.get("imovel_id"))
+            origem_id = parse_int(request.form.get("origem_id"))
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, None, cur
             )
@@ -3674,7 +3687,7 @@ def relatorios_contas_a_receber():
 @login_required
 def relatorio_contas_a_pagar_periodo():
     fornecedor_id = request.form.get("fornecedor_id")
-    imovel_id = request.form.get("imovel_id")
+    imovel_id = parse_int(request.form.get("imovel_id"))
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
     status = request.form.get("status")
