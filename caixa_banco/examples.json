@@ -2,7 +2,7 @@
   "novo_caixa": {
     "nome": "Caixa Geral",
     "moeda": "BRL",
-    "saldo_inicial": 1000.00
+    "saldo_inicial": 1000.00,
   },
   "novo_banco": {
     "banco": "001",

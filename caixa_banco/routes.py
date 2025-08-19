@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from datetime import date
 from .models import db, ContaCaixa, ContaBanco, MovimentoFinanceiro
 from .services import criar_movimento, importar_cnab
 
@@ -13,7 +14,8 @@ def listar_caixas():
             'id': c.id,
             'nome': c.nome,
             'moeda': c.moeda,
-            'saldo_atual': float(c.saldo_atual or 0)
+            'saldo_atual': float(c.saldo_atual or 0),
+            'data_saldo_inicial': c.data_saldo_inicial.isoformat() if c.data_saldo_inicial else None
         } for c in contas
     ])
 
@@ -21,11 +23,15 @@ def listar_caixas():
 @bp.post('/caixas')
 def criar_caixa():
     data = request.get_json() or {}
+    data_saldo_inicial = data.get('data_saldo_inicial')
+    if data_saldo_inicial:
+        data_saldo_inicial = date.fromisoformat(data_saldo_inicial)
     conta = ContaCaixa(
         nome=data.get('nome'),
         moeda=data.get('moeda', 'BRL'),
         saldo_inicial=data.get('saldo_inicial', 0),
-        saldo_atual=data.get('saldo_inicial', 0)
+        saldo_atual=data.get('saldo_inicial', 0),
+        data_saldo_inicial=data_saldo_inicial
     )
     db.session.add(conta)
     db.session.commit()
@@ -51,7 +57,8 @@ def listar_bancos():
             'multa': float(c.multa or 0) if c.multa is not None else None,
             'dias_protesto': c.dias_protesto,
             'especie_documento': c.especie_documento,
-            'saldo_atual': float(c.saldo_atual or 0)
+            'saldo_atual': float(c.saldo_atual or 0),
+            'data_saldo_inicial': c.data_saldo_inicial.isoformat() if c.data_saldo_inicial else None
         } for c in contas
     ])
 
@@ -59,6 +66,9 @@ def listar_bancos():
 @bp.post('/bancos')
 def criar_banco():
     data = request.get_json() or {}
+    data_saldo_inicial = data.get('data_saldo_inicial')
+    if data_saldo_inicial:
+        data_saldo_inicial = date.fromisoformat(data_saldo_inicial)
     conta = ContaBanco(
         banco=data.get('banco'),
         nome_banco=data.get('nome_banco'),
@@ -74,7 +84,8 @@ def criar_banco():
         dias_protesto=data.get('dias_protesto'),
         especie_documento=data.get('especie_documento'),
         saldo_inicial=data.get('saldo_inicial', 0),
-        saldo_atual=data.get('saldo_inicial', 0)
+        saldo_atual=data.get('saldo_inicial', 0),
+        data_saldo_inicial=data_saldo_inicial
     )
     db.session.add(conta)
     db.session.commit()

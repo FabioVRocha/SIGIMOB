@@ -3256,11 +3256,16 @@ def caixas_add():
         nome = request.form["nome"]
         moeda = request.form.get("moeda", "BRL")
         saldo_inicial = request.form.get("saldo_inicial") or 0
+        data_saldo = request.form.get("data_saldo_inicial")
+        data_saldo_inicial = (
+            datetime.strptime(data_saldo, "%Y-%m-%d").date() if data_saldo else None
+        )
         conta = ContaCaixa(
             nome=nome,
             moeda=moeda,
             saldo_inicial=saldo_inicial,
             saldo_atual=saldo_inicial,
+            data_saldo_inicial=data_saldo_inicial,
         )
         db.session.add(conta)
         db.session.commit()
@@ -3282,6 +3287,10 @@ def caixas_edit(id):
         conta.nome = request.form["nome"]
         conta.moeda = request.form.get("moeda", "BRL")
         conta.saldo_inicial = request.form.get("saldo_inicial") or 0
+        data_saldo = request.form.get("data_saldo_inicial")
+        conta.data_saldo_inicial = (
+            datetime.strptime(data_saldo, "%Y-%m-%d").date() if data_saldo else None
+        )
         db.session.commit()
         flash("Conta de caixa atualizada com sucesso!", "success")
         return redirect(url_for("caixas_list"))
@@ -3321,6 +3330,13 @@ def bancos_add():
             especie_documento=request.form.get("especie_documento"),
             saldo_inicial=request.form.get("saldo_inicial") or 0,
             saldo_atual=request.form.get("saldo_inicial") or 0,
+            data_saldo_inicial=(
+                datetime.strptime(
+                    request.form.get("data_saldo_inicial"), "%Y-%m-%d"
+                ).date()
+                if request.form.get("data_saldo_inicial")
+                else None
+            ),
         )
         db.session.add(conta)
         db.session.commit()
@@ -3353,6 +3369,10 @@ def bancos_edit(id):
         conta.dias_protesto = request.form.get("dias_protesto")
         conta.especie_documento = request.form.get("especie_documento")
         conta.saldo_inicial = request.form.get("saldo_inicial") or 0
+        data_saldo = request.form.get("data_saldo_inicial")
+        conta.data_saldo_inicial = (
+            datetime.strptime(data_saldo, "%Y-%m-%d").date() if data_saldo else None
+        )
         db.session.commit()
         flash("Conta bancária atualizada com sucesso!", "success")
         return redirect(url_for("bancos_list"))

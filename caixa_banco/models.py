@@ -10,6 +10,7 @@ class ContaCaixa(db.Model):
     moeda = db.Column(db.String(10), default='BRL')
     saldo_inicial = db.Column(db.Numeric(12, 2), default=0)
     saldo_atual = db.Column(db.Numeric(12, 2), default=0)
+    data_saldo_inicial = db.Column(db.Date, default=date.today)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -36,6 +37,7 @@ class ContaBanco(db.Model):
     especie_documento = db.Column(db.String(50))
     saldo_inicial = db.Column(db.Numeric(12, 2), default=0)
     saldo_atual = db.Column(db.Numeric(12, 2), default=0)
+    data_saldo_inicial = db.Column(db.Date, default=date.today)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
