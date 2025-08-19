@@ -3807,7 +3807,7 @@ def relatorio_financeiro_caixa_banco():
 
     cur.execute(
         """
-        SELECT data_movimento, historico, tipo, valor
+        SELECT id, data_movimento, historico, tipo, valor
         FROM movimento_financeiro
         WHERE conta_origem_tipo = %s AND conta_origem_id = %s
           AND data_movimento BETWEEN %s AND %s
@@ -3857,6 +3857,44 @@ def relatorio_financeiro_caixa_banco():
             self.set_font("Arial", "", 10)
             self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, "C")
 
+    def nb_lines(pdf, w, txt):
+        cw = pdf.current_font["cw"]
+        if w == 0:
+            w = pdf.w - pdf.r_margin - pdf.x
+        wmax = (w - 2 * pdf.c_margin) * 1000 / pdf.font_size
+        s = txt.replace("\r", "")
+        nb = len(s)
+        sep = -1
+        i = 0
+        j = 0
+        l = 0
+        nl = 1
+        while i < nb:
+            c = s[i]
+            if c == "\n":
+                i += 1
+                sep = -1
+                j = i
+                l = 0
+                nl += 1
+                continue
+            if c == " ":
+                sep = i
+            l += cw.get(c, 0)
+            if l > wmax:
+                if sep == -1:
+                    if i == j:
+                        i += 1
+                else:
+                    i = sep + 1
+                sep = -1
+                j = i
+                l = 0
+                nl += 1
+            else:
+                i += 1
+        return nl
+
     pdf = PDF()
     pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
     pdf.conta = conta_nome
@@ -3877,12 +3915,22 @@ def relatorio_financeiro_caixa_banco():
     pdf.ln(8)
 
     pdf.set_font("Arial", "", 10)
+    line_height = 8
     for linha in linhas:
-        pdf.cell(25, 8, linha["data"].strftime("%d/%m/%Y"), 1)
-        pdf.cell(75, 8, str(linha["historico"] or "")[:50], 1)
-        pdf.cell(30, 8, format_currency(linha["entrada"]), 1, 0, "R")
-        pdf.cell(30, 8, format_currency(linha["saida"]), 1, 0, "R")
-        pdf.cell(30, 8, format_currency(linha["saldo"]), 1, 1, "R")
+        historico_txt = str(linha["historico"] or "")
+        lines = nb_lines(pdf, 75, historico_txt)
+        cell_height = line_height * lines
+        x = pdf.get_x()
+        y = pdf.get_y()
+
+        pdf.cell(25, cell_height, linha["data"].strftime("%d/%m/%Y"), 1)
+        pdf.set_xy(x + 25, y)
+        pdf.multi_cell(75, line_height, historico_txt, 1)
+        pdf.set_xy(x + 100, y)
+        pdf.cell(30, cell_height, format_currency(linha["entrada"]), 1, 0, "R")
+        pdf.cell(30, cell_height, format_currency(linha["saida"]), 1, 0, "R")
+        pdf.cell(30, cell_height, format_currency(linha["saldo"]), 1, 0, "R")
+        pdf.ln(cell_height)
 
     pdf.set_font("Arial", "B", 10)
     pdf.cell(100, 8, "Total", 1, 0, "R")
