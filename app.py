@@ -3901,8 +3901,6 @@ def relatorio_financeiro_caixa_banco():
     pdf.alias_nb_pages()
     pdf.add_page()
 
-    pdf.set_font("Arial", "B", 10)
-    pdf.set_fill_color(200, 200, 200)
     headers = [
         ("Data", 25),
         ("Histórico", 75),
@@ -3910,16 +3908,27 @@ def relatorio_financeiro_caixa_banco():
         ("Saída (Valor)", 30),
         ("Saldo", 30),
     ]
-    for text, width in headers:
-        pdf.cell(width, 8, text, 1, 0, "C", True)
-    pdf.ln(8)
+    def draw_table_header():
+        pdf.set_font("Arial", "B", 10)
+        pdf.set_fill_color(200, 200, 200)
+        for text, width in headers:
+            pdf.cell(width, 8, text, 1, 0, "C", True)
+        pdf.ln(8)
+        pdf.set_font("Arial", "", 10)
 
-    pdf.set_font("Arial", "", 10)
+    draw_table_header()
+
     line_height = 8
     for linha in linhas:
         historico_txt = str(linha["historico"] or "")
         lines = nb_lines(pdf, 75, historico_txt)
         cell_height = line_height * lines
+        
+        # Add new page and redraw header if the next row would overflow
+        if pdf.get_y() + cell_height > pdf.page_break_trigger:
+            pdf.add_page()
+            draw_table_header()
+
         x = pdf.get_x()
         y = pdf.get_y()
 
