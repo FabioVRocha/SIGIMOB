@@ -11,6 +11,11 @@
         <h2 class="text-xl font-semibold text-dark-blue mb-2">Caixa/Banco</h2>
         <p class="text-medium-gray">Relatório de lançamentos por conta.</p>
     </button>
+    <button type="button" class="card p-6 text-center flex flex-col items-center justify-center" onclick="openDespesaImovelModal()">
+        <div class="text-icon-blue mb-4"><i class="fas fa-home fa-3x"></i></div>
+        <h2 class="text-xl font-semibold text-dark-blue mb-2">Despesas Por Imóvel</h2>
+        <p class="text-medium-gray">Relatório de despesas por imóvel.</p>
+    </button>
 </div>
 
 <div id="conta-modal" class="modal">
@@ -55,6 +60,46 @@
         </form>
     </div>
 </div>
+<div id="despesa-imovel-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeDespesaImovelModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Despesas Por Imóvel</h2>
+        <form action="{{ url_for('relatorio_financeiro_despesas_imovel') }}" method="POST" target="_blank">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="form-group md:col-span-2">
+                    <label for="imovel_id" class="form-label">Imóvel:</label>
+                    <select id="imovel_id" name="imovel_id" class="form-select" required>
+                        <option value="">Selecione</option>
+                        {% for imovel in imoveis %}
+                        <option value="{{ imovel.id }}">{{ imovel.tipo_imovel }} / {{ imovel.endereco }} / {{ imovel.cidade }}/{{ imovel.estado }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="data_inicio_imovel" class="form-label">Data Início:</label>
+                    <input type="date" id="data_inicio_imovel" name="data_inicio" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="data_fim_imovel" class="form-label">Data Fim:</label>
+                    <input type="date" id="data_fim_imovel" name="data_fim" class="form-input" required>
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label for="despesa_id" class="form-label">Despesas:</label>
+                    <select id="despesa_id" name="despesa_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for despesa in despesas %}
+                        <option value="{{ despesa.id }}">{{ despesa.descricao }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closeDespesaImovelModal()">Cancelar</button>
+                <button type="submit" class="btn-primary">Gerar PDF</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -73,6 +118,12 @@ function filtrarContas(){
         opt.style.display = opt.getAttribute('data-tipo') === tipo ? '' : 'none';
     });
     contaSelect.value = '';
+}
+function openDespesaImovelModal(){
+    document.getElementById('despesa-imovel-modal').style.display='flex';
+}
+function closeDespesaImovelModal(){
+    document.getElementById('despesa-imovel-modal').style.display='none';
 }
 </script>
 {% endblock %}

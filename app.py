@@ -3834,10 +3834,22 @@ def relatorios_financeiro():
         "SELECT id, nome_banco, agencia, conta FROM conta_banco ORDER BY nome_banco"
     )
     bancos = cur.fetchall()
+    cur.execute(
+        "SELECT id, tipo_imovel, endereco, cidade, estado FROM imoveis ORDER BY endereco"
+    )
+    imoveis = cur.fetchall()
+    cur.execute(
+        "SELECT id, descricao FROM despesas_cadastro ORDER BY descricao"
+    )
+    despesas = cur.fetchall()
     cur.close()
     conn.close()
     return render_template(
-        "relatorios/financeiro/index.html", caixas=caixas, bancos=bancos
+        "relatorios/financeiro/index.html",
+        caixas=caixas,
+        bancos=bancos,
+        imoveis=imoveis,
+        despesas=despesas,
     )
 
 
@@ -4029,6 +4041,118 @@ def relatorio_financeiro_caixa_banco():
         download_name="lancamentos_financeiros.pdf",
     )
 
+
+@app.route("/relatorios/financeiro/despesas-imovel", methods=["POST"])
+@login_required
+def relatorio_financeiro_despesas_imovel():
+    imovel_id = request.form.get("imovel_id")
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+    despesa_id = request.form.get("despesa_id")
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+    query = (
+        "SELECT cp.data_vencimento, cp.titulo, p.razao_social_nome AS fornecedor, "
+        "d.descricao AS despesa, cp.valor_previsto "
+        "FROM contas_a_pagar cp "
+        "JOIN pessoas p ON cp.fornecedor_id = p.id "
+        "LEFT JOIN despesas_cadastro d ON cp.despesa_id = d.id "
+        "WHERE cp.imovel_id = %s AND cp.data_vencimento BETWEEN %s AND %s"
+    )
+    params = [imovel_id, data_inicio, data_fim]
+    if despesa_id:
+        query += " AND cp.despesa_id = %s"
+        params.append(despesa_id)
+    query += " ORDER BY cp.data_vencimento ASC"
+    cur.execute(query, params)
+    contas = cur.fetchall()
+    total_valor = sum(c["valor_previsto"] for c in contas)
+
+    cur.execute(
+        "SELECT tipo_imovel, endereco, cidade, estado FROM imoveis WHERE id = %s",
+        (imovel_id,),
+    )
+    imovel = cur.fetchone()
+    cur.execute(
+        "SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1"
+    )
+    empresa = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            page_width = self.w - self.l_margin - self.r_margin
+            self.cell(page_width / 3, 10, "", 0, 0, "L")
+            self.cell(page_width / 3, 10, "Despesas Por Imóvel", 0, 0, "C")
+            self.set_font("Arial", "", 10)
+            self.cell(page_width / 3, 10, getattr(self, "gerado_em", ""), 0, 1, "R")
+            self.cell(0, 10, getattr(self, "empresa", ""), 0, 1, "C")
+            imovel_info = getattr(self, "imovel_info", "")
+            if imovel_info:
+                self.cell(0, 10, f"Imóvel: {imovel_info}", 0, 1, "L")
+            self.ln(5)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    pdf = PDF()
+    pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.empresa = empresa["razao_social_nome"] if empresa else ""
+    if imovel:
+        pdf.imovel_info = f"{imovel['tipo_imovel']} / {imovel['endereco']} / {imovel['cidade']}/{imovel['estado']}"
+    else:
+        pdf.imovel_info = ""
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(200, 200, 200)
+    headers = [
+        ("Data Vencimento", 25),
+        ("Título", 45),
+        ("Fornecedor", 50),
+        ("Despesas", 40),
+        ("Valor", 30),
+    ]
+    for text, width in headers:
+        pdf.cell(width, 8, text, 1, 0, "C", True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "", 10)
+
+    def truncate_text(text, max_width):
+        if not text:
+            return ""
+        text = str(text)
+        if pdf.get_string_width(text) <= max_width:
+            return text
+        while pdf.get_string_width(text + "...") > max_width and text:
+            text = text[:-1]
+        return text + "..."
+
+    for c in contas:
+        pdf.cell(25, 8, c["data_vencimento"].strftime("%d/%m/%Y"), 1)
+        pdf.cell(45, 8, truncate_text(c["titulo"], 43), 1)
+        pdf.cell(50, 8, truncate_text(c["fornecedor"], 48), 1)
+        pdf.cell(40, 8, truncate_text(c["despesa"] or "", 38), 1)
+        pdf.cell(30, 8, format_currency(c["valor_previsto"]), 1, 1, "R")
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(160, 8, "Total", 1, 0, "R")
+    pdf.cell(30, 8, format_currency(total_valor), 1, 1, "R")
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="despesas_por_imovel.pdf",
+    )
 
 @app.route("/relatorios/gerencial")
 @login_required
