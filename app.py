@@ -1083,11 +1083,11 @@ def imoveis_add():
             conn.close()
             flash("Imóvel cadastrado com sucesso!", "success")
             return redirect(url_for("imoveis_list"))
-        except psycopg2.errors.UniqueViolation:
-            flash("Erro: Inscrição IPTU já cadastrada.", "danger")
-            conn.rollback()
-            return render_template("imoveis/add_list.html", imovel=request.form)
         except Exception as e:
+            if "conn" in locals():
+                conn.rollback()
+                cur.close()
+                conn.close()
             flash(f"Erro ao cadastrar imóvel: {e}", "danger")
             return render_template("imoveis/add_list.html", imovel=request.form)
     return render_template("imoveis/add_list.html", imovel={})
@@ -1196,24 +1196,16 @@ def imoveis_edit(id):
             conn.commit()
             flash("Imóvel atualizado com sucesso!", "success")
             return redirect(url_for("imoveis_list"))
-        except psycopg2.errors.UniqueViolation:
-            flash("Erro: Inscrição IPTU já cadastrada para outro imóvel.", "danger")
+        except Exception as e:
+            flash(f"Erro ao atualizar imóvel: {e}", "danger")
             conn.rollback()
             # Recarrega os dados do imóvel para preencher o formulário novamente
             cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
             imovel = cur.fetchone()
             cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
             anexos = cur.fetchall()
-            return render_template(
-                "imoveis/add_list.html", imovel=imovel, anexos=anexos
-            )
-        except Exception as e:
-            flash(f"Erro ao atualizar imóvel: {e}", "danger")
-            # Recarrega os dados do imóvel para preencher o formulário novamente
-            cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
-            imovel = cur.fetchone()
-            cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
-            anexos = cur.fetchall()
+            cur.close()
+            conn.close()
             return render_template(
                 "imoveis/add_list.html", imovel=imovel, anexos=anexos
             )
