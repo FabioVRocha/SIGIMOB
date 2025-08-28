@@ -9,9 +9,14 @@
 <div class="bg-white p-6 rounded-lg shadow-xl">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-dark-blue">Lista de Contas a Receber</h2>
-        <a href="{{ url_for('contas_a_receber_add') }}" class="btn-primary flex items-center">
-            <i class="fas fa-plus mr-2"></i> Nova Conta
-        </a>
+        <div class="flex items-center space-x-2">
+            <button type="button" class="btn-secondary flex items-center" onclick="openFiltroModal()">
+                <i class="fas fa-filter mr-2"></i> Filtros
+            </button>
+            <a href="{{ url_for('contas_a_receber_add') }}" class="btn-primary flex items-center">
+                <i class="fas fa-plus mr-2"></i> Nova Conta
+            </a>
+        </div>
     </div>
 
     {% if contas %}
@@ -140,15 +145,76 @@
                 <button type="submit" class="btn-primary">Salvar</button>
             </div>
         </form>
-    </div>
+</div>
 </div>
 {% endfor %}
+
+
+<!-- Modal de Filtros -->
+<div id="filtro-modal" class="modal" style="display:none;">
+    <div class="modal-content max-w-2xl">
+        <span class="close-button" onclick="closeFiltroModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Filtrar Contas a Receber</h2>
+        <form method="GET" action="{{ url_for('contas_a_receber_list') }}">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-group">
+                    <label for="venc_inicio" class="form-label">Vencimento Inicial:</label>
+                    <input type="date" id="venc_inicio" name="venc_inicio" class="form-input" value="{{ filtros.venc_inicio }}">
+                </div>
+                <div class="form-group">
+                    <label for="venc_fim" class="form-label">Vencimento Final:</label>
+                    <input type="date" id="venc_fim" name="venc_fim" class="form-input" value="{{ filtros.venc_fim }}">
+                </div>
+                <div class="form-group">
+                    <label for="cliente_id" class="form-label">Cliente:</label>
+                    <select id="cliente_id" name="cliente_id" class="form-input">
+                        <option value="">Todos</option>
+                        {% for c in clientes %}
+                        <option value="{{ c.id }}" {% if filtros.cliente_id|string == c.id|string %}selected{% endif %}>{{ c.razao_social_nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="receita_id" class="form-label">Receita:</label>
+                    <select id="receita_id" name="receita_id" class="form-input">
+                        <option value="">Todas</option>
+                        {% for r in receitas %}
+                        <option value="{{ r.id }}" {% if filtros.receita_id|string == r.id|string %}selected{% endif %}>{{ r.descricao }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label for="status_conta" class="form-label">Status:</label>
+                    <select id="status_conta" name="status_conta" class="form-input">
+                        <option value="">Todos</option>
+                        {% set status_opts = ['Aberta','Vencida','Parcial','Paga','Cancelada'] %}
+                        {% for st in status_opts %}
+                        <option value="{{ st }}" {% if filtros.status_conta == st %}selected{% endif %}>{{ st }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-between items-center mt-6">
+                <a href="{{ url_for('contas_a_receber_list') }}" class="text-sm text-gray-600 hover:underline">Limpar filtros</a>
+                <div class="flex space-x-3">
+                    <button type="button" class="btn-secondary" onclick="closeFiltroModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Aplicar filtros</button>
+                </div>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='boleto.js') }}"></script>
 <script>
+function openFiltroModal(){
+    document.getElementById('filtro-modal').style.display='flex';
+}
+function closeFiltroModal(){
+    document.getElementById('filtro-modal').style.display='none';
+}
 function openPagarModal(id){
     filterPayAccounts(id);
     document.getElementById('pagar-modal-'+id).style.display='flex';

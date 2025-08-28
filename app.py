@@ -1772,13 +1772,26 @@ def contratos_add():
             cliente_id = request.form["cliente_id"]
             data_inicio = datetime.strptime(request.form["data_inicio"], "%Y-%m-%d").date()
             data_fim = datetime.strptime(request.form["data_fim"], "%Y-%m-%d").date()
-            quantidade_parcelas = request.form["quantidade_parcelas"]
-            valor_parcela = request.form["valor_parcela"]
+            finalidade = request.form["finalidade"]
+            # Campos financeiros podem ser omitidos quando Comodato (inputs desabilitados)
+            quantidade_parcelas = request.form.get("quantidade_parcelas")
+            valor_parcela = request.form.get("valor_parcela")
             quantidade_calcao = int(request.form.get("quantidade_calcao") or 0)
             valor_calcao = request.form.get("valor_calcao")
-            finalidade = request.form["finalidade"]
             status_contrato = request.form["status_contrato"]
             observacao = request.form.get("observacao")
+
+            # Para contratos de Comodato não há contas a receber; força valores neutros
+            if finalidade == "Comodato":
+                quantidade_parcelas = 0
+                valor_parcela = 0
+                quantidade_calcao = 0
+                valor_calcao = None
+            else:
+                # Garante que venham valores válidos para o banco
+                quantidade_parcelas = int(quantidade_parcelas)
+                # aceita string numérica; o driver converte para NUMERIC
+                valor_parcela = valor_parcela or 0
 
             cur.execute(
                 "SELECT razao_social_nome, endereco, bairro, cidade, estado, cep, telefone FROM pessoas WHERE id = %s",
@@ -1827,61 +1840,27 @@ def contratos_add():
             )
             contrato_id = cur.fetchone()[0]
 
-            # Criar contas a receber para cada parcela do contrato
-            cur.execute(
-                "SELECT id FROM receitas_cadastro WHERE descricao = %s",
-                ("ALUGUEL",),
-            )
-            result = cur.fetchone()
-            if result:
-                receita_id = result[0]
-            else:
-                cur.execute(
-                    "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
-                    ("ALUGUEL",),
-                )
-                receita_id = cur.fetchone()[0]
-
-            total_parcelas = int(quantidade_parcelas)
-            for numero in range(1, total_parcelas + 1):
-                titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
-                vencimento = data_inicio + timedelta(days=30 * numero)
-                cur.execute(
-                    """
-                    INSERT INTO contas_a_receber (
-                        contrato_id, receita_id, cliente_id, titulo,
-                        data_vencimento, valor_previsto, valor_pendente
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        contrato_id,
-                        receita_id,
-                        cliente_id,
-                        titulo_parcela,
-                        vencimento,
-                        valor_parcela,
-                        valor_parcela,
-                    ),
-                )
-
-            if quantidade_calcao > 0 and valor_calcao:
+            # Criar contas a receber somente se não for Comodato
+            if finalidade != "Comodato":
+                # Receitas de aluguel (parcelas)
                 cur.execute(
                     "SELECT id FROM receitas_cadastro WHERE descricao = %s",
-                    ("CALÇOES",),
+                    ("ALUGUEL",),
                 )
-                calcao_result = cur.fetchone()
-                if calcao_result:
-                    calcao_receita_id = calcao_result[0]
+                result = cur.fetchone()
+                if result:
+                    receita_id = result[0]
                 else:
                     cur.execute(
                         "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
-                        ("CALÇOES",),
+                        ("ALUGUEL",),
                     )
-                    calcao_receita_id = cur.fetchone()[0]
+                    receita_id = cur.fetchone()[0]
 
-                for numero in range(1, quantidade_calcao + 1):
-                    titulo_calcao = f"C{contrato_id}-{numero}/{quantidade_calcao}"
-                    venc_calcao = data_inicio + timedelta(days=30 * (numero - 1))
+                total_parcelas = int(quantidade_parcelas)
+                for numero in range(1, total_parcelas + 1):
+                    titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
+                    vencimento = data_inicio + timedelta(days=30 * numero)
                     cur.execute(
                         """
                         INSERT INTO contas_a_receber (
@@ -1891,14 +1870,51 @@ def contratos_add():
                         """,
                         (
                             contrato_id,
-                            calcao_receita_id,
+                            receita_id,
                             cliente_id,
-                            titulo_calcao,
-                            venc_calcao,
-                            valor_calcao,
-                            valor_calcao,
+                            titulo_parcela,
+                            vencimento,
+                            valor_parcela,
+                            valor_parcela,
                         ),
                     )
+
+                # Receitas de calção (quando houver)
+                if quantidade_calcao > 0 and valor_calcao:
+                    cur.execute(
+                        "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+                        ("CALÇOES",),
+                    )
+                    calcao_result = cur.fetchone()
+                    if calcao_result:
+                        calcao_receita_id = calcao_result[0]
+                    else:
+                        cur.execute(
+                            "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
+                            ("CALÇOES",),
+                        )
+                        calcao_receita_id = cur.fetchone()[0]
+
+                    for numero in range(1, quantidade_calcao + 1):
+                        titulo_calcao = f"C{contrato_id}-{numero}/{quantidade_calcao}"
+                        venc_calcao = data_inicio + timedelta(days=30 * (numero - 1))
+                        cur.execute(
+                            """
+                            INSERT INTO contas_a_receber (
+                                contrato_id, receita_id, cliente_id, titulo,
+                                data_vencimento, valor_previsto, valor_pendente
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                contrato_id,
+                                calcao_receita_id,
+                                cliente_id,
+                                titulo_calcao,
+                                venc_calcao,
+                                valor_calcao,
+                                valor_calcao,
+                            ),
+                        )
 
             if "anexos" in request.files:
                 files = request.files.getlist("anexos")
@@ -1961,13 +1977,23 @@ def contratos_edit(id):
             cliente_id = request.form["cliente_id"]
             data_inicio = datetime.strptime(request.form["data_inicio"], "%Y-%m-%d").date()
             data_fim = datetime.strptime(request.form["data_fim"], "%Y-%m-%d").date()
-            quantidade_parcelas = request.form["quantidade_parcelas"]
-            valor_parcela = request.form["valor_parcela"]
+            finalidade = request.form["finalidade"]
+            quantidade_parcelas = request.form.get("quantidade_parcelas")
+            valor_parcela = request.form.get("valor_parcela")
             quantidade_calcao = int(request.form.get("quantidade_calcao") or 0)
             valor_calcao = request.form.get("valor_calcao")
-            finalidade = request.form["finalidade"]
             status_contrato = request.form["status_contrato"]
             observacao = request.form.get("observacao")
+
+            # Ajustes para Comodato
+            if finalidade == "Comodato":
+                quantidade_parcelas = 0
+                valor_parcela = 0
+                quantidade_calcao = 0
+                valor_calcao = None
+            else:
+                quantidade_parcelas = int(quantidade_parcelas)
+                valor_parcela = valor_parcela or 0
 
             cur.execute(
                 "SELECT razao_social_nome, endereco, bairro, cidade, estado, cep, telefone FROM pessoas WHERE id = %s",
@@ -2019,7 +2045,7 @@ def contratos_edit(id):
                 ),
             )
 
-            if quantidade_calcao > 0 and valor_calcao:
+            if finalidade != "Comodato" and quantidade_calcao > 0 and valor_calcao:
                 cur.execute(
                     "SELECT COUNT(*) FROM contas_a_receber WHERE contrato_id = %s AND titulo LIKE 'C%%'",
                     (id,),
@@ -2426,25 +2452,76 @@ def contas_a_receber_list():
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     atualizar_status_contas_a_receber(cur)
     conn.commit()
-    cur.execute(
+    # Coleta filtros (GET)
+    venc_inicio = request.args.get("venc_inicio")
+    venc_fim = request.args.get("venc_fim")
+    cliente_id = request.args.get("cliente_id")
+    receita_id = request.args.get("receita_id")
+    status_conta = request.args.get("status_conta")
+
+    where = []
+    params = []
+    if venc_inicio:
+        where.append("cr.data_vencimento >= %s")
+        params.append(venc_inicio)
+    if venc_fim:
+        where.append("cr.data_vencimento <= %s")
+        params.append(venc_fim)
+    if cliente_id:
+        where.append("cr.cliente_id = %s")
+        params.append(cliente_id)
+    if receita_id:
+        where.append("cr.receita_id = %s")
+        params.append(receita_id)
+    if status_conta:
+        # Enum: força cast para status_conta_enum
+        where.append("cr.status_conta = %s::status_conta_enum")
+        params.append(status_conta)
+
+    sql = (
         """
         SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita
         FROM contas_a_receber cr
         JOIN pessoas p ON cr.cliente_id = p.id
         JOIN receitas_cadastro r ON cr.receita_id = r.id
-        ORDER BY cr.data_vencimento DESC
         """
     )
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY cr.data_vencimento DESC"
+
+    cur.execute(sql, tuple(params))
     contas = cur.fetchall()
     cur.close()
     conn.close()
     contas_caixa = ContaCaixa.query.all()
     contas_banco = ContaBanco.query.all()
+    # Listas para filtros
+    cur2 = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur2.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+    )
+    clientes = cur2.fetchall()
+    cur2.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+    receitas = cur2.fetchall()
+    cur2.close()
+
+    filtros = {
+        "venc_inicio": venc_inicio or "",
+        "venc_fim": venc_fim or "",
+        "cliente_id": (cliente_id or ""),
+        "receita_id": (receita_id or ""),
+        "status_conta": (status_conta or ""),
+    }
+
     return render_template(
         "financeiro/contas_a_receber/list.html",
         contas=contas,
         contas_caixa=contas_caixa,
         contas_banco=contas_banco,
+        clientes=clientes,
+        receitas=receitas,
+        filtros=filtros,
     )
 
 

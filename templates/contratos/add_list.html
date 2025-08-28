@@ -10,7 +10,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
+<div class="bg-white p-6 rounded-lg shadow-xl content-section">
+    <style>
+    /* Cabeçalho e listras das tabelas nos modais (modelo list) */
+    #imovel-modal thead, #cliente-modal thead { background-color: var(--clr-dark-blue); }
+    #imovel-modal thead th, #cliente-modal thead th { color: #FFFFFF; }
+    #imovel-modal tbody tr:nth-child(odd), #cliente-modal tbody tr:nth-child(odd) { background-color: var(--clr-white); }
+    #imovel-modal tbody tr:nth-child(even), #cliente-modal tbody tr:nth-child(even) { background-color: var(--clr-light-gray); }
+    </style>
     <form action="{% if contrato.id %}{{ url_for('contratos_edit', id=contrato.id) }}{% else %}{{ url_for('contratos_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div class="form-group">
@@ -202,6 +209,27 @@
 </div>
 
 <script>
+function toggleCamposPorFinalidade() {
+    const finalidade = document.getElementById('finalidade')?.value;
+    const isComodato = finalidade === 'Comodato';
+
+    const campos = [
+        document.getElementById('quantidade_parcelas'),
+        document.getElementById('valor_parcela'),
+        document.getElementById('quantidade_calcao'),
+        document.getElementById('valor_calcao'),
+    ];
+
+    campos.forEach((campo) => {
+        if (!campo) return;
+        campo.disabled = isComodato;
+        if (isComodato) {
+            // Limpa valores para evitar confusão visual
+            campo.value = '';
+        }
+    });
+}
+
 function openImovelModal(){
     document.getElementById('imovel-modal').style.display = 'flex';
 }
@@ -234,6 +262,15 @@ function selectCliente(btn){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Ajusta campos conforme a finalidade ao carregar
+    toggleCamposPorFinalidade();
+
+    // Observa mudanças na finalidade
+    const finalidadeSel = document.getElementById('finalidade');
+    if (finalidadeSel) {
+        finalidadeSel.addEventListener('change', toggleCamposPorFinalidade);
+    }
+
     document.querySelectorAll('.select-imovel-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             selectImovel(btn.dataset.id, btn.dataset.text);

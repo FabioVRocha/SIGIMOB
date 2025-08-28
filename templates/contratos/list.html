@@ -6,16 +6,16 @@
 {% block page_title %}Contratos de Aluguel{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
+<div class="bg-white p-6 rounded-lg shadow-xl content-section">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-dark-blue">Lista de Contratos</h2>
-        <a href="{{ url_for('contratos_add') }}" class="btn-primary flex items-center">
+        <a href="{{ url_for('contratos_add') }}" class="btn-primary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
             <i class="fas fa-plus mr-2"></i> Novo Contrato
         </a>
     </div>
     <form action="{{ url_for('contratos_list') }}" method="GET" class="mb-6">
         <div class="flex items-center space-x-2">
-            <input type="text" name="search" placeholder="Buscar por inquilino ou endereço..." class="form-input flex-grow" value="{{ search_query }}">
+            <input type="text" name="search" placeholder="Buscar por inquilino ou endereço..." class="form-input filter-input flex-grow" value="{{ search_query }}">
             <button type="submit" class="btn-primary">
                 <i class="fas fa-search"></i> Buscar
             </button>
@@ -24,21 +24,21 @@
     {% if contratos %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="bg-gray-200">
+            <thead class="table-header-bg">
                 <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Imóvel</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Inquilino</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Finalidade</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Período</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor Parcela</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Inquilino</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Finalidade</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Período</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Parcela</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 {% for contrato in contratos %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                <tr class="{{ loop.cycle('table-row-odd','table-row-even') }} border-b border-gray-200 hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.id }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.endereco_imovel }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.nome_inquilino }}</td>

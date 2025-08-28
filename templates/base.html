@@ -230,9 +230,17 @@
         .text-icon-pink { color: var(--clr-pink); }
         .text-icon-gray { color: var(--clr-medium-gray); }
 
-        .btn {
-            @apply font-semibold py-2 px-6 rounded-lg shadow-md flex items-center justify-center;
+        .btn, .btn-primary, .btn-secondary {
+            font-weight: 600;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
         }
         .btn-primary {
             background-color: var(--clr-light-blue);
@@ -287,16 +295,15 @@
             justify-content: center;
             align-items: center;
         }
-.modal-content {
-    background-color: #fefefe;
-    margin: auto;
-    padding: 20px;
-    border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    width: 90%;
-    max-width: 500px;
-    @apply p-6 bg-white rounded-lg shadow-xl;
-}
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 90%;
+            max-width: 500px;
+        }
         .photo-modal-content {
             max-width: 900px;
         }
@@ -321,26 +328,44 @@
         }
 
         /* Formulários */
-        .form-group {
-            @apply mb-4;
-        }
+        .form-group { margin-bottom: 1.5rem; }
         .form-label {
-            @apply block text-sm font-medium text-gray-700 mb-1;
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--clr-text-main);
         }
-        .form-input, .form-select, .form-textarea {
-            @apply mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm;
+        .form-input, .form-select, textarea {
+            border: 1px solid var(--clr-border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            width: 100%;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            color: var(--clr-text-main);
+            font-size: 1rem;
+            background: #ffffff;
         }
         .form-input[type="file"] {
-            @apply p-0 border-none shadow-none;
+            padding: 0;
+            border: none;
+            box-shadow: none;
         }
-        .form-input:focus, .form-select:focus, .form-textarea:focus {
+        .form-input:focus, .form-select:focus, textarea:focus {
+            outline: none;
             border-color: var(--clr-light-blue);
-            box-shadow: 0 0 0 2px rgba(79, 131, 204, 0.25);
+            box-shadow: 0 0 0 1px var(--clr-light-blue);
         }
         .column-search {
             color: black;
             font-weight: normal;
         }
+        /* Tabelas (modelo list) */
+        .table-header-bg { background-color: var(--clr-dark-blue); color: var(--clr-white); }
+        .table-row-odd { background-color: var(--clr-white); }
+        .table-row-even { background-color: var(--clr-light-gray); }
+        /* Campo de filtro/pesquisa */
+        .filter-input { border-color: var(--clr-medium-gray); color: var(--clr-dark-blue); }
+        .filter-input:focus { border-color: var(--clr-light-blue); box-shadow: 0 0 0 1px var(--clr-light-blue); }
     </style>
 </head>
 <body class="flex flex-col md:flex-row min-h-screen">
