@@ -2492,19 +2492,17 @@ def contas_a_receber_list():
 
     cur.execute(sql, tuple(params))
     contas = cur.fetchall()
+    # Listas para filtros (usar mesma conexão antes de fechar)
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+    )
+    clientes = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+    receitas = cur.fetchall()
     cur.close()
     conn.close()
     contas_caixa = ContaCaixa.query.all()
     contas_banco = ContaBanco.query.all()
-    # Listas para filtros
-    cur2 = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cur2.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
-    )
-    clientes = cur2.fetchall()
-    cur2.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
-    receitas = cur2.fetchall()
-    cur2.close()
 
     filtros = {
         "venc_inicio": venc_inicio or "",
@@ -2857,25 +2855,80 @@ def contas_a_pagar_list():
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     atualizar_status_contas_a_pagar(cur)
     conn.commit()
-    cur.execute(
-        """
-        SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa
-        FROM contas_a_pagar cp
-        JOIN pessoas p ON cp.fornecedor_id = p.id
-        JOIN despesas_cadastro d ON cp.despesa_id = d.id
-        ORDER BY cp.data_vencimento DESC
-        """
+
+    # Filtros
+    data_inicio = request.args.get("data_inicio")
+    data_fim = request.args.get("data_fim")
+    fornecedor_id = request.args.get("fornecedor_id")
+    despesa_id = request.args.get("despesa_id")
+    status_conta = request.args.get("status_conta")
+
+    query = (
+        "SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa "
+        "FROM contas_a_pagar cp "
+        "JOIN pessoas p ON cp.fornecedor_id = p.id "
+        "JOIN despesas_cadastro d ON cp.despesa_id = d.id "
     )
+    where = []
+    params = []
+
+    if data_inicio and data_fim:
+        where.append("cp.data_vencimento BETWEEN %s AND %s")
+        params.extend([data_inicio, data_fim])
+    elif data_inicio:
+        where.append("cp.data_vencimento >= %s")
+        params.append(data_inicio)
+    elif data_fim:
+        where.append("cp.data_vencimento <= %s")
+        params.append(data_fim)
+
+    if fornecedor_id:
+        where.append("cp.fornecedor_id = %s")
+        params.append(fornecedor_id)
+
+    if despesa_id:
+        where.append("cp.despesa_id = %s")
+        params.append(despesa_id)
+
+    if status_conta:
+        where.append("cp.status_conta = %s::status_conta_enum")
+        params.append(status_conta)
+
+    if where:
+        query += " WHERE " + " AND ".join(where)
+
+    query += " ORDER BY cp.data_vencimento DESC"
+
+    cur.execute(query, params)
     contas = cur.fetchall()
+
+    # Opções para filtros
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+    )
+    fornecedores = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
     cur.close()
     conn.close()
+
     contas_caixa = ContaCaixa.query.all()
     contas_banco = ContaBanco.query.all()
+    filtros = {
+        "data_inicio": data_inicio or "",
+        "data_fim": data_fim or "",
+        "fornecedor_id": fornecedor_id or "",
+        "despesa_id": despesa_id or "",
+        "status_conta": status_conta or "",
+    }
     return render_template(
         "financeiro/contas_a_pagar/list.html",
         contas=contas,
         contas_caixa=contas_caixa,
         contas_banco=contas_banco,
+        fornecedores=fornecedores,
+        despesas=despesas,
+        filtros=filtros,
     )
 
 
