@@ -6,19 +6,57 @@ comandos PDF diretos (``re`` para retângulos, ``m``/``l`` para linhas e
 ``Tj`` para textos), o que garante portabilidade do arquivo para qualquer
 leitor de PDF.
 
-O desenho foi calibrado para se assemelhar ao arquivo ``Modelo
-Boleto.pdf`` disponível na raiz do projeto. O arquivo serve como base de
-referência visual e os elementos abaixo procuram replicar seus campos
-principais, permitindo que o boleto gerado seja facilmente reconhecido
-por sistemas bancários e usuários finais. A ideia é gerar um boleto
-funcional o suficiente para testes e integrações, contendo os campos
-usuais do documento bancário.
+O desenho foi ajustado para seguir o padrão visual de um boleto bancário
+com "Recibo do Pagador" (parte superior) e "Ficha de Compensação"
+(inferior), tomando como referência os modelos anexos (por exemplo,
+``Temporario/boleto/Modelo Boleto2.pdf``). Mantém-se os rótulos que já
+eram usados nos testes automatizados para não quebrar integrações
+existentes, mas as posições e blocos foram alinhados ao layout padrão.
 """
 
-from datetime import datetime
+from datetime import datetime, date
+import re
 
 
-def _codigo_barras_pdf(numero: str, x: int, y: int) -> list[str]:
+def _num(x: str) -> str:
+    """Extrai apenas dígitos de uma string."""
+    return re.sub(r"\D", "", x or "")
+
+
+def _linha_digitavel(conta, nosso_numero: str, vencimento, valor: float) -> str:
+    """Gera uma linha digitável com 47 dígitos no formato visual padrão.
+
+    Obs.: Não calcula os dígitos verificadores oficiais. O objetivo aqui é
+    produzir um placeholder com o agrupamento típico para uso visual no PDF.
+    """
+    banco = (_num(conta.banco) or "000").rjust(3, "0")[:3]
+    moeda = "9"  # Real
+    # aceita date ou datetime para o vencimento
+    if isinstance(vencimento, datetime):
+        venc_date = vencimento.date()
+    else:
+        venc_date = vencimento  # assume date
+    fator = (venc_date - date(1997, 10, 7)).days
+    fator_str = str(max(fator, 0)).rjust(4, "0")[:4]
+    valor_str = ("%010d" % int(round(float(valor) * 100)))[:10]
+    ag = _num(conta.agencia)[:4].ljust(4, "0")
+    cc = _num(conta.conta).replace("-", "")[:8].ljust(8, "0")
+    nn = _num(nosso_numero)[:11].rjust(11, "0")
+    carteira = _num(getattr(conta, "carteira", "17") or "17")[:2].rjust(2, "0")
+
+    # Monta 47 dígitos (placeholder):
+    base = (banco + moeda + carteira + ag + nn + cc + fator_str + valor_str)
+    base = (base + ("0" * 47))[:47]
+    # Agrupamento visual: 5.5  5.6  5.6  1  14
+    c1 = f"{base[0:5]}.{base[5:10]}"
+    c2 = f"{base[10:15]}.{base[15:21]}"
+    c3 = f"{base[21:26]}.{base[26:32]}"
+    dv = base[32]
+    c5 = base[33:47]
+    return f"{c1} {c2} {c3} {dv} {c5}"
+
+
+def _codigo_barras_pdf(numero: str, x: int, y: int, largura_modulo: int = 1, altura: int = 45) -> list[str]:
     """Gera comandos PDF simples para um código de barras.
 
     O algoritmo abaixo não implementa nenhum padrão específico de
@@ -28,16 +66,38 @@ def _codigo_barras_pdf(numero: str, x: int, y: int) -> list[str]:
     """
 
     comandos = ["0 g"]  # garante cor preta
-    altura = 40
+    # Introduz um padrão de guardas simples (visual)
+    comandos.append(f"{x} {y} {largura_modulo} {altura} re f"); x += 2 * largura_modulo
     for digito in numero:
         try:
             d = int(digito)
         except ValueError:
             d = 0
-        largura = 1 if d % 2 else 2
+        largura = (largura_modulo if d % 2 else 2 * largura_modulo)
         comandos.append(f"{x} {y} {largura} {altura} re f")
-        x += largura + 1
+        x += largura + largura_modulo
+    comandos.append(f"{x} {y} {largura_modulo} {altura} re f")
     return comandos
+
+
+def _codigo_barras_fit(numero: str, x: int, y: int, largura_total: int, altura: int) -> list[str]:
+    """Gera comandos para código de barras ajustando a largura ao espaço disponível.
+
+    Calcula dinamicamente o módulo a partir da soma das larguras relativas
+    e espaçamentos entre barras do placeholder.
+    """
+    # unidades relativas = (largura barra + 1 unidade de espaço) por dígito
+    unidades = 0
+    for ch in numero:
+        try:
+            d = int(ch)
+        except ValueError:
+            d = 0
+        unidades += (1 if d % 2 else 2) + 1
+    # guardas simples nas extremidades
+    unidades += 2 + 2
+    modulo = max(int(largura_total / max(unidades, 1)), 1)
+    return _codigo_barras_pdf(numero, x, y, largura_modulo=modulo, altura=altura)
 
 
 def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
@@ -55,7 +115,7 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
     beneficiario = empresa.razao_social_nome
     agencia_conta = f"{conta.agencia}/{conta.conta}"
     banco_nome = conta.nome_banco or conta.banco
-    linha_digitavel = "Linha Digitavel"
+    linha_digitavel = _linha_digitavel(conta, nosso_numero, titulo.data_vencimento, float(titulo.valor_previsto))
     cnpj = empresa.documento or ""
     data_doc = datetime.now().strftime('%d/%m/%Y')
     pagador_nome = cliente.razao_social_nome or ""
@@ -72,85 +132,189 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
         )
     )
 
+    # Dimensões de página A4
+    width, height = 595, 842
+
+    # Construção do layout padrão
     conteudo_pdf = [
         "0.5 w",  # espessura das linhas
-        "BT /F1 12 Tf 60 780 Td (Recibo do Pagador) Tj ET",
-        # Cabeçalho superior com banco e linha digitável
-        "50 750 500 25 re S",
-        "200 750 m 200 775 l S",
-        f"BT /F1 12 Tf 60 760 Td ({banco_nome}) Tj ET",
-        f"BT /F1 12 Tf 210 760 Td ({linha_digitavel}) Tj ET",
-        # Moldura principal
-        "50 450 500 300 re S",
+        # --- Recibo do Pagador (topo) ---
+        "BT /F1 12 Tf 60 800 Td (Recibo do Pagador) Tj ET",
+        # Cabeçalho com banco e linha digitável
+        "50 780 495 28 re S",
+        "50 780 m 140 808 l S",  # espaço p/ logo
+        "140 780 m 140 808 l S",
+        f"BT /F1 12 Tf 60 792 Td ({banco_nome}) Tj ET",
+        "BT /F1 8 Tf 330 806 Td (Linha Digitavel) Tj ET",
+        f"BT /F1 12 Tf 330 792 Td ({linha_digitavel}) Tj ET",
+
+        # Moldura principal do recibo
+        "50 590 495 180 re S",
         # Linhas horizontais
-        "50 720 m 550 720 l S",
-        "50 680 m 550 680 l S",
-        "50 640 m 550 640 l S",
-        "50 600 m 550 600 l S",
-        # Linhas verticais para dividir colunas
-        "300 720 m 300 750 l S",
-        "300 680 m 300 720 l S",
-        "200 640 m 200 680 l S",
-        "360 640 m 360 720 l S",
-        # Textos
-        "BT /F1 14 Tf 60 730 Td (Boleto Bancario) Tj ET",
-        "BT /F1 8 Tf 60 705 Td (Local do Pagamento) Tj ET",
-        "BT /F1 8 Tf 360 705 Td (Data de Vencimento) Tj ET",
-        "BT /F1 10 Tf 60 690 Td (Pagavel em qualquer banco ate o vencimento.) Tj ET",
-        f"BT /F1 10 Tf 360 690 Td ({due_date}) Tj ET",
-        "BT /F1 8 Tf 60 665 Td (Nome do Beneficiario) Tj ET",
-        "BT /F1 8 Tf 360 665 Td (Agencia/Codigo do Beneficiario) Tj ET",
-        f"BT /F1 10 Tf 60 650 Td ({beneficiario}) Tj ET",
-        f"BT /F1 10 Tf 360 650 Td ({agencia_conta}) Tj ET",
-        "BT /F1 8 Tf 60 625 Td (Nosso numero) Tj ET",
-        "BT /F1 8 Tf 200 625 Td (Numero do documento) Tj ET",
-        "BT /F1 8 Tf 360 625 Td (Valor do Documento) Tj ET",
-        f"BT /F1 10 Tf 60 610 Td ({nosso_numero}) Tj ET",
-        f"BT /F1 10 Tf 200 610 Td ({doc_num}) Tj ET",
-        f"BT /F1 10 Tf 360 610 Td ({valor}) Tj ET",
-        "BT /F1 8 Tf 60 585 Td (CNPJ) Tj ET",
-        "BT /F1 8 Tf 140 585 Td (Nr. do documento) Tj ET",
-        "BT /F1 8 Tf 260 585 Td (Esp. Doc) Tj ET",
-        "BT /F1 8 Tf 340 585 Td (Aceite) Tj ET",
-        "BT /F1 8 Tf 420 585 Td (Data Proces.) Tj ET",
-        "BT /F1 8 Tf 500 585 Td (Nosso numero) Tj ET",
-        f"BT /F1 10 Tf 60 570 Td ({cnpj}) Tj ET",
-        f"BT /F1 10 Tf 140 570 Td ({doc_num}) Tj ET",
-        "BT /F1 10 Tf 260 570 Td (DM) Tj ET",
-        "BT /F1 10 Tf 340 570 Td (N) Tj ET",
-        f"BT /F1 10 Tf 420 570 Td ({data_doc}) Tj ET",
-        f"BT /F1 10 Tf 500 570 Td ({nosso_numero}) Tj ET",
-        "BT /F1 8 Tf 60 545 Td (Uso do Banco) Tj ET",
-        "BT /F1 8 Tf 140 545 Td (Data Documento) Tj ET",
-        "BT /F1 8 Tf 260 545 Td (Carteira) Tj ET",
-        "BT /F1 8 Tf 340 545 Td (Especie) Tj ET",
-        "BT /F1 8 Tf 420 545 Td (Quantidade) Tj ET",
-        "BT /F1 8 Tf 500 545 Td ((x) Valor) Tj ET",
-        f"BT /F1 10 Tf 140 530 Td ({data_doc}) Tj ET",
-        "BT /F1 10 Tf 260 530 Td (17) Tj ET",
-        "BT /F1 10 Tf 340 530 Td (R$) Tj ET",
-        f"BT /F1 10 Tf 500 530 Td ({valor}) Tj ET",
-        "BT /F1 8 Tf 60 505 Td (Informacoes de Responsabilidade do Beneficiario) Tj ET",
-        "BT /F1 8 Tf 500 505 Td ((=) Valor do Documento) Tj ET",
-        f"BT /F1 10 Tf 500 490 Td ({valor}) Tj ET",
-        "BT /F1 8 Tf 60 470 Td (Nome do Pagador / Endereco) Tj ET",
-        "BT /F1 8 Tf 500 470 Td (CPF/CNPJ) Tj ET",
-        f"BT /F1 10 Tf 60 455 Td ({pagador_nome}) Tj ET",
-        f"BT /F1 10 Tf 60 440 Td ({pagador_endereco}) Tj ET",
-        f"BT /F1 10 Tf 500 455 Td ({pagador_doc}) Tj ET",
-        # --- Ficha de Compensacao ---
-        "50 50 500 350 re S",
-        "BT /F1 12 Tf 60 380 Td (Ficha de Compensacao) Tj ET",
-        "BT /F1 8 Tf 60 360 Td (Nome do Beneficiario) Tj ET",
-        "BT /F1 8 Tf 360 360 Td (Agencia/Codigo do Beneficiario) Tj ET",
-        f"BT /F1 10 Tf 60 345 Td ({beneficiario}) Tj ET",
-        f"BT /F1 10 Tf 360 345 Td ({agencia_conta}) Tj ET",
-        "BT /F1 8 Tf 60 320 Td (Pagador) Tj ET",
-        "BT /F1 8 Tf 360 320 Td (CPF/CNPJ) Tj ET",
-        "BT /F1 8 Tf 60 90 Td (Codigo de Barras) Tj ET",
+        "50 740 m 545 740 l S",  # local pagto / vencimento
+        "50 710 m 545 710 l S",  # cedente / ag codigo
+        "50 680 m 545 680 l S",  # nosso número / num doc / valor doc
+        "50 650 m 545 650 l S",  # cnpj / ... / nosso numero
+        "50 620 m 545 620 l S",  # uso do banco / datas / carteira / especie / quantidade / valor
+        # Colunas
+        "370 740 m 370 768 l S",
+        "320 710 m 320 740 l S",
+        "240 680 m 240 710 l S",
+        "420 680 m 420 740 l S",
+        "120 650 m 120 680 l S",
+        "200 650 m 200 680 l S",
+        "280 650 m 280 680 l S",
+        "360 650 m 360 680 l S",
+        "440 650 m 440 680 l S",
+        "140 620 m 140 650 l S",
+        "240 620 m 240 650 l S",
+        "320 620 m 320 650 l S",
+        "400 620 m 400 650 l S",
+        "480 620 m 480 650 l S",
+
+        # Rótulos
+        "BT /F1 8 Tf 60 748 Td (Local do Pagamento) Tj ET",
+        "BT /F1 8 Tf 380 748 Td (Data de Vencimento) Tj ET",
+        "BT /F1 8 Tf 60 718 Td (Nome do Beneficiario) Tj ET",
+        "BT /F1 8 Tf 330 718 Td (Agencia/Codigo do Beneficiario) Tj ET",
+        "BT /F1 8 Tf 60 688 Td (Nosso numero) Tj ET",
+        "BT /F1 8 Tf 250 688 Td (Numero do documento) Tj ET",
+        "BT /F1 8 Tf 430 688 Td (Valor do Documento) Tj ET",
+        "BT /F1 8 Tf 60 658 Td (CNPJ) Tj ET",
+        "BT /F1 8 Tf 130 658 Td (Nr. do documento) Tj ET",
+        "BT /F1 8 Tf 210 658 Td (Esp. Doc) Tj ET",
+        "BT /F1 8 Tf 290 658 Td (Aceite) Tj ET",
+        "BT /F1 8 Tf 370 658 Td (Data Proces.) Tj ET",
+        "BT /F1 8 Tf 450 658 Td (Nosso numero) Tj ET",
+        "BT /F1 8 Tf 60 628 Td (Uso do Banco) Tj ET",
+        "BT /F1 8 Tf 150 628 Td (Data Documento) Tj ET",
+        "BT /F1 8 Tf 250 628 Td (Carteira) Tj ET",
+        "BT /F1 8 Tf 330 628 Td (Especie) Tj ET",
+        "BT /F1 8 Tf 410 628 Td (Quantidade) Tj ET",
+        "BT /F1 8 Tf 490 628 Td ((x) Valor) Tj ET",
+
+        # Valores
+        "BT /F1 14 Tf 60 755 Td (Boleto Bancario) Tj ET",
+        "BT /F1 10 Tf 60 735 Td (Pagavel em qualquer banco ate o vencimento.) Tj ET",
+        f"BT /F1 10 Tf 380 735 Td ({due_date}) Tj ET",
+        f"BT /F1 10 Tf 60 705 Td ({beneficiario}) Tj ET",
+        f"BT /F1 10 Tf 330 705 Td ({agencia_conta}) Tj ET",
+        f"BT /F1 10 Tf 60 675 Td ({nosso_numero}) Tj ET",
+        f"BT /F1 10 Tf 250 675 Td ({doc_num}) Tj ET",
+        f"BT /F1 10 Tf 430 675 Td ({valor}) Tj ET",
+        f"BT /F1 10 Tf 60 645 Td ({cnpj}) Tj ET",
+        f"BT /F1 10 Tf 130 645 Td ({doc_num}) Tj ET",
+        "BT /F1 10 Tf 210 645 Td (DM) Tj ET",
+        "BT /F1 10 Tf 290 645 Td (N) Tj ET",
+        f"BT /F1 10 Tf 370 645 Td ({data_doc}) Tj ET",
+        f"BT /F1 10 Tf 450 645 Td ({nosso_numero}) Tj ET",
+        f"BT /F1 10 Tf 150 615 Td ({data_doc}) Tj ET",
+        f"BT /F1 10 Tf 250 615 Td ({getattr(conta, 'carteira', '17') or '17'}) Tj ET",
+        "BT /F1 10 Tf 330 615 Td (R$) Tj ET",
+        f"BT /F1 10 Tf 490 615 Td ({valor}) Tj ET",
+
+        # Sacado
+        "50 590 m 545 590 l S",
+        "BT /F1 8 Tf 60 598 Td (Nome do Pagador / Endereco) Tj ET",
+        "BT /F1 8 Tf 490 598 Td (CPF/CNPJ) Tj ET",
+        f"BT /F1 10 Tf 60 582 Td ({pagador_nome}) Tj ET",
+        f"BT /F1 10 Tf 60 567 Td ({pagador_endereco}) Tj ET",
+        f"BT /F1 10 Tf 490 582 Td ({pagador_doc}) Tj ET",
+
+        # --- Ficha de Compensação (base) ---
+        "50 80 495 460 re S",
+        # Cabeçalho banco + linha digitável (repete)
+        "50 512 495 28 re S",
+        "50 512 m 140 540 l S",
+        "140 512 m 140 540 l S",
+        f"BT /F1 12 Tf 60 524 Td ({banco_nome}) Tj ET",
+        "BT /F1 8 Tf 330 538 Td (Linha Digitavel) Tj ET",
+        f"BT /F1 12 Tf 330 524 Td ({linha_digitavel}) Tj ET",
+
+        # Campos principais
+        "50 500 m 545 500 l S",
+        "50 470 m 545 470 l S",
+        "50 440 m 545 440 l S",
+        "50 410 m 545 410 l S",
+        "50 380 m 545 380 l S",
+        "50 350 m 545 350 l S",
+        "50 320 m 545 320 l S",
+
+        # Colunas
+        "370 500 m 370 540 l S",
+        "320 470 m 320 500 l S",
+        "240 440 m 240 470 l S",
+        "420 440 m 420 500 l S",
+        "120 410 m 120 440 l S",
+        "200 410 m 200 440 l S",
+        "280 410 m 280 440 l S",
+        "360 410 m 360 440 l S",
+        "440 410 m 440 440 l S",
+        "140 380 m 140 410 l S",
+        "240 380 m 240 410 l S",
+        "320 380 m 320 410 l S",
+        "400 380 m 400 410 l S",
+        "480 380 m 480 410 l S",
+
+        # Títulos
+        "BT /F1 12 Tf 60 540 Td (Ficha de Compensacao) Tj ET",
+        "BT /F1 8 Tf 60 508 Td (Local do Pagamento) Tj ET",
+        "BT /F1 8 Tf 380 508 Td (Data de Vencimento) Tj ET",
+        "BT /F1 8 Tf 60 478 Td (Nome do Beneficiario) Tj ET",
+        "BT /F1 8 Tf 330 478 Td (Agencia/Codigo do Beneficiario) Tj ET",
+        "BT /F1 8 Tf 60 448 Td (Nosso numero) Tj ET",
+        "BT /F1 8 Tf 250 448 Td (Numero do documento) Tj ET",
+        "BT /F1 8 Tf 430 448 Td (Valor do Documento) Tj ET",
+        "BT /F1 8 Tf 60 418 Td (CNPJ) Tj ET",
+        "BT /F1 8 Tf 130 418 Td (Nr. do documento) Tj ET",
+        "BT /F1 8 Tf 210 418 Td (Esp. Doc) Tj ET",
+        "BT /F1 8 Tf 290 418 Td (Aceite) Tj ET",
+        "BT /F1 8 Tf 370 418 Td (Data Proces.) Tj ET",
+        "BT /F1 8 Tf 450 418 Td (Nosso numero) Tj ET",
+        "BT /F1 8 Tf 60 388 Td (Uso do Banco) Tj ET",
+        "BT /F1 8 Tf 150 388 Td (Data Documento) Tj ET",
+        "BT /F1 8 Tf 250 388 Td (Carteira) Tj ET",
+        "BT /F1 8 Tf 330 388 Td (Especie) Tj ET",
+        "BT /F1 8 Tf 410 388 Td (Quantidade) Tj ET",
+        "BT /F1 8 Tf 490 388 Td ((x) Valor) Tj ET",
+
+        # Valores
+        f"BT /F1 10 Tf 380 495 Td ({due_date}) Tj ET",
+        "BT /F1 10 Tf 60 495 Td (Pagavel em qualquer banco ate o vencimento.) Tj ET",
+        f"BT /F1 10 Tf 60 465 Td ({beneficiario}) Tj ET",
+        f"BT /F1 10 Tf 330 465 Td ({agencia_conta}) Tj ET",
+        f"BT /F1 10 Tf 60 435 Td ({nosso_numero}) Tj ET",
+        f"BT /F1 10 Tf 250 435 Td ({doc_num}) Tj ET",
+        f"BT /F1 10 Tf 430 435 Td ({valor}) Tj ET",
+        f"BT /F1 10 Tf 60 405 Td ({cnpj}) Tj ET",
+        f"BT /F1 10 Tf 130 405 Td ({doc_num}) Tj ET",
+        "BT /F1 10 Tf 210 405 Td (DM) Tj ET",
+        "BT /F1 10 Tf 290 405 Td (N) Tj ET",
+        f"BT /F1 10 Tf 370 405 Td ({data_doc}) Tj ET",
+        f"BT /F1 10 Tf 450 405 Td ({nosso_numero}) Tj ET",
+        f"BT /F1 10 Tf 150 375 Td ({data_doc}) Tj ET",
+        f"BT /F1 10 Tf 250 375 Td ({getattr(conta, 'carteira', '17') or '17'}) Tj ET",
+        "BT /F1 10 Tf 330 375 Td (R$) Tj ET",
+        f"BT /F1 10 Tf 490 375 Td ({valor}) Tj ET",
+
+        # Sacado / CPF
+        "50 350 m 545 350 l S",
+        "BT /F1 8 Tf 60 358 Td (Pagador) Tj ET",
+        "BT /F1 8 Tf 490 358 Td (CPF/CNPJ) Tj ET",
+        f"BT /F1 10 Tf 60 342 Td ({pagador_nome}) Tj ET",
+        f"BT /F1 10 Tf 60 327 Td ({pagador_endereco}) Tj ET",
+        f"BT /F1 10 Tf 490 342 Td ({pagador_doc}) Tj ET",
+
+        # Código de barras
+        "BT /F1 8 Tf 60 100 Td (Codigo de Barras) Tj ET",
     ]
-    # código de barras posicionado no rodapé da ficha de compensação
-    conteudo_pdf.extend(_codigo_barras_pdf(nosso_numero or doc_num, 60, 60))
+    # Código de barras: posição inferior e tamanho ajustado ao espaço
+    BARCODE_X = 55
+    BARCODE_Y = 92
+    BARCODE_W = 490
+    BARCODE_H = 70
+    barcode_num = _num(conta.banco) + _num(nosso_numero or doc_num) + _num(valor)
+    conteudo_pdf.extend(_codigo_barras_fit(barcode_num[:44].ljust(44, "0"), BARCODE_X, BARCODE_Y, BARCODE_W, BARCODE_H))
     conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
 
     header = b"%PDF-1.4\n"

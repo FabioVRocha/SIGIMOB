@@ -13,18 +13,11 @@
             <i class="fas fa-plus mr-2"></i> Novo Contrato
         </a>
     </div>
-    <form action="{{ url_for('contratos_list') }}" method="GET" class="mb-6">
-        <div class="flex items-center space-x-2">
-            <input type="text" name="search" placeholder="Buscar por inquilino ou endereço..." class="form-input filter-input flex-grow" value="{{ search_query }}">
-            <button type="submit" class="btn-primary">
-                <i class="fas fa-search"></i> Buscar
-            </button>
-        </div>
-    </form>
+    {# Campo de busca geral removido. Usaremos busca por coluna no cabeçalho. #}
     {% if contratos %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="table-header-bg">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
                 <tr>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
@@ -35,8 +28,18 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
+                <tr>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"></th>
+                </tr>
             </thead>
-            <tbody>
+            <tbody id="contratos-tbody">
                 {% for contrato in contratos %}
                 <tr class="{{ loop.cycle('table-row-odd','table-row-even') }} border-b border-gray-200 hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.id }}</td>
@@ -66,4 +69,27 @@
     <p class="text-center text-gray-600">Nenhum contrato encontrado.</p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const inputs = document.querySelectorAll('.column-search');
+    const rows = document.querySelectorAll('#contratos-tbody tr');
+    function filterTable(){
+        rows.forEach(row => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const cell = row.querySelectorAll('td')[index];
+                if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
+                    visible = false;
+                }
+            });
+            row.style.display = visible ? '' : 'none';
+        });
+    }
+    inputs.forEach(input => input.addEventListener('input', filterTable));
+});
+</script>
 {% endblock %}

@@ -112,6 +112,10 @@ def parse_decimal(value):
     if value == "":
         return None
 
+    # Remove quaisquer símbolos de moeda e caracteres não numéricos,
+    # preservando apenas dígitos, vírgula, ponto e sinal de menos
+    value = re.sub(r"[^0-9,\.\-]", "", value)
+
     # Se contiver tanto "," quanto ".", assume que o separador decimal é o
     # último caracter dentre eles e remove os demais como separadores de
     # milhares.
@@ -2536,21 +2540,21 @@ def contas_a_receber_add():
             cliente_id = request.form["cliente_id"]
             titulo = request.form.get("titulo") or None
             data_vencimento = request.form["data_vencimento"]
-            valor_previsto = request.form["valor_previsto"]
+            valor_previsto = parse_decimal(request.form["valor_previsto"])  # BRL mask-aware
             data_pagamento = request.form.get("data_pagamento") or None
-            valor_pago = request.form.get("valor_pago") or None
-            valor_prev_dec = Decimal(str(valor_previsto))
-            valor_pago_dec = Decimal(str(valor_pago)) if valor_pago else Decimal('0')
+            valor_pago = parse_decimal(request.form.get("valor_pago"))
+            valor_prev_dec = valor_previsto or Decimal('0')
+            valor_pago_dec = valor_pago or Decimal('0')
             valor_pendente = valor_prev_dec - valor_pago_dec
-            valor_desconto = request.form.get("valor_desconto") or 0
-            valor_multa = request.form.get("valor_multa") or 0
-            valor_juros = request.form.get("valor_juros") or 0
+            valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+            valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+            valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
             observacao = request.form.get("observacao")
             origem_id = request.form.get("origem_id") or None
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, contrato_id, cur
             )
-            if valor_pago:
+            if valor_pago is not None:
                 if valor_pendente <= 0:
                     status_conta = "Paga"
                     valor_pendente = Decimal('0')
@@ -2653,21 +2657,21 @@ def contas_a_receber_edit(id):
             cliente_id = request.form["cliente_id"]
             titulo = request.form.get("titulo") or None
             data_vencimento = request.form["data_vencimento"]
-            valor_previsto = request.form["valor_previsto"]
+            valor_previsto = parse_decimal(request.form["valor_previsto"])  # BRL mask-aware
             data_pagamento = request.form.get("data_pagamento") or None
-            valor_pago = request.form.get("valor_pago") or None
-            valor_prev_dec = Decimal(str(valor_previsto))
-            valor_pago_dec = Decimal(str(valor_pago)) if valor_pago else Decimal('0')
+            valor_pago = parse_decimal(request.form.get("valor_pago"))
+            valor_prev_dec = valor_previsto or Decimal('0')
+            valor_pago_dec = valor_pago or Decimal('0')
             valor_pendente = valor_prev_dec - valor_pago_dec
-            valor_desconto = request.form.get("valor_desconto") or 0
-            valor_multa = request.form.get("valor_multa") or 0
-            valor_juros = request.form.get("valor_juros") or 0
+            valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+            valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+            valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
             observacao = request.form.get("observacao")
             origem_id = request.form.get("origem_id") or None
             status_conta = calcular_status_conta(
                 data_vencimento, data_pagamento, contrato_id, cur
             )
-            if valor_pago:
+            if valor_pago is not None:
                 if valor_pendente <= 0:
                     status_conta = "Paga"
                     valor_pendente = Decimal('0')
@@ -2950,12 +2954,12 @@ def contas_a_pagar_add():
                 if competencia_str
                 else None
             )
-            valor_previsto = request.form["valor_previsto"]
+            valor_previsto = parse_decimal(request.form["valor_previsto"])  # BRL mask-aware
             data_pagamento = request.form.get("data_pagamento") or None
-            valor_pago = request.form.get("valor_pago") or None
-            valor_desconto = request.form.get("valor_desconto") or 0
-            valor_multa = request.form.get("valor_multa") or 0
-            valor_juros = request.form.get("valor_juros") or 0
+            valor_pago = parse_decimal(request.form.get("valor_pago"))
+            valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+            valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+            valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
             observacao = request.form.get("observacao")
             imovel_id = parse_int(request.form.get("imovel_id"))
             origem_id = parse_int(request.form.get("origem_id"))
@@ -3069,12 +3073,12 @@ def contas_a_pagar_edit(id):
                 if competencia_str
                 else None
             )
-            valor_previsto = request.form["valor_previsto"]
+            valor_previsto = parse_decimal(request.form["valor_previsto"])  # BRL mask-aware
             data_pagamento = request.form.get("data_pagamento") or None
-            valor_pago = request.form.get("valor_pago") or None
-            valor_desconto = request.form.get("valor_desconto") or 0
-            valor_multa = request.form.get("valor_multa") or 0
-            valor_juros = request.form.get("valor_juros") or 0
+            valor_pago = parse_decimal(request.form.get("valor_pago"))
+            valor_desconto = parse_decimal(request.form.get("valor_desconto")) or Decimal("0")
+            valor_multa = parse_decimal(request.form.get("valor_multa")) or Decimal("0")
+            valor_juros = parse_decimal(request.form.get("valor_juros")) or Decimal("0")
             observacao = request.form.get("observacao")
             imovel_id = parse_int(request.form.get("imovel_id"))
             origem_id = parse_int(request.form.get("origem_id"))
@@ -4274,6 +4278,126 @@ def relatorio_financeiro_despesas_imovel():
         mimetype="application/pdf",
         as_attachment=True,
         download_name="despesas_por_imovel.pdf",
+    )
+
+
+@app.route("/relatorios/financeiro/fluxo-caixa", methods=["POST"])
+@login_required
+def relatorio_financeiro_fluxo_caixa():
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+
+    # Saldo anterior ao período
+    cur.execute(
+        """
+        SELECT COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE -valor END),0) AS saldo
+          FROM movimento_financeiro
+         WHERE data_movimento < %s
+        """,
+        (data_inicio,),
+    )
+    saldo_inicial = Decimal(cur.fetchone()["saldo"]) if cur.rowcount is not None else Decimal("0")
+
+    # Entradas e saídas por dia no período
+    cur.execute(
+        """
+        SELECT DATE(data_movimento) AS dia,
+               COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END),0) AS entradas,
+               COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor ELSE 0 END),0)   AS saidas
+          FROM movimento_financeiro
+         WHERE data_movimento BETWEEN %s AND %s
+         GROUP BY 1
+         ORDER BY 1
+        """,
+        (data_inicio, data_fim),
+    )
+    rows = cur.fetchall()
+
+    # Nome da empresa para cabeçalho
+    cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+    empresa = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    # Monta linhas com saldo acumulado
+    linhas = []
+    saldo = saldo_inicial
+    total_entradas = Decimal("0")
+    total_saidas = Decimal("0")
+    for r in rows:
+        dia = r["dia"]
+        ent = Decimal(r["entradas"]) or Decimal("0")
+        sai = Decimal(r["saidas"]) or Decimal("0")
+        saldo = saldo + ent - sai
+        total_entradas += ent
+        total_saidas += sai
+        linhas.append({"dia": dia, "entradas": ent, "saidas": sai, "saldo": saldo})
+
+    total_final = saldo
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            page_width = self.w - self.l_margin - self.r_margin
+            self.cell(page_width / 3, 10, "", 0, 0, "L")
+            self.cell(page_width / 3, 10, "Fluxo de Caixa", 0, 0, "C")
+            self.set_font("Arial", "", 10)
+            self.cell(page_width / 3, 10, getattr(self, "gerado_em", ""), 0, 1, "R")
+            if getattr(self, "empresa", ""):
+                self.cell(0, 10, self.empresa, 0, 1, "C")
+            if getattr(self, "periodo", ""):
+                self.cell(0, 10, self.periodo, 0, 1, "C")
+            if getattr(self, "saldo_inicial_txt", ""):
+                self.cell(0, 10, self.saldo_inicial_txt, 0, 1, "L")
+            self.ln(3)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    pdf = PDF()
+    pdf.alias_nb_pages()
+    pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.empresa = empresa["razao_social_nome"] if empresa else ""
+    data_inicio_fmt = datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+    data_fim_fmt = datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+    pdf.periodo = f"Período: {data_inicio_fmt} a {data_fim_fmt}"
+    pdf.saldo_inicial_txt = f"Saldo inicial do período: {format_currency(saldo_inicial)}"
+    pdf.add_page()
+
+    # Cabeçalhos da tabela
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(200, 200, 200)
+    headers = [("Data", 30), ("Entradas", 40), ("Saídas", 40), ("Saldo", 40)]
+    for text, width in headers:
+        pdf.cell(width, 8, text, 1, 0, "C", True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "", 10)
+    for linha in linhas:
+        pdf.cell(30, 8, linha["dia"].strftime("%d/%m/%Y"), 1)
+        pdf.cell(40, 8, format_currency(linha["entradas"]), 1, 0, "R")
+        pdf.cell(40, 8, format_currency(linha["saidas"]), 1, 0, "R")
+        pdf.cell(40, 8, format_currency(linha["saldo"]), 1, 1, "R")
+
+    # Totais
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(30, 8, "Total", 1)
+    pdf.cell(40, 8, format_currency(total_entradas), 1, 0, "R")
+    pdf.cell(40, 8, format_currency(total_saidas), 1, 0, "R")
+    pdf.cell(40, 8, format_currency(total_final), 1, 1, "R")
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="fluxo_de_caixa.pdf",
     )
 
 @app.route("/relatorios/gerencial")

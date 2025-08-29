@@ -8,9 +8,54 @@
 <div class="bg-white p-6 rounded-lg shadow-xl">
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-dark-blue">Lançamentos</h2>
-        <a href="{{ url_for('lancamentos_novo') }}" class="btn-primary flex items-center">
+        <div class="flex items-center gap-3">
+            <button id="btn-open-filtros" type="button" class="btn-secondary flex items-center">
+                <i class="fas fa-filter mr-2"></i> Filtros
+            </button>
+            <a href="{{ url_for('lancamentos_novo') }}" class="btn-primary flex items-center">
             <i class="fas fa-plus mr-2"></i> Novo Lançamento
         </a>
+        </div>
+    </div>
+    
+
+    <!-- Modal de Filtros -->
+    <div id="modal-filtros" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-black bg-opacity-40"></div>
+        <div class="relative bg-white rounded-lg shadow-xl w-full max-w-xl mx-4">
+            <div class="flex items-center justify-between px-5 py-4 border-b">
+                <h3 class="text-lg font-semibold">Filtros de LanÃ§amentos</h3>
+                <button id="btn-close-filtros" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Intervalo de Data</label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input id="filtro-data-inicio" type="date" class="form-input w-full" />
+                        <input id="filtro-data-fim" type="date" class="form-input w-full" />
+                    </div>
+                </div>
+                <div>
+                    <label for="filtro-conta-origem" class="block text-sm font-medium text-gray-700 mb-1">Conta Origem</label>
+                    <select id="filtro-conta-origem" class="form-input w-full"></select>
+                </div>
+                <div>
+                    <label for="filtro-tipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                    <select id="filtro-tipo" class="form-input w-full">
+                        <option value="">Todos</option>
+                        <option value="entrada">Entrada</option>
+                        <option value="saida">SaÃ­da</option>
+                        <option value="transferencia">TransferÃªncia</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 px-5 py-4 border-t">
+                <button id="btn-limpar-filtros" class="btn-secondary">Limpar</button>
+                <button id="btn-aplicar-filtros" class="btn-primary">Aplicar</button>
+            </div>
+        </div>
     </div>
 
     {% if movimentos %}
@@ -101,23 +146,140 @@
 <script>
 document.addEventListener('DOMContentLoaded', function(){
     const inputs = document.querySelectorAll('.column-search');
-    const rows = document.querySelectorAll('#lancamentos-tbody tr');
+    const rows = Array.from(document.querySelectorAll('#lancamentos-tbody tr'));
+    const modal = document.getElementById('modal-filtros');
+    const btnOpen = document.getElementById('btn-open-filtros');
+    const btnClose = document.getElementById('btn-close-filtros');
+    const btnAplicar = document.getElementById('btn-aplicar-filtros');
+    const btnLimpar = document.getElementById('btn-limpar-filtros');
+    const selContaOrigem = document.getElementById('filtro-conta-origem');
+    const selTipo = document.getElementById('filtro-tipo');
+    const inpDataIni = document.getElementById('filtro-data-inicio');
+    const inpDataFim = document.getElementById('filtro-data-fim');
 
-    function filterTable(){
+    function parseBRDate(str){
+        // esperado dd/mm/aaaa
+        if(!str) return null;
+        const parts = str.trim().split('/');
+        if(parts.length !== 3) return null;
+        const [dd, mm, yyyy] = parts.map(p => parseInt(p, 10));
+        if(!yyyy || !mm || !dd) return null;
+        return new Date(yyyy, mm - 1, dd);
+    }
+
+    function getRowCellText(row, index){
+        const cell = row.querySelectorAll('td')[index];
+        return cell ? cell.textContent.trim() : '';
+    }
+
+    function parseInputDate(s){
+        if(!s) return null;
+        const parts = s.split('-');
+        if(parts.length !== 3) return null;
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if(!y || !m || !d) return null;
+        return new Date(y, m - 1, d);
+    }
+
+    function applyAllFilters(){
+        const qValues = Array.from(inputs).map(i => (i.value || '').toLowerCase());
+        const filtroConta = (selContaOrigem.value || '').toLowerCase();
+        const filtroTipo = (selTipo.value || '').toLowerCase();
+        const dtIni = parseInputDate(inpDataIni.value);
+        const dtFim = parseInputDate(inpDataFim.value);
+
         rows.forEach(row => {
             let visible = true;
-            inputs.forEach((input, index) => {
-                const filter = input.value.toLowerCase();
-                const cell = row.querySelectorAll('td')[index];
-                if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
-                    visible = false;
-                }
-            });
+
+            // 1) Filtros por coluna (inputs acima da tabela)
+            if(visible){
+                qValues.forEach((filter, index) => {
+                    if(!visible) return;
+                    if(!filter) return;
+                    const cell = row.querySelectorAll('td')[index];
+                    if(!(cell && cell.textContent.toLowerCase().includes(filter))){
+                        visible = false;
+                    }
+                });
+            }
+
+            // 2) Filtro por intervalo de data (coluna 1)
+            if(visible && (dtIni || dtFim)){
+                const dataStr = getRowCellText(row, 1);
+                const d = parseBRDate(dataStr);
+                if(!d){ visible = false; }
+                if(visible && dtIni && d < dtIni){ visible = false; }
+                if(visible && dtFim && d > dtFim){ visible = false; }
+            }
+
+            // 3) Filtro por Conta Origem (coluna 2)
+            if(visible && filtroConta){
+                const contaStr = getRowCellText(row, 2).toLowerCase();
+                if(!contaStr.includes(filtroConta)) visible = false;
+            }
+
+            // 4) Filtro por Tipo (coluna 4)
+            if(visible && filtroTipo){
+                const tipoStr = getRowCellText(row, 4).toLowerCase();
+                if(tipoStr !== filtroTipo) visible = false;
+            }
+
             row.style.display = visible ? '' : 'none';
         });
     }
 
-    inputs.forEach(input => input.addEventListener('input', filterTable));
+    function openModal(){
+        // Preenche o select de Conta Origem com valores únicos da tabela
+        const contas = new Set();
+        rows.forEach(row => {
+            const v = getRowCellText(row, 2);
+            if(v && v !== '-') contas.add(v.trim());
+        });
+        const current = selContaOrigem.value;
+        selContaOrigem.innerHTML = '';
+        const optAll = document.createElement('option');
+        optAll.value = '';
+        optAll.textContent = 'Todas';
+        selContaOrigem.appendChild(optAll);
+        Array.from(contas).sort().forEach(c => {
+            const o = document.createElement('option');
+            o.value = c;
+            o.textContent = c;
+            selContaOrigem.appendChild(o);
+        });
+        // Restaura valor previamente selecionado, se houver
+        selContaOrigem.value = current || '';
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeModal(){
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    // Eventos
+    inputs.forEach(input => input.addEventListener('input', applyAllFilters));
+
+    btnOpen?.addEventListener('click', openModal);
+    btnClose?.addEventListener('click', closeModal);
+    modal.addEventListener('click', (ev) => {
+        if(ev.target === modal) closeModal();
+    });
+    btnAplicar?.addEventListener('click', () => {
+        applyAllFilters();
+        closeModal();
+    });
+    btnLimpar?.addEventListener('click', () => {
+        inpDataIni.value = '';
+        inpDataFim.value = '';
+        selContaOrigem.value = '';
+        selTipo.value = '';
+        applyAllFilters();
+    });
 });
 </script>
 {% endblock %}

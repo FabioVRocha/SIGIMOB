@@ -81,11 +81,11 @@
             </div>
             <div class="form-group">
                 <label for="valor_imovel" class="form-label">Valor do Imóvel:</label>
-                <input type="text" inputmode="decimal" id="valor_imovel" name="valor_imovel" class="form-input" value="{{ imovel.valor_imovel | default('') }}">
+                <input type="text" inputmode="decimal" id="valor_imovel" name="valor_imovel" class="form-input currency-input" value="{{ imovel.valor_imovel and (imovel.valor_imovel | currency) or '' }}">
             </div>
             <div class="form-group">
                 <label for="valor_previsto_aluguel" class="form-label">Valor Previsto de Aluguel:</label>
-                <input type="text" inputmode="decimal" id="valor_previsto_aluguel" name="valor_previsto_aluguel" class="form-input" value="{{ imovel.valor_previsto_aluguel | default('') }}">
+                <input type="text" inputmode="decimal" id="valor_previsto_aluguel" name="valor_previsto_aluguel" class="form-input currency-input" value="{{ imovel.valor_previsto_aluguel and (imovel.valor_previsto_aluguel | currency) or '' }}">
             </div>
             <div class="form-group">
                 <label for="max_contratos" class="form-label">Máx. Contratos Ativos:</label>
@@ -153,14 +153,20 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const valorPrevisto = document.getElementById('valor_previsto_aluguel');
-    if (valorPrevisto) {
-        valorPrevisto.addEventListener('blur', () => {
-            if (valorPrevisto.value.trim() === '') {
-                valorPrevisto.value = '0';
-            }
-        });
+    const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    function formatCurrencyInput(el){
+        const digits = (el.value || '').toString().replace(/\D/g,'');
+        if(!digits){ el.value=''; return; }
+        const value = parseInt(digits,10)/100;
+        el.value = currencyFormatter.format(value);
     }
+    document.querySelectorAll('.currency-input').forEach(el => {
+        if(el.value && !/^\s*$/.test(el.value)){
+            formatCurrencyInput(el);
+        }
+        el.addEventListener('input', () => formatCurrencyInput(el));
+        el.addEventListener('blur', () => formatCurrencyInput(el));
+    });
 });
 </script>
 {% endblock %}

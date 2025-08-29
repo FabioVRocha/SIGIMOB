@@ -16,6 +16,11 @@
         <h2 class="text-xl font-semibold text-dark-blue mb-2">Despesas Por Imóvel</h2>
         <p class="text-medium-gray">Relatório de despesas por imóvel.</p>
     </button>
+    <button type="button" class="card p-6 text-center flex flex-col items-center justify-center" onclick="openFluxoCaixaModal()">
+        <div class="text-icon-blue mb-4"><i class="fas fa-stream fa-3x"></i></div>
+        <h2 class="text-xl font-semibold text-dark-blue mb-2">Fluxo de Caixa</h2>
+        <p class="text-medium-gray">Entradas, saídas e saldo por período.</p>
+    </button>
 </div>
 
 <div id="conta-modal" class="modal">
@@ -100,6 +105,28 @@
         </form>
     </div>
 </div>
+<div id="fluxo-caixa-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeFluxoCaixaModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Fluxo de Caixa</h2>
+        <form action="{{ url_for('relatorio_financeiro_fluxo_caixa') }}" method="POST" target="_blank">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="form-group">
+                    <label for="fluxo_data_inicio" class="form-label">Data Início:</label>
+                    <input type="date" id="fluxo_data_inicio" name="data_inicio" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="fluxo_data_fim" class="form-label">Data Fim:</label>
+                    <input type="date" id="fluxo_data_fim" name="data_fim" class="form-input" required>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closeFluxoCaixaModal()">Cancelar</button>
+                <button type="submit" class="btn-primary">Gerar PDF</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -124,6 +151,12 @@ function openDespesaImovelModal(){
 }
 function closeDespesaImovelModal(){
     document.getElementById('despesa-imovel-modal').style.display='none';
+}
+function openFluxoCaixaModal(){
+    document.getElementById('fluxo-caixa-modal').style.display='flex';
+}
+function closeFluxoCaixaModal(){
+    document.getElementById('fluxo-caixa-modal').style.display='none';
 }
 </script>
 {% endblock %}

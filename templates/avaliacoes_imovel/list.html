@@ -13,25 +13,27 @@
             <i class="fas fa-plus mr-2"></i> Nova Avaliação
         </a>
     </div>
-    <form action="{{ url_for('avaliacoes_imovel_list') }}" method="GET" class="mb-6">
-        <div class="flex items-center space-x-2">
-            <input type="text" name="search" placeholder="Buscar por endereço..." class="form-input flex-grow" value="{{ search_query }}">
-            <button type="submit" class="btn-primary"><i class="fas fa-search"></i> Buscar</button>
-        </div>
-    </form>
+    {# Busca geral removida. Usaremos filtros por coluna no cabeçalho. #}
     {% if avaliacoes %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="bg-gray-200">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
                 <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Imóvel</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Data</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Valor Avaliado</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Avaliado</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+                </tr>
+                <tr>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="avaliacoes-tbody">
                 {% for av in avaliacoes %}
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-700">{{ av.id }}</td>
@@ -53,4 +55,27 @@
     <p class="text-center text-gray-600">Nenhuma avaliação encontrada.</p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const inputs = document.querySelectorAll('.column-search');
+    const rows = document.querySelectorAll('#avaliacoes-tbody tr');
+    function filterTable(){
+        rows.forEach(row => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const cell = row.querySelectorAll('td')[index];
+                if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
+                    visible = false;
+                }
+            });
+            row.style.display = visible ? '' : 'none';
+        });
+    }
+    inputs.forEach(input => input.addEventListener('input', filterTable));
+});
+</script>
 {% endblock %}

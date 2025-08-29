@@ -14,23 +14,37 @@
     </div>
     {% if contas %}
     <table class="min-w-full bg-white rounded-lg overflow-hidden">
-        <thead class="bg-gray-200">
+        <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
             <tr>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Código</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Banco</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Agência</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Conta</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Saldo Atual</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Contrato</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Juros Mora (%)</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Multa (%)</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Dias Protesto</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Espécie Doc</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Código</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Banco</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Agência</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Conta</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Saldo Atual</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Contrato</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Juros Mora (%)</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Multa (%)</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Dias Protesto</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Espécie Doc</th>
+                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+            </tr>
+            <tr>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                <th class="py-2 px-4"></th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="bancos-tbody">
             {% for b in contas %}
             <tr class="border-b border-gray-200 hover:bg-gray-50">
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.id }}</td>
@@ -38,7 +52,7 @@
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.nome_banco }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.agencia }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.conta }}</td>
-                <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(b.saldo_atual or 0) }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ (b.saldo_atual or 0) | currency }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.contrato }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.juros_mora }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.multa }}</td>
@@ -57,4 +71,27 @@
     <p class="text-center text-gray-600">Nenhuma conta bancária cadastrada.</p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const inputs = document.querySelectorAll('.column-search');
+    const rows = document.querySelectorAll('#bancos-tbody tr');
+    function filterTable(){
+        rows.forEach(row => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const cell = row.querySelectorAll('td')[index];
+                if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
+                    visible = false;
+                }
+            });
+            row.style.display = visible ? '' : 'none';
+        });
+    }
+    inputs.forEach(input => input.addEventListener('input', filterTable));
+});
+</script>
 {% endblock %}

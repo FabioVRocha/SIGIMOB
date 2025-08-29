@@ -51,8 +51,8 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.cliente }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.receita }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_previsto) }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(conta.valor_pendente) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.valor_previsto | currency }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.valor_pendente | currency }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.status_conta }}</td>
                     <td class="py-3 px-4 text-sm">
                         {% if conta.status_conta in ['Aberta', 'Vencida', 'Parcial'] %}
@@ -121,23 +121,23 @@
                 </div>
                 <div class="form-group">
                     <label for="valor_previsto_{{ conta.id }}" class="form-label">Valor Previsto:</label>
-                    <input type="number" step="0.01" id="valor_previsto_{{ conta.id }}" name="valor_previsto" class="form-input" value="{{ '{:.2f}'.format(conta.valor_previsto) }}">
+                    <input type="text" inputmode="decimal" id="valor_previsto_{{ conta.id }}" name="valor_previsto" class="form-input currency-input" value="{{ conta.valor_previsto | currency }}">
                 </div>
                 <div class="form-group">
                     <label for="valor_pago_{{ conta.id }}" class="form-label">Valor Pago:</label>
-                    <input type="number" step="0.01" id="valor_pago_{{ conta.id }}" name="valor_pago" class="form-input" value="{{ conta.valor_pendente or conta.valor_previsto }}">
+                    <input type="text" inputmode="decimal" id="valor_pago_{{ conta.id }}" name="valor_pago" class="form-input currency-input" value="{{ (conta.valor_pendente or conta.valor_previsto) | currency }}">
                 </div>
                 <div class="form-group">
                     <label for="valor_desconto_{{ conta.id }}" class="form-label">Desconto:</label>
-                    <input type="number" step="0.01" id="valor_desconto_{{ conta.id }}" name="valor_desconto" class="form-input" value="{{ conta.valor_desconto or 0 }}">
+                    <input type="text" inputmode="decimal" id="valor_desconto_{{ conta.id }}" name="valor_desconto" class="form-input currency-input" value="{{ (conta.valor_desconto or 0) | currency }}">
                 </div>
                 <div class="form-group">
                     <label for="valor_multa_{{ conta.id }}" class="form-label">Multa:</label>
-                    <input type="number" step="0.01" id="valor_multa_{{ conta.id }}" name="valor_multa" class="form-input" value="{{ conta.valor_multa or 0 }}">
+                    <input type="text" inputmode="decimal" id="valor_multa_{{ conta.id }}" name="valor_multa" class="form-input currency-input" value="{{ (conta.valor_multa or 0) | currency }}">
                 </div>
                 <div class="form-group">
                     <label for="valor_juros_{{ conta.id }}" class="form-label">Juros:</label>
-                    <input type="number" step="0.01" id="valor_juros_{{ conta.id }}" name="valor_juros" class="form-input" value="{{ conta.valor_juros or 0 }}">
+                    <input type="text" inputmode="decimal" id="valor_juros_{{ conta.id }}" name="valor_juros" class="form-input currency-input" value="{{ (conta.valor_juros or 0) | currency }}">
                 </div>
             </div>
             <div class="flex justify-end space-x-4">
@@ -234,6 +234,22 @@ function filterPayAccounts(id){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
+    // Máscara BRL para campos monetários
+    const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    function formatCurrencyInput(el){
+        const digits = (el.value || '').toString().replace(/\D/g,'');
+        if(!digits){ el.value = ''; return; }
+        const value = parseInt(digits,10)/100;
+        el.value = currencyFormatter.format(value);
+    }
+    document.querySelectorAll('.currency-input').forEach(el => {
+        if(el.value && !/^\s*$/.test(el.value)){
+            formatCurrencyInput(el);
+        }
+        el.addEventListener('input', () => formatCurrencyInput(el));
+        el.addEventListener('blur', () => formatCurrencyInput(el));
+    });
+
     const inputs = document.querySelectorAll('.column-search');
     const rows = document.querySelectorAll('#contas-tbody tr');
     function filterTable(){

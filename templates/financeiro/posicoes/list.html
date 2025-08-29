@@ -34,7 +34,7 @@
                         {{ contas_caixa.get(p.conta_id) if p.conta_tipo == 'caixa' else contas_banco.get(p.conta_id) }}
                     </td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ p.conta_tipo|capitalize }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ '{:.2f}'.format(p.saldo) }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ (p.saldo or 0) | currency }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

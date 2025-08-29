@@ -26,11 +26,11 @@
         </div>
         <div>
             <dt class="font-semibold">Valor Previsto:</dt>
-            <dd>{{ '{:.2f}'.format(conta.valor_previsto) }}</dd>
+            <dd>{{ conta.valor_previsto | currency }}</dd>
         </div>
         <div>
             <dt class="font-semibold">Valor Pendente:</dt>
-            <dd>{{ '{:.2f}'.format(conta.valor_pendente) }}</dd>
+            <dd>{{ conta.valor_pendente | currency }}</dd>
         </div>
         {% if conta.data_pagamento %}
         <div>
@@ -41,25 +41,25 @@
         {% if conta.valor_pago %}
         <div>
             <dt class="font-semibold">Valor Pago:</dt>
-            <dd>{{ '{:.2f}'.format(conta.valor_pago) }}</dd>
+            <dd>{{ conta.valor_pago | currency }}</dd>
         </div>
         {% endif %}
         {% if conta.valor_desconto %}
         <div>
             <dt class="font-semibold">Desconto:</dt>
-            <dd>{{ '{:.2f}'.format(conta.valor_desconto) }}</dd>
+            <dd>{{ conta.valor_desconto | currency }}</dd>
         </div>
         {% endif %}
         {% if conta.valor_multa %}
         <div>
             <dt class="font-semibold">Multa:</dt>
-            <dd>{{ '{:.2f}'.format(conta.valor_multa) }}</dd>
+            <dd>{{ conta.valor_multa | currency }}</dd>
         </div>
         {% endif %}
         {% if conta.valor_juros %}
         <div>
             <dt class="font-semibold">Juros:</dt>
-            <dd>{{ '{:.2f}'.format(conta.valor_juros) }}</dd>
+            <dd>{{ conta.valor_juros | currency }}</dd>
         </div>
         {% endif %}
         <div>

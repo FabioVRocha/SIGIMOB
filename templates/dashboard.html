@@ -37,12 +37,13 @@
             </ul>
         </div>
 
-        <div class="dashboard-card new-enrollment-card">
+        <!-- Quadro substituto: Tarefas Pendentes -->
+        <div class="dashboard-card tarefas-pendentes-card lg:row-span-2 md:row-span-2 h-full flex flex-col">
             <div class="dashboard-card-header">
-                <i class="fas fa-chart-bar"></i> Contratações x Demissões (Últimos 12 meses)
+                <i class="fas fa-tasks"></i> Tarefas Pendentes
             </div>
-            <div class="mt-4">
-                <canvas id="hireFireChart" class="w-full h-32"></canvas>
+            <div class="text-sm text-gray-700 space-y-3">
+                <p class="text-gray-600">Sem tarefas pendentes no momento.</p>
             </div>
         </div>
 
@@ -64,7 +65,7 @@
             <p class="text-sm text-gray-700">Proporção de imóveis com contrato ativo.</p>
         </div>
 
-        <!-- Novo Card: Contratos Ativos -->
+        <!-- Novo Card: Contratos Ativos (posicionado abaixo de Imóveis Alugados) -->
         <div class="dashboard-card active-contracts-card">
             <div class="dashboard-card-header">
                 <i class="fas fa-file-contract"></i> Contratos Ativos
@@ -87,44 +88,4 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const months = {{ meses_labels | tojson }};
-        const hires = {{ contratacoes | tojson }};
-        const fires = {{ demissoes | tojson }};
-        const chartEl = document.getElementById('hireFireChart');
-        if (chartEl) {
-            new Chart(chartEl, {
-                type: 'bar',
-                data: {
-                    labels: months,
-                    datasets: [
-                        {
-                            label: 'Contratações',
-                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                            data: hires
-                        },
-                        {
-                            label: 'Demissões',
-                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
-                            data: fires
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { precision: 0 }
-                        }
-                    }
-                }
-            });
-        }
-    });
-</script>
-{% endblock %}
+{% block scripts %}{% endblock %}
