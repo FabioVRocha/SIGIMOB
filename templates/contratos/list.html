@@ -46,11 +46,11 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.endereco_imovel }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.nome_inquilino }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.finalidade }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.data_inicio }} - {{ contrato.data_fim }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.data_inicio.strftime('%d/%m/%Y') }} - {{ contrato.data_fim.strftime('%d/%m/%Y') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f"|format(contrato.valor_parcela) }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.status_contrato }}</td>
                     <td class="py-3 px-4 text-sm">
-                        <a href="{{ url_for('contrato_modelos_list') }}?contrato_id={{ contrato.id }}" class="text-green-600 hover:text-green-800 mr-3" title="Gerar Contrato"><i class="fas fa-file-signature"></i></a>
+                        <a href="#" onclick="openModeloModal({{ contrato.id }}); return false;" class="text-green-600 hover:text-green-800 mr-3" title="Gerar Contrato"><i class="fas fa-file-signature"></i></a>
                         <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
                         {% if contrato.status_contrato != 'Encerrado' %}
                         <form action="{{ url_for('contratos_encerrar', id=contrato.id) }}" method="POST" class="inline-block mr-3" onsubmit="return confirm('Tem certeza que deseja encerrar este contrato?');">
@@ -93,4 +93,72 @@ document.addEventListener('DOMContentLoaded', function(){
     inputs.forEach(input => input.addEventListener('input', filterTable));
 });
 </script>
+<script>
+// Modal de seleção de modelo de contrato
+let selectedContratoId = null;
+function openModeloModal(contratoId){
+    selectedContratoId = contratoId;
+    const modal = document.getElementById('modal-modelos');
+    if(modal){ modal.classList.remove('hidden'); }
+}
+function closeModeloModal(){
+    const modal = document.getElementById('modal-modelos');
+    if(modal){ modal.classList.add('hidden'); }
+}
+function confirmarModelo(){
+    const selected = document.querySelector('input[name="modelo_id"]:checked');
+    if(!selected){
+        alert('Selecione um modelo de contrato.');
+        return;
+    }
+    const modeloId = selected.value;
+    const base = "{{ url_for('contrato_preview', contrato_id=0) }}"; // '/contratos/preview/0'
+    const previewUrl = base.replace(/\/?0$/, '') + '/' + selectedContratoId + '?modelo_id=' + modeloId;
+    window.location.href = previewUrl;
+}
+</script>
+
+<style>
+/* Estilo simples de modal; segue paleta existente */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: #fff; border-radius: 0.5rem; width: 100%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.modal-header { padding: 1rem 1.25rem; background-color: var(--clr-sidebar-bg); color: #fff; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; display: flex; align-items: center; justify-content: space-between; }
+.modal-body { padding: 1rem 1.25rem; max-height: 60vh; overflow-y: auto; }
+.modal-footer { padding: 0.75rem 1.25rem; display: flex; justify-content: flex-end; gap: 0.5rem; }
+.hidden { display: none; }
+</style>
+
+<!-- Modal: Seleção de Modelo de Contrato -->
+<div id="modal-modelos" class="modal-overlay hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 class="text-lg font-semibold">Selecionar Modelo de Contrato</h3>
+      <button onclick="closeModeloModal()" title="Fechar" class="text-white">&times;</button>
+    </div>
+    <div class="modal-body">
+      {% if modelos and modelos|length > 0 %}
+      <div class="space-y-2">
+        {% for modelo in modelos %}
+        <label class="flex items-center gap-2 p-2 rounded hover:bg-gray-100 cursor-pointer">
+          <input type="radio" name="modelo_id" value="{{ modelo.id }}">
+          <span class="text-sm text-gray-800">{{ modelo.nome }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-700">Nenhum modelo de contrato cadastrado.</p>
+      {% endif %}
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModeloModal()">Cancelar</button>
+      <button class="btn-primary text-white" onclick="confirmarModelo()">Pré-visualizar</button>
+    </div>
+  </div>
+  <!-- Fecha modal ao clicar fora -->
+  <script>
+    document.getElementById('modal-modelos').addEventListener('click', function(e){
+        if(e.target === this){ closeModeloModal(); }
+    });
+  </script>
+</div>
 {% endblock %}

@@ -1866,10 +1866,13 @@ def contratos_list():
         """
         )
     contratos = cur.fetchall()
+    # Carrega modelos de contrato para o modal de seleção
+    cur.execute("SELECT id, nome FROM contrato_modelos ORDER BY nome")
+    modelos = cur.fetchall()
     cur.close()
     conn.close()
     return render_template(
-        "contratos/list.html", contratos=contratos, search_query=search_query
+        "contratos/list.html", contratos=contratos, modelos=modelos, search_query=search_query
     )
 
 
