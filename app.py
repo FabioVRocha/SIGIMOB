@@ -69,6 +69,115 @@ os.makedirs(
     os.path.join(UPLOAD_FOLDER, "contratos_anexos"), exist_ok=True
 )  # Pasta para anexos de contratos
 
+# ------------------ Utilidades para Modelos/Placeholders ------------------
+PLACEHOLDER_PATTERN = re.compile(r"\[([^\[\]]+)\]")
+
+
+def _normalize_key(key: str) -> str:
+    return re.sub(r"\s+", "", key.strip().lower())
+
+
+def build_contrato_context(cur, contrato_id: int) -> dict:
+    """Monta um dicionário com dados do contrato, inquilino, imóvel e empresa.
+    As chaves são normalizadas para facilitar matching de placeholders.
+    """
+    ctx = {}
+
+    # Contrato + Imóvel
+    cur.execute(
+        """
+        SELECT c.*, i.endereco AS imovel_endereco, i.bairro AS imovel_bairro,
+               i.cidade AS imovel_cidade, i.estado AS imovel_estado,
+               i.cep AS imovel_cep, i.matricula, i.inscricao_iptu
+        FROM contratos_aluguel c
+        JOIN imoveis i ON c.imovel_id = i.id
+        WHERE c.id = %s
+        """,
+        (contrato_id,),
+    )
+    contrato = cur.fetchone()
+    if not contrato:
+        return ctx
+
+    # Empresa licenciada (primeira ativa)
+    cur.execute(
+        "SELECT documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone FROM empresa_licenciada WHERE status = 'Ativo' ORDER BY id LIMIT 1"
+    )
+    empresa = cur.fetchone()
+
+    # Pessoa (cliente) para Documento (CPF/CNPJ)
+    cur.execute("SELECT * FROM pessoas WHERE id = %s", (contrato["cliente_id"],))
+    pessoa = cur.fetchone()
+
+    def put(k: str, v):
+        if v is None:
+            v = ""
+        ctx[_normalize_key(k)] = str(v)
+
+    # Contrato
+    put("ContratoId", contrato["id"])
+    put("Finalidade", contrato["finalidade"])
+    put("DataInicio", contrato["data_inicio"].strftime("%d/%m/%Y") if contrato["data_inicio"] else "")
+    put("DataFim", contrato["data_fim"].strftime("%d/%m/%Y") if contrato["data_fim"] else "")
+    put("QuantidadeParcelas", contrato.get("quantidade_parcelas"))
+    put("ValorParcela", contrato.get("valor_parcela"))
+    put("QuantidadeCalcao", contrato.get("quantidade_calcao"))
+    put("ValorCalcao", contrato.get("valor_calcao"))
+    put("StatusContrato", contrato.get("status_contrato"))
+    put("Observacao", contrato.get("observacao"))
+
+    # Inquilino (snapshot no contrato)
+    put("Cliente", contrato.get("nome_inquilino"))
+    put("NomeInquilino", contrato.get("nome_inquilino"))
+    put("EnderecoCliente", contrato.get("endereco_inquilino"))
+    put("BairroCliente", contrato.get("bairro_inquilino"))
+    put("CidadeCliente", contrato.get("cidade_inquilino"))
+    put("EstadoCliente", contrato.get("estado_inquilino"))
+    put("CEPCliente", contrato.get("cep_inquilino"))
+    put("TelefoneCliente", contrato.get("telefone_inquilino"))
+
+    # Documento do cliente (CPF/CNPJ)
+    if pessoa:
+        put("CPF", pessoa.get("documento"))
+        put("CPF_CNPJ", pessoa.get("documento"))
+        put("DocumentoCliente", pessoa.get("documento"))
+
+    # Imóvel
+    put("EnderecoImovel", contrato.get("imovel_endereco"))
+    put("BairroImovel", contrato.get("imovel_bairro"))
+    put("CidadeImovel", contrato.get("imovel_cidade"))
+    put("EstadoImovel", contrato.get("imovel_estado"))
+    put("CEPImovel", contrato.get("imovel_cep"))
+    put("MatriculaImovel", contrato.get("matricula"))
+    put("InscricaoIPTU", contrato.get("inscricao_iptu"))
+
+    # Empresa licenciada
+    if empresa:
+        put("EmpresaNome", empresa.get("razao_social_nome"))
+        put("EmpresaFantasia", empresa.get("nome_fantasia"))
+        put("EmpresaDocumento", empresa.get("documento"))
+        put("EmpresaEndereco", empresa.get("endereco"))
+        put("EmpresaBairro", empresa.get("bairro"))
+        put("EmpresaCidade", empresa.get("cidade"))
+        put("EmpresaEstado", empresa.get("estado"))
+        put("EmpresaCEP", empresa.get("cep"))
+        put("EmpresaTelefone", empresa.get("telefone"))
+
+    return ctx
+
+
+def render_placeholders(html: str, ctx: dict) -> str:
+    """Substitui [Placeholders] pelo valor do contexto (case-insensitive)."""
+    if not html:
+        return html
+
+    def repl(match):
+        raw = match.group(1)
+        key_norm = _normalize_key(raw)
+        return ctx.get(key_norm, f"[{raw}]")
+
+    return PLACEHOLDER_PATTERN.sub(repl, html)
+
 # Inicializa o módulo de Caixa e Banco (SQLAlchemy e rotas REST)
 init_caixa_banco(app)
 init_contas_receber(app)
@@ -2174,6 +2283,128 @@ def contratos_encerrar(id):
         cur.close()
         conn.close()
     return redirect(url_for("contratos_list"))
+
+
+# ------------------ Modelos de Contrato (CRUD + Geração) ------------------
+
+@app.route("/contratos/modelos")
+@login_required
+@permission_required("Gestao Contratos", "Consultar")
+def contrato_modelos_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    search_query = request.args.get("search", "")
+    if search_query:
+        cur.execute(
+            "SELECT * FROM contrato_modelos WHERE nome ILIKE %s ORDER BY data_atualizacao DESC",
+            (f"%{search_query}%",),
+        )
+    else:
+        cur.execute("SELECT * FROM contrato_modelos ORDER BY data_atualizacao DESC")
+    modelos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("contratos/modelos/list.html", modelos=modelos, search_query=search_query)
+
+
+@app.route("/contratos/modelos/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Gestao Contratos", "Incluir")
+def contrato_modelos_add():
+    if request.method == "POST":
+        nome = request.form.get("nome").strip()
+        conteudo_html = request.form.get("conteudo_html") or ""
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO contrato_modelos (nome, conteudo_html) VALUES (%s, %s)",
+                (nome, conteudo_html),
+            )
+            conn.commit()
+            flash("Modelo criado com sucesso!", "success")
+            return redirect(url_for("contrato_modelos_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao criar modelo: {e}", "danger")
+            return render_template("contratos/modelos/add_list.html", modelo={"nome": nome, "conteudo_html": conteudo_html})
+        finally:
+            cur.close()
+            conn.close()
+    return render_template("contratos/modelos/add_list.html", modelo={})
+
+
+@app.route("/contratos/modelos/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contrato_modelos_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        nome = request.form.get("nome").strip()
+        conteudo_html = request.form.get("conteudo_html") or ""
+        try:
+            cur.execute(
+                "UPDATE contrato_modelos SET nome = %s, conteudo_html = %s, data_atualizacao = NOW() WHERE id = %s",
+                (nome, conteudo_html, id),
+            )
+            conn.commit()
+            flash("Modelo atualizado com sucesso!", "success")
+            return redirect(url_for("contrato_modelos_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar modelo: {e}", "danger")
+    cur.execute("SELECT * FROM contrato_modelos WHERE id = %s", (id,))
+    modelo = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not modelo:
+        flash("Modelo não encontrado.", "danger")
+        return redirect(url_for("contrato_modelos_list"))
+    return render_template("contratos/modelos/add_list.html", modelo=modelo)
+
+
+@app.route("/contratos/modelos/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Excluir")
+def contrato_modelos_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM contrato_modelos WHERE id = %s", (id,))
+        conn.commit()
+        flash("Modelo excluído com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir modelo: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contrato_modelos_list"))
+
+
+@app.route("/contratos/preview/<int:contrato_id>")
+@login_required
+@permission_required("Gestao Contratos", "Consultar")
+def contrato_preview(contrato_id):
+    modelo_id = request.args.get("modelo_id")
+    if not modelo_id:
+        flash("Selecione um modelo para gerar o contrato.", "warning")
+        return redirect(url_for("contratos_list"))
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM contrato_modelos WHERE id = %s", (modelo_id,))
+    modelo = cur.fetchone()
+    if not modelo:
+        cur.close()
+        conn.close()
+        flash("Modelo não encontrado.", "danger")
+        return redirect(url_for("contratos_list"))
+    ctx = build_contrato_context(cur, contrato_id)
+    cur.close()
+    conn.close()
+    conteudo = render_placeholders(modelo["conteudo_html"], ctx)
+    return render_template("contratos/modelos/preview.html", conteudo=conteudo, contrato_id=contrato_id)
 
 
 @app.route("/contratos/delete/<int:id>", methods=["POST"])

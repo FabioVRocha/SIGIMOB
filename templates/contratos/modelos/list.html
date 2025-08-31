@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Modelos de Contrato{% endblock %}
+{% block page_title %}Modelos de Contrato{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl content-section">
+  <div class="flex justify-between items-center mb-4">
+    <form method="get" class="flex items-center">
+      <input type="text" name="search" value="{{ search_query }}" class="form-input filter-input mr-2" placeholder="Pesquisar modelo...">
+      <button class="btn-secondary" type="submit">Buscar</button>
+    </form>
+    <a href="{{ url_for('contrato_modelos_add') }}" class="btn-primary"><i class="fas fa-plus mr-2"></i>Novo Modelo</a>
+  </div>
+
+  <div class="mb-4 text-sm text-gray-600">
+    Utilize placeholders entre colchetes para preencher dados automaticamente, por exemplo: [Cliente], [CPF], [EnderecoImovel], [EmpresaNome], [DataInicio].
+  </div>
+
+  <table class="min-w-full bg-white rounded-lg overflow-hidden">
+    <thead class="table-header-bg">
+      <tr>
+        <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
+        <th class="py-3 px-4 text-left text-sm font-semibold text-white">Nome</th>
+        <th class="py-3 px-4 text-left text-sm font-semibold text-white">Atualizado em</th>
+        <th class="py-3 px-4 text-right text-sm font-semibold text-white">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in modelos %}
+      <tr class="border-b border-gray-200 {% if loop.index % 2 == 1 %}table-row-odd{% else %}table-row-even{% endif %}">
+        <td class="py-3 px-4 text-sm text-gray-700">{{ m.id }}</td>
+        <td class="py-3 px-4 text-sm text-gray-700">{{ m.nome }}</td>
+        <td class="py-3 px-4 text-sm text-gray-700">{{ m.data_atualizacao.strftime('%d/%m/%Y %H:%M') if m.data_atualizacao else '' }}</td>
+        <td class="py-3 px-4 text-sm text-gray-700 text-right">
+          {% if request.args.get('contrato_id') %}
+          <a href="{{ url_for('contrato_preview', contrato_id=request.args.get('contrato_id')) }}?modelo_id={{ m.id }}" class="text-green-600 hover:text-green-800 mr-3" title="Pré-visualizar"><i class="fas fa-file-signature"></i></a>
+          {% endif %}
+          <a href="{{ url_for('contrato_modelos_edit', id=m.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
+          <form method="post" action="{{ url_for('contrato_modelos_delete', id=m.id) }}" class="inline" onsubmit="return confirm('Excluir este modelo?');">
+            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash"></i></button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

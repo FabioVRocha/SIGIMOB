@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Pré-visualização{% endblock %}
+{% block page_title %}Pré-visualização do Contrato{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl content-section">
+  <div class="flex justify-end mb-4 space-x-2">
+    <button class="btn-secondary" onclick="window.history.back()">Voltar</button>
+    <button class="btn-primary" onclick="window.print()"><i class="fas fa-print mr-2"></i>Imprimir</button>
+  </div>
+  <div class="prose max-w-none" id="preview" style="min-height:400px">
+    {{ conteudo | safe }}
+  </div>
+</div>
+{% endblock %}
+
