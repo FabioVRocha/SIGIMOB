@@ -56,48 +56,64 @@ def _linha_digitavel(conta, nosso_numero: str, vencimento, valor: float) -> str:
     return f"{c1} {c2} {c3} {dv} {c5}"
 
 
-def _codigo_barras_pdf(numero: str, x: int, y: int, largura_modulo: int = 1, altura: int = 45) -> list[str]:
-    """Gera comandos PDF simples para um código de barras.
+def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: int) -> list[str]:
+    """Gera comandos PDF para um código de barras *Interleaved 2 of 5*.
 
-    O algoritmo abaixo não implementa nenhum padrão específico de
-    codificação; ele apenas alterna barras finas e grossas de acordo com
-    os dígitos fornecidos. O objetivo é produzir um código de barras
-    visual para fins de teste em ambientes sem dependências externas.
+    O padrão ``Interleaved 2 of 5`` é utilizado nos boletos bancários e
+    codifica números em pares de dígitos. Cada par é convertido em cinco
+    barras e cinco espaços intercalados, combinando larguras finas (``n``)
+    e largas (``w``). Este algoritmo replica a mesma lógica empregada na
+    visualização HTML, permitindo que o código seja lido por scanners
+    compatíveis.
     """
 
-    comandos = ["0 g"]  # garante cor preta
-    # Introduz um padrão de guardas simples (visual)
-    comandos.append(f"{x} {y} {largura_modulo} {altura} re f"); x += 2 * largura_modulo
-    for digito in numero:
-        try:
-            d = int(digito)
-        except ValueError:
-            d = 0
-        largura = (largura_modulo if d % 2 else 2 * largura_modulo)
-        comandos.append(f"{x} {y} {largura} {altura} re f")
-        x += largura + largura_modulo
-    comandos.append(f"{x} {y} {largura_modulo} {altura} re f")
+    padroes = {
+        "0": "nnwwn",
+        "1": "wnnnw",
+        "2": "nwnnw",
+        "3": "wwnnn",
+        "4": "nnwnw",
+        "5": "wnwnn",
+        "6": "nwwnn",
+        "7": "nnnww",
+        "8": "wnnwn",
+        "9": "nwnwn",
+    }
+
+    numero = _num(numero)
+    if len(numero) % 2:
+        numero = "0" + numero
+
+    sequencia = []  # lista de tuplas (is_bar, unidades)
+
+    def add_padroes(barras: str, espacos: str) -> None:
+        for b, e in zip(barras, espacos):
+            sequencia.append((True, 3 if b == "w" else 1))
+            sequencia.append((False, 3 if e == "w" else 1))
+
+    # Guarda inicial: barra/espaco/barra/espaco finos
+    add_padroes("nn", "nn")
+
+    # Dígitos codificados em pares
+    for i in range(0, len(numero), 2):
+        barras = padroes[numero[i]]
+        espacos = padroes[numero[i + 1]]
+        add_padroes(barras, espacos)
+
+    # Guarda final: barra larga, espaço fino, barra fina
+    sequencia.extend([(True, 3), (False, 1), (True, 1)])
+
+    total_unidades = sum(u for _, u in sequencia)
+    modulo = max(int(largura_total / max(total_unidades, 1)), 1)
+
+    comandos = ["0 g"]  # cor preta
+    pos = x
+    for is_bar, unidades in sequencia:
+        largura = unidades * modulo
+        if is_bar:
+            comandos.append(f"{pos} {y} {largura} {altura} re f")
+        pos += largura
     return comandos
-
-
-def _codigo_barras_fit(numero: str, x: int, y: int, largura_total: int, altura: int) -> list[str]:
-    """Gera comandos para código de barras ajustando a largura ao espaço disponível.
-
-    Calcula dinamicamente o módulo a partir da soma das larguras relativas
-    e espaçamentos entre barras do placeholder.
-    """
-    # unidades relativas = (largura barra + 1 unidade de espaço) por dígito
-    unidades = 0
-    for ch in numero:
-        try:
-            d = int(ch)
-        except ValueError:
-            d = 0
-        unidades += (1 if d % 2 else 2) + 1
-    # guardas simples nas extremidades
-    unidades += 2 + 2
-    modulo = max(int(largura_total / max(unidades, 1)), 1)
-    return _codigo_barras_pdf(numero, x, y, largura_modulo=modulo, altura=altura)
 
 
 def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
@@ -314,7 +330,15 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
     BARCODE_W = 490
     BARCODE_H = 70
     barcode_num = _num(conta.banco) + _num(nosso_numero or doc_num) + _num(valor)
-    conteudo_pdf.extend(_codigo_barras_fit(barcode_num[:44].ljust(44, "0"), BARCODE_X, BARCODE_Y, BARCODE_W, BARCODE_H))
+    conteudo_pdf.extend(
+        _codigo_barras_itf(
+            barcode_num[:44].ljust(44, "0"),
+            BARCODE_X,
+            BARCODE_Y,
+            BARCODE_W,
+            BARCODE_H,
+        )
+    )
     conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
 
     header = b"%PDF-1.4\n"
