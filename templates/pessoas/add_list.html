@@ -53,6 +53,22 @@
                 <label for="contato" class="form-label">Contato:</label>
                 <input type="text" id="contato" name="contato" class="form-input" value="{{ pessoa.contato | default('') }}">
             </div>
+            <div class="form-group">
+                <label for="nacionalidade" class="form-label">Nacionalidade:</label>
+                <input type="text" id="nacionalidade" name="nacionalidade" class="form-input" value="{{ pessoa.nacionalidade | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="estado_civil" class="form-label">Estado Civil:</label>
+                <input type="text" id="estado_civil" name="estado_civil" class="form-input" value="{{ pessoa.estado_civil | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="profissao" class="form-label">Profissão:</label>
+                <input type="text" id="profissao" name="profissao" class="form-input" value="{{ pessoa.profissao | default('') }}">
+            </div>
+            <div class="form-group">
+                <label for="rg" class="form-label">RG:</label>
+                <input type="text" id="rg" name="rg" class="form-input" value="{{ pessoa.rg | default('') }}">
+            </div>
             <div class="form-group md:col-span-2">
                 <label for="observacao" class="form-label">Observação:</label>
                 <textarea id="observacao" name="observacao" rows="3" class="form-textarea">{{ pessoa.observacao | default('') }}</textarea>

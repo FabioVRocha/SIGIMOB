@@ -1,9 +1,27 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from caixa_banco import db
-from .models import ContaReceber
+from caixa_banco.models import ContaBanco
+from .models import ContaReceber, EmpresaLicenciada, Pessoa
 from .services import gerar_boletos, importar_retorno
 
 bp = Blueprint('contas_receber', __name__)
+
+
+@bp.get('/contas-receber/<int:conta_id>/boleto')
+def visualizar_boleto(conta_id):
+    titulo = ContaReceber.query.get_or_404(conta_id)
+    empresa = EmpresaLicenciada.query.first()
+    conta = ContaBanco.query.first()
+    cliente = Pessoa.query.get(titulo.cliente_id)
+    if not all([empresa, conta, cliente]):
+        return 'Dados incompletos para gerar o boleto', 400
+    return render_template(
+        'financeiro/contas_a_receber/boleto.html',
+        titulo=titulo,
+        empresa=empresa,
+        conta=conta,
+        cliente=cliente,
+    )
 
 
 @bp.post('/contas-receber/<int:conta_id>/boleto')

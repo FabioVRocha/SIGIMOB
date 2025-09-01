@@ -15,7 +15,7 @@ from contas_receber.cnab import CNAB240Writer, Titulo
 
 
 def setup_app(tmp_path):
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder=str(Path(__file__).resolve().parents[1] / 'templates'))
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite://'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['UPLOAD_FOLDER'] = str(tmp_path)
@@ -73,6 +73,16 @@ def test_gerar_boletos(tmp_path):
         assert b'CPF/CNPJ' in conteudo
         assert b'Cliente Teste' in conteudo
         assert b'00000000000' in conteudo
+
+
+def test_preview_boleto_html(tmp_path):
+    app = setup_app(tmp_path)
+    with app.app_context():
+        client = app.test_client()
+        resp = client.get('/api/contas-receber/1/boleto')
+        assert resp.status_code == 200
+        assert b'Boleto Banc\xc3\xa1rio' in resp.data
+        assert b'Cliente Teste' in resp.data
 
 
 def test_importar_retorno(tmp_path):

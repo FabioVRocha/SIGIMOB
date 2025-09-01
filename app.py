@@ -141,6 +141,10 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
         put("CPF", pessoa.get("documento"))
         put("CPF_CNPJ", pessoa.get("documento"))
         put("DocumentoCliente", pessoa.get("documento"))
+        put("NacionalidadeCliente", pessoa.get("nacionalidade"))
+        put("EstadoCivilCliente", pessoa.get("estado_civil"))
+        put("ProfissaoCliente", pessoa.get("profissao"))
+        put("RGCliente", pessoa.get("rg"))
 
     # Imóvel
     put("EnderecoImovel", contrato.get("imovel_endereco"))
@@ -785,6 +789,10 @@ def pessoas_add():
             cep = request.form.get("cep", "").replace("-", "")
             telefone = request.form.get("telefone")
             contato = request.form.get("contato")
+            nacionalidade = request.form.get("nacionalidade")
+            estado_civil = request.form.get("estado_civil")
+            profissao = request.form.get("profissao")
+            rg = request.form.get("rg")
             observacao = request.form.get("observacao")
             tipo = request.form["tipo"]
             status = request.form["status"]
@@ -818,8 +826,8 @@ def pessoas_add():
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, contato, observacao, tipo, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, contato, nacionalidade, estado_civil, profissao, rg, observacao, tipo, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     documento,
@@ -832,6 +840,10 @@ def pessoas_add():
                     cep,
                     telefone,
                     contato,
+                    nacionalidade,
+                    estado_civil,
+                    profissao,
+                    rg,
                     observacao,
                     tipo,
                     status,
@@ -875,6 +887,10 @@ def pessoas_edit(id):
             cep = request.form.get("cep", "").replace("-", "")
             telefone = request.form.get("telefone")
             contato = request.form.get("contato")
+            nacionalidade = request.form.get("nacionalidade")
+            estado_civil = request.form.get("estado_civil")
+            profissao = request.form.get("profissao")
+            rg = request.form.get("rg")
             observacao = request.form.get("observacao")
             tipo = request.form["tipo"]
             status = request.form["status"]
@@ -896,7 +912,7 @@ def pessoas_edit(id):
             cur.execute(
                 """
                 UPDATE pessoas
-                SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, contato = %s, observacao = %s, tipo = %s, status = %s
+                SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, contato = %s, nacionalidade = %s, estado_civil = %s, profissao = %s, rg = %s, observacao = %s, tipo = %s, status = %s
                 WHERE id = %s
                 """,
                 (
@@ -910,6 +926,10 @@ def pessoas_edit(id):
                     cep,
                     telefone,
                     contato,
+                    nacionalidade,
+                    estado_civil,
+                    profissao,
+                    rg,
                     observacao,
                     tipo,
                     status,

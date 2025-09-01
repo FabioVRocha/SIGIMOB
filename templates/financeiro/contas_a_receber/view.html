@@ -80,7 +80,7 @@
         {% endif %}
     </dl>
     <div class="flex justify-end mt-6 space-x-4">
-        <button type="button" class="btn-primary" onclick="gerarBoleto({{ conta.id }})">
+        <button type="button" class="btn-primary" onclick="visualizarBoleto({{ conta.id }})">
             <i class="fas fa-barcode mr-2"></i>Gerar Boleto
         </button>
         <a href="{{ url_for('contas_a_receber_list') }}" class="btn-secondary">Voltar</a>

@@ -1,3 +1,7 @@
+function visualizarBoleto(id) {
+  window.open(`/api/contas-receber/${id}/boleto`, '_blank');
+}
+
 async function gerarBoleto(id) {
   try {
     const resp = await fetch(`/api/contas-receber/${id}/boleto`, { method: 'POST' });
