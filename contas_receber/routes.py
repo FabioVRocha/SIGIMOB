@@ -23,7 +23,9 @@ def _barcode_html(numero: str) -> str:
     O algoritmo baseia‑se nos pares de dígitos: cada par é transformado
     em cinco barras e cinco espaços intercalados, conforme a tabela do
     padrão ITF. Começa‑se com o padrão de guarda ``nnnn`` e termina com
-    ``wnn``.
+    ``wnn``. Também são acrescentadas as *quiet zones* (10 módulos em
+    branco) no início e no fim, essenciais para que leitores óticos
+    consigam detectar o código corretamente.
     """
 
     # Tabela de padrões (fino = n, largo = w)
@@ -52,6 +54,10 @@ def _barcode_html(numero: str) -> str:
         return f"<span class='{classe}'></span>"
 
     partes = []
+    # Área de silêncio inicial (10 módulos)
+    for _ in range(10):
+        partes.append(span_bar("n", espaco=True))
+
     # Padrão inicial: barra e espaço finos alternados
     for i, ch in enumerate("nnnn"):
         partes.append(span_bar(ch, espaco=bool(i % 2)))
@@ -67,6 +73,10 @@ def _barcode_html(numero: str) -> str:
     # Padrão final
     for i, ch in enumerate("wnn"):
         partes.append(span_bar(ch, espaco=bool(i % 2)))
+
+    # Área de silêncio final (10 módulos)
+    for _ in range(10):
+        partes.append(span_bar("n", espaco=True))
 
     return "".join(partes)
 

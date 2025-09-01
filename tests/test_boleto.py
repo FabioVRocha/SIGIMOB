@@ -122,17 +122,21 @@ def test_pagamento_parcial(tmp_path):
 
 
 def test_barcode_html_interleaved():
-    expected = (
+    left_q = "<span class='n s'></span>" * 10
+    start = (
         "<span class='n'></span><span class='n s'></span>"
         "<span class='n'></span><span class='n s'></span>"
+    )
+    pair12 = (
         "<span class='w'></span><span class='n s'></span>"
         "<span class='n'></span><span class='w s'></span>"
         "<span class='n'></span><span class='n s'></span>"
         "<span class='n'></span><span class='n s'></span>"
         "<span class='w'></span><span class='w s'></span>"
-        "<span class='w'></span><span class='n s'></span>"
-        "<span class='n'></span>"
     )
+    stop = "<span class='w'></span><span class='n s'></span><span class='n'></span>"
+    right_q = "<span class='n s'></span>" * 10
+    expected = left_q + start + pair12 + stop + right_q
     assert _barcode_html('12') == expected
 
 

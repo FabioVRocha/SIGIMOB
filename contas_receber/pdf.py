@@ -64,7 +64,9 @@ def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: 
     barras e cinco espaços intercalados, combinando larguras finas (``n``)
     e largas (``w``). Este algoritmo replica a mesma lógica empregada na
     visualização HTML, permitindo que o código seja lido por scanners
-    compatíveis.
+    compatíveis. Adiciona‑se ainda a "*quiet zone*" (margem em branco
+    obrigatória) de 10 módulos em cada lado, requisito para leitura
+    correta do código por leitores óticos.
     """
 
     padroes = {
@@ -104,10 +106,14 @@ def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: 
     sequencia.extend([(True, 3), (False, 1), (True, 1)])
 
     total_unidades = sum(u for _, u in sequencia)
-    modulo = max(int(largura_total / max(total_unidades, 1)), 1)
+    
+    # Reserva 10 módulos à esquerda e à direita como áreas de silêncio.
+    quiet_modules = 10
+    modulo = max(int((largura_total - 2 * quiet_modules) / max(total_unidades, 1)), 1)
+    quiet = quiet_modules * modulo
 
     comandos = ["0 g"]  # cor preta
-    pos = x
+    pos = x + quiet
     for is_bar, unidades in sequencia:
         largura = unidades * modulo
         if is_bar:
