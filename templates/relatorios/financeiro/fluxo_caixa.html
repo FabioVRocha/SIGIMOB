@@ -1,0 +1,66 @@
+<!-- templates/relatorios/financeiro/fluxo_caixa.html -->
+{% extends "base.html" %}
+
+{% block title %}Relatório - Fluxo de Caixa{% endblock %}
+{% block page_title %}Fluxo de Caixa{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div class="mb-4 md:mb-0">
+            <div class="text-lg font-semibold text-dark-blue">{{ empresa }}</div>
+            <div class="text-sm text-gray-700">{{ periodo }}</div>
+            <div class="text-sm text-gray-700">Saldo inicial do período: <span class="font-semibold">{{ saldo_inicial|currency }}</span></div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <form action="{{ url_for('relatorio_financeiro_fluxo_caixa') }}" method="POST" target="_blank">
+                <input type="hidden" name="data_inicio" value="{{ data_inicio }}" />
+                <input type="hidden" name="data_fim" value="{{ data_fim }}" />
+                {% for cid in caixas_ids or [] %}
+                <input type="hidden" name="caixas_ids" value="{{ cid }}" />
+                {% endfor %}
+                {% for bid in bancos_ids or [] %}
+                <input type="hidden" name="bancos_ids" value="{{ bid }}" />
+                {% endfor %}
+                <button type="submit" class="btn btn-primary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
+            </form>
+            <a href="{{ url_for('relatorios_financeiro') }}" class="btn btn-secondary"><i class="fas fa-arrow-left mr-2"></i>Voltar</a>
+        </div>
+    </div>
+</div>
+
+<div class="overflow-x-auto bg-white p-6 rounded-lg shadow-xl">
+    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+        <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+            <tr>
+                <th class="py-3 px-4 text-left text-sm font-semibold">Data</th>
+                <th class="py-3 px-4 text-right text-sm font-semibold">Entradas</th>
+                <th class="py-3 px-4 text-right text-sm font-semibold">Saídas</th>
+                <th class="py-3 px-4 text-right text-sm font-semibold">Saldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for linha in linhas %}
+            <tr class="border-b border-gray-200 hover:bg-gray-50">
+                <td class="py-3 px-4 text-sm text-gray-700">{{ linha.dia.strftime('%d/%m/%Y') }}</td>
+                <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.entradas|currency }}</td>
+                <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.saidas|currency }}</td>
+                <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.saldo|currency }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="bg-gray-100">
+                <td class="py-3 px-4 text-sm font-semibold">Total</td>
+                <td class="py-3 px-4 text-sm text-right font-semibold">{{ total_entradas|currency }}</td>
+                <td class="py-3 px-4 text-sm text-right font-semibold">{{ total_saidas|currency }}</td>
+                <td class="py-3 px-4 text-sm text-right font-semibold">{{ total_final|currency }}</td>
+            </tr>
+        </tfoot>
+    </table>
+    {% if linhas|length == 0 %}
+    <div class="text-center text-gray-600 py-6">Nenhum lançamento encontrado no período informado.</div>
+    {% endif %}
+    
+</div>
+{% endblock %}

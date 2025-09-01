@@ -109,7 +109,7 @@
     <div class="modal-content">
         <span class="close-button" onclick="closeFluxoCaixaModal()">&times;</span>
         <h2 class="text-lg font-semibold mb-4">Fluxo de Caixa</h2>
-        <form action="{{ url_for('relatorio_financeiro_fluxo_caixa') }}" method="POST" target="_blank">
+        <form action="{{ url_for('relatorio_financeiro_fluxo_caixa_visualizar') }}" method="POST">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="form-group">
                     <label for="fluxo_data_inicio" class="form-label">Data Início:</label>
@@ -119,10 +119,50 @@
                     <label for="fluxo_data_fim" class="form-label">Data Fim:</label>
                     <input type="date" id="fluxo_data_fim" name="data_fim" class="form-input" required>
                 </div>
+                <div class="form-group md:col-span-2">
+                    <label class="form-label">Contas de Caixa (múltipla seleção):</label>
+                    <div class="relative">
+                        <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('caixas')">
+                            <span id="combo-label-caixas">Selecione...</span>
+                            <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                        </button>
+                        <div id="combo-panel-caixas" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden">
+                            <div class="p-2">
+                                <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('caixas', this.value)">
+                            </div>
+                            {% for c in caixas %}
+                            <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                <input type="checkbox" class="mr-2 combo-item-caixas" name="caixas_ids" value="{{ c.id }}" onchange="updateComboLabel('caixas')">
+                                <span class="combo-text">{{ c.nome }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label class="form-label">Contas Bancárias (múltipla seleção):</label>
+                    <div class="relative">
+                        <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('bancos')">
+                            <span id="combo-label-bancos">Selecione...</span>
+                            <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                        </button>
+                        <div id="combo-panel-bancos" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden">
+                            <div class="p-2">
+                                <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('bancos', this.value)">
+                            </div>
+                            {% for b in bancos %}
+                            <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                <input type="checkbox" class="mr-2 combo-item-bancos" name="bancos_ids" value="{{ b.id }}" onchange="updateComboLabel('bancos')">
+                                <span class="combo-text">{{ b.nome_banco }} / {{ b.agencia }} / {{ b.conta }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="flex justify-end space-x-4">
                 <button type="button" class="btn-secondary" onclick="closeFluxoCaixaModal()">Cancelar</button>
-                <button type="submit" class="btn-primary">Gerar PDF</button>
+                <button type="submit" class="btn-primary">Visualizar</button>
             </div>
         </form>
     </div>
@@ -158,5 +198,49 @@ function openFluxoCaixaModal(){
 function closeFluxoCaixaModal(){
     document.getElementById('fluxo-caixa-modal').style.display='none';
 }
+
+// --- Combobox múltipla seleção com checkboxes ---
+function toggleCombo(kind){
+    const panel = document.getElementById(`combo-panel-${kind}`);
+    panel.classList.toggle('hidden');
+}
+
+function updateComboLabel(kind){
+    const label = document.getElementById(`combo-label-${kind}`);
+    const items = document.querySelectorAll(`#combo-panel-${kind} input[type=checkbox]`);
+    const selected = Array.from(items).filter(i => i.checked);
+    if(selected.length === 0){
+        label.textContent = 'Selecione...';
+        return;
+    }
+    const names = selected.slice(0,3).map(i => i.closest('label').querySelector('.combo-text').textContent.trim());
+    if(selected.length <= 3){
+        label.textContent = names.join(', ');
+    } else {
+        label.textContent = `${names.join(', ')} +${selected.length-3}`;
+    }
+}
+
+function filterCombo(kind, term){
+    const t = (term || '').toLowerCase();
+    const rows = document.querySelectorAll(`#combo-panel-${kind} label`);
+    rows.forEach(r => {
+        const txt = r.querySelector('.combo-text').textContent.toLowerCase();
+        r.style.display = txt.includes(t) ? '' : 'none';
+    });
+}
+
+// Fecha combos ao clicar fora
+document.addEventListener('click', (e) => {
+    ['caixas','bancos'].forEach(kind => {
+        const panel = document.getElementById(`combo-panel-${kind}`);
+        const btn = document.querySelector(`button[onclick="toggleCombo('${kind}')"]`);
+        if(panel && !panel.classList.contains('hidden')){
+            if(!panel.contains(e.target) && !btn.contains(e.target)){
+                panel.classList.add('hidden');
+            }
+        }
+    });
+});
 </script>
 {% endblock %}

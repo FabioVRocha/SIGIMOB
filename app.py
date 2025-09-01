@@ -4520,34 +4520,59 @@ def relatorio_financeiro_despesas_imovel():
 def relatorio_financeiro_fluxo_caixa():
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
+    caixas_ids = [int(x) for x in request.form.getlist("caixas_ids") if str(x).strip()]
+    bancos_ids = [int(x) for x in request.form.getlist("bancos_ids") if str(x).strip()]
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
 
-    # Saldo anterior ao período
-    cur.execute(
-        """
-        SELECT COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE -valor END),0) AS saldo
-          FROM movimento_financeiro
-         WHERE data_movimento < %s
-        """,
-        (data_inicio,),
+    # Monta filtros opcionais por contas
+    filtros = []
+    params_periodo = [data_inicio, data_fim]
+    if caixas_ids:
+        placeholders_cx = ",".join(["%s"] * len(caixas_ids))
+        filtros.append(f"(conta_origem_tipo = 'caixa' AND conta_origem_id IN ({placeholders_cx}))")
+        params_periodo.extend(caixas_ids)
+    if bancos_ids:
+        placeholders_bk = ",".join(["%s"] * len(bancos_ids))
+        filtros.append(f"(conta_origem_tipo = 'banco' AND conta_origem_id IN ({placeholders_bk}))")
+        params_periodo.extend(bancos_ids)
+    where_extras = f" AND ({' OR '.join(filtros)})" if filtros else ""
+
+    # Saldo inicial via Posições Diárias (dia anterior ao início)
+    data_inicio_dt = datetime.strptime(data_inicio, "%Y-%m-%d").date()
+    dia_anterior = (data_inicio_dt - timedelta(days=1)).isoformat()
+    pos_filtros = []
+    params_pos = [dia_anterior]
+    if caixas_ids:
+        placeholders_cx2 = ",".join(["%s"] * len(caixas_ids))
+        pos_filtros.append(f"(conta_tipo = 'caixa' AND conta_id IN ({placeholders_cx2}))")
+        params_pos.extend(caixas_ids)
+    if bancos_ids:
+        placeholders_bk2 = ",".join(["%s"] * len(bancos_ids))
+        pos_filtros.append(f"(conta_tipo = 'banco' AND conta_id IN ({placeholders_bk2}))")
+        params_pos.extend(bancos_ids)
+    where_pos = f" AND ({' OR '.join(pos_filtros)})" if pos_filtros else ""
+    query_pos = (
+        "SELECT COALESCE(SUM(saldo),0) AS saldo FROM ("
+        "  SELECT DISTINCT ON (conta_tipo, conta_id) conta_tipo, conta_id, saldo"
+        "    FROM posicao_diaria"
+        "   WHERE data <= %s" + where_pos +
+        "   ORDER BY conta_tipo, conta_id, data DESC"
+        ") t"
     )
+    cur.execute(query_pos, tuple(params_pos))
     saldo_inicial = Decimal(cur.fetchone()["saldo"]) if cur.rowcount is not None else Decimal("0")
 
     # Entradas e saídas por dia no período
-    cur.execute(
-        """
-        SELECT DATE(data_movimento) AS dia,
-               COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END),0) AS entradas,
-               COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor ELSE 0 END),0)   AS saidas
-          FROM movimento_financeiro
-         WHERE data_movimento BETWEEN %s AND %s
-         GROUP BY 1
-         ORDER BY 1
-        """,
-        (data_inicio, data_fim),
+    query_periodo = (
+        "SELECT DATE(data_movimento) AS dia, "
+        "COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END),0) AS entradas, "
+        "COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor ELSE 0 END),0)   AS saidas "
+        "FROM movimento_financeiro "
+        "WHERE data_movimento BETWEEN %s AND %s" + where_extras + " GROUP BY 1 ORDER BY 1"
     )
+    cur.execute(query_periodo, tuple(params_periodo))
     rows = cur.fetchall()
 
     # Nome da empresa para cabeçalho
@@ -4632,6 +4657,110 @@ def relatorio_financeiro_fluxo_caixa():
         mimetype="application/pdf",
         as_attachment=True,
         download_name="fluxo_de_caixa.pdf",
+    )
+
+
+@app.route("/relatorios/financeiro/fluxo-caixa/visualizar", methods=["POST"])
+@login_required
+def relatorio_financeiro_fluxo_caixa_visualizar():
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+    caixas_ids = [int(x) for x in request.form.getlist("caixas_ids") if str(x).strip()]
+    bancos_ids = [int(x) for x in request.form.getlist("bancos_ids") if str(x).strip()]
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+
+    # Monta filtros opcionais por contas
+    filtros = []
+    params_periodo = [data_inicio, data_fim]
+    if caixas_ids:
+        placeholders_cx = ",".join(["%s"] * len(caixas_ids))
+        filtros.append(f"(conta_origem_tipo = 'caixa' AND conta_origem_id IN ({placeholders_cx}))")
+        params_periodo.extend(caixas_ids)
+    if bancos_ids:
+        placeholders_bk = ",".join(["%s"] * len(bancos_ids))
+        filtros.append(f"(conta_origem_tipo = 'banco' AND conta_origem_id IN ({placeholders_bk}))")
+        params_periodo.extend(bancos_ids)
+    where_extras = f" AND ({' OR '.join(filtros)})" if filtros else ""
+
+    # Saldo inicial via Posições Diárias (dia anterior ao início)
+    data_inicio_dt = datetime.strptime(data_inicio, "%Y-%m-%d").date()
+    dia_anterior = (data_inicio_dt - timedelta(days=1)).isoformat()
+    pos_filtros = []
+    params_pos = [dia_anterior]
+    if caixas_ids:
+        placeholders_cx2 = ",".join(["%s"] * len(caixas_ids))
+        pos_filtros.append(f"(conta_tipo = 'caixa' AND conta_id IN ({placeholders_cx2}))")
+        params_pos.extend(caixas_ids)
+    if bancos_ids:
+        placeholders_bk2 = ",".join(["%s"] * len(bancos_ids))
+        pos_filtros.append(f"(conta_tipo = 'banco' AND conta_id IN ({placeholders_bk2}))")
+        params_pos.extend(bancos_ids)
+    where_pos = f" AND ({' OR '.join(pos_filtros)})" if pos_filtros else ""
+    query_pos = (
+        "SELECT COALESCE(SUM(saldo),0) AS saldo FROM ("
+        "  SELECT DISTINCT ON (conta_tipo, conta_id) conta_tipo, conta_id, saldo"
+        "    FROM posicao_diaria"
+        "   WHERE data <= %s" + where_pos +
+        "   ORDER BY conta_tipo, conta_id, data DESC"
+        ") t"
+    )
+    cur.execute(query_pos, tuple(params_pos))
+    saldo_inicial = Decimal(cur.fetchone()["saldo"]) if cur.rowcount is not None else Decimal("0")
+
+    # Entradas e saídas por dia no período
+    query_periodo = (
+        "SELECT DATE(data_movimento) AS dia, "
+        "COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END),0) AS entradas, "
+        "COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor ELSE 0 END),0)   AS saidas "
+        "FROM movimento_financeiro "
+        "WHERE data_movimento BETWEEN %s AND %s" + where_extras + " GROUP BY 1 ORDER BY 1"
+    )
+    cur.execute(query_periodo, tuple(params_periodo))
+    rows = cur.fetchall()
+
+    # Nome da empresa para cabeçalho
+    cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+    empresa = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    # Monta linhas com saldo acumulado
+    linhas = []
+    saldo = saldo_inicial
+    total_entradas = Decimal("0")
+    total_saidas = Decimal("0")
+    for r in rows:
+        dia = r["dia"]
+        ent = Decimal(r["entradas"]) or Decimal("0")
+        sai = Decimal(r["saidas"]) or Decimal("0")
+        saldo = saldo + ent - sai
+        total_entradas += ent
+        total_saidas += sai
+        linhas.append({"dia": dia, "entradas": ent, "saidas": sai, "saldo": saldo})
+
+    total_final = saldo
+
+    # Formatações de período para exibição
+    data_inicio_fmt = datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+    data_fim_fmt = datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+    periodo = f"Período: {data_inicio_fmt} a {data_fim_fmt}"
+
+    return render_template(
+        "relatorios/financeiro/fluxo_caixa.html",
+        empresa=empresa["razao_social_nome"] if empresa else "",
+        periodo=periodo,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        caixas_ids=caixas_ids,
+        bancos_ids=bancos_ids,
+        saldo_inicial=saldo_inicial,
+        linhas=linhas,
+        total_entradas=total_entradas,
+        total_saidas=total_saidas,
+        total_final=total_final,
     )
 
 @app.route("/relatorios/gerencial")

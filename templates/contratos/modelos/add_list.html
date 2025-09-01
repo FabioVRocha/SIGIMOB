@@ -56,3 +56,38 @@ function syncEditor(){ document.getElementById('conteudo_html').value = document
 </script>
 {% endblock %}
 
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const currentPath = window.location.pathname;
+    if (currentPath.startsWith('/contratos/modelos')) {
+      const wrong = document.querySelector('a.sidebar-nav-item[href="/contratos"]');
+      if (wrong) wrong.classList.remove('active');
+
+      const right = document.querySelector('a.sidebar-nav-item[href="{{ url_for('contrato_modelos_list') }}"]');
+      if (right) {
+        document.querySelectorAll('.sidebar-nav-item.active').forEach(el => el.classList.remove('active'));
+        right.classList.add('active');
+
+        const gerSub = document.getElementById('gerencial-submenu');
+        const gerToggle = document.getElementById('gerencial-toggle');
+        if (gerSub && gerToggle) {
+          gerSub.classList.remove('hidden');
+          const arrow = gerToggle.querySelector('.arrow-icon');
+          if (arrow) arrow.classList.add('rotate-90');
+          gerToggle.classList.add('active');
+        }
+
+        const imSub = document.getElementById('imoveis-submenu');
+        const imToggle = document.getElementById('imoveis-toggle');
+        if (imSub && imToggle) {
+          imSub.classList.add('hidden');
+          const arrow2 = imToggle.querySelector('.arrow-icon');
+          if (arrow2) arrow2.classList.remove('rotate-90');
+          imToggle.classList.remove('active');
+        }
+      }
+    }
+  });
+  </script>
+{% endblock %}

@@ -4,6 +4,43 @@
 {% block page_title %}Pré-visualização do Contrato{% endblock %}
 
 {% block content %}
+<style>
+  /* Estilos específicos de impressão para a pré-visualização do contrato */
+  @media print {
+    /* Esconder toda a interface e mostrar apenas o conteúdo do contrato */
+    body * { visibility: hidden; }
+    #preview, #preview * { visibility: visible; }
+
+    /* Garantir que o contrato ocupe a página inteira ao imprimir */
+    #preview {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      box-shadow: none !important;
+    }
+
+    /* Esconder elementos da UI que não devem ir para a impressão */
+    .sidebar,
+    .main-header,
+    .flash-message,
+    .btn,
+    .btn-primary,
+    .btn-secondary,
+    .content-section > .flex { /* barra com Voltar/Imprimir */
+      display: none !important;
+    }
+
+    /* Ajuste de página para impressão (A4 com margens confortáveis) */
+    @page { size: A4; margin: 15mm; }
+
+    /* Remover fundos gerais no modo de impressão */
+    body { background: white !important; }
+  }
+</style>
 <div class="bg-white p-6 rounded-lg shadow-xl content-section">
   <div class="flex justify-end mb-4 space-x-2">
     <button class="btn-secondary" onclick="window.history.back()">Voltar</button>
@@ -14,4 +51,3 @@
   </div>
 </div>
 {% endblock %}
-
