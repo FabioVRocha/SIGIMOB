@@ -12,16 +12,62 @@ def _num(x: str) -> str:
 
 
 def _barcode_html(numero: str) -> str:
-    """Gera um código de barras simples em HTML."""
-    partes = ["<span class='n'></span><span class='n s'></span>"]
-    for ch in numero:
-        try:
-            d = int(ch)
-        except ValueError:
-            d = 0
-        classe = 'n' if d % 2 else 'w'
-        partes.append(f"<span class='{classe}'></span><span class='n s'></span>")
-    partes.append("<span class='n'></span>")
+    """Gera um código de barras Interleaved 2 of 5 em HTML.
+
+    A implementação a seguir converte a ``numero`` (string numérica) no
+    padrão *Interleaved 2 of 5*, gerando uma sequência de ``<span>`` que
+    alternam barras pretas e espaços em branco com larguras finas (``n``)
+    e largas (``w``). Esse formato é compatível com leitores de código de
+    barras utilizados em boletos bancários.
+
+    O algoritmo baseia‑se nos pares de dígitos: cada par é transformado
+    em cinco barras e cinco espaços intercalados, conforme a tabela do
+    padrão ITF. Começa‑se com o padrão de guarda ``nnnn`` e termina com
+    ``wnn``.
+    """
+
+    # Tabela de padrões (fino = n, largo = w)
+    padroes = {
+        "0": "nnwwn",
+        "1": "wnnnw",
+        "2": "nwnnw",
+        "3": "wwnnn",
+        "4": "nnwnw",
+        "5": "wnwnn",
+        "6": "nwwnn",
+        "7": "nnnww",
+        "8": "wnnwn",
+        "9": "nwnwn",
+    }
+
+    # O ITF exige quantidade par de dígitos; caso contrário prefixamos 0
+    numero = _num(numero)
+    if len(numero) % 2:
+        numero = "0" + numero
+
+    def span_bar(largura: str, espaco: bool = False) -> str:
+        classe = largura
+        if espaco:
+            classe += " s"
+        return f"<span class='{classe}'></span>"
+
+    partes = []
+    # Padrão inicial: barra e espaço finos alternados
+    for i, ch in enumerate("nnnn"):
+        partes.append(span_bar(ch, espaco=bool(i % 2)))
+
+    # Converte cada par de dígitos
+    for i in range(0, len(numero), 2):
+        barras = padroes[numero[i]]
+        espacos = padroes[numero[i + 1]]
+        for b, e in zip(barras, espacos):
+            partes.append(span_bar(b))
+            partes.append(span_bar(e, espaco=True))
+
+    # Padrão final
+    for i, ch in enumerate("wnn"):
+        partes.append(span_bar(ch, espaco=bool(i % 2)))
+
     return "".join(partes)
 
 bp = Blueprint('contas_receber', __name__)

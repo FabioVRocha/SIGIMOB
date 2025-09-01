@@ -11,6 +11,7 @@ from contas_receber import init_app as init_contas
 from caixa_banco.models import ContaBanco
 from contas_receber.models import EmpresaLicenciada, ContaReceber, Pessoa
 from contas_receber.services import gerar_boletos, importar_retorno
+from contas_receber.routes import _barcode_html
 from contas_receber.cnab import CNAB240Writer, Titulo
 
 
@@ -84,6 +85,7 @@ def test_preview_boleto_html(tmp_path):
         assert b'Boleto Banc\xc3\xa1rio' in resp.data
         assert b'Cliente Teste' in resp.data
         assert b"<div id=\"barcode\"><span" in resp.data
+        assert b".n {border-left: 4px solid}" in resp.data
 
 
 def test_importar_retorno(tmp_path):
@@ -117,6 +119,21 @@ def test_pagamento_parcial(tmp_path):
         assert data['status'] == 'Paga'
         assert data['valor_pago'] == 100.0
         assert data['valor_pendente'] == 0.0
+
+
+def test_barcode_html_interleaved():
+    expected = (
+        "<span class='n'></span><span class='n s'></span>"
+        "<span class='n'></span><span class='n s'></span>"
+        "<span class='w'></span><span class='n s'></span>"
+        "<span class='n'></span><span class='w s'></span>"
+        "<span class='n'></span><span class='n s'></span>"
+        "<span class='n'></span><span class='n s'></span>"
+        "<span class='w'></span><span class='w s'></span>"
+        "<span class='w'></span><span class='n s'></span>"
+        "<span class='n'></span>"
+    )
+    assert _barcode_html('12') == expected
 
 
 def test_gerar_boleto_handles_unexpected_error(tmp_path, monkeypatch):
