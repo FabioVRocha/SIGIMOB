@@ -115,7 +115,16 @@ def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: 
     modulo = max(int(largura_total / (total_unidades + 2 * quiet_modules)), 1)
     quiet = quiet_modules * modulo
 
-    comandos = ["0 g"]  # cor preta
+    # Garante que o espaço do código de barras esteja limpo e com as
+    # margens de silêncio adequadas. Primeiro preenchemos toda a área
+    # com branco, restaurando a cor preta em seguida para desenhar as
+    # barras propriamente ditas.
+    comandos = [
+        "1 g",
+        f"{x} {y} {largura_total} {altura} re f",
+        "0 g",
+    ]
+
     pos = x + quiet
     for is_bar, unidades in sequencia:
         largura = unidades * modulo
