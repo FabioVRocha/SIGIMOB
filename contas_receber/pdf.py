@@ -107,9 +107,12 @@ def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: 
 
     total_unidades = sum(u for _, u in sequencia)
     
-    # Reserva 10 módulos à esquerda e à direita como áreas de silêncio.
+    # Reserva 10 módulos à esquerda e à direita como áreas de silêncio. Para
+    # garantir que o espaço reservado não "invada" o código de barras, o
+    # cálculo do módulo considera também essas margens antes de converter os
+    # valores em pixels.
     quiet_modules = 10
-    modulo = max(int((largura_total - 2 * quiet_modules) / max(total_unidades, 1)), 1)
+    modulo = max(int(largura_total / (total_unidades + 2 * quiet_modules)), 1)
     quiet = quiet_modules * modulo
 
     comandos = ["0 g"]  # cor preta
