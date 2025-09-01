@@ -85,7 +85,7 @@ def test_preview_boleto_html(tmp_path):
         assert b'Boleto Banc\xc3\xa1rio' in resp.data
         assert b'Cliente Teste' in resp.data
         assert b"<div id=\"barcode\"><span" in resp.data
-        assert b".n {border-left: 4px solid}" in resp.data
+        assert b".n {border-left: 2px solid}" in resp.data
 
 
 def test_importar_retorno(tmp_path):
