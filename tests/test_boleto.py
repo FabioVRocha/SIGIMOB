@@ -83,6 +83,7 @@ def test_preview_boleto_html(tmp_path):
         assert resp.status_code == 200
         assert b'Boleto Banc\xc3\xa1rio' in resp.data
         assert b'Cliente Teste' in resp.data
+        assert b"<div id=\"barcode\"><span" in resp.data
 
 
 def test_importar_retorno(tmp_path):
