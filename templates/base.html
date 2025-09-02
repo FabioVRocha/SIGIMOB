@@ -371,11 +371,23 @@
         .filter-input { border-color: var(--clr-medium-gray); color: var(--clr-dark-blue); }
         .filter-input:focus { border-color: var(--clr-light-blue); box-shadow: 0 0 0 1px var(--clr-light-blue); }
 
-        /* Garante que listas coladas do Word fiquem dentro da área de texto e sejam impressas corretamente */
+        /* Garante que listas coladas do Word fiquem dentro da área de texto e sejam impressas */
         #editor ul, #editor ol,
         #preview ul, #preview ol {
             list-style-position: inside;
+            list-style-type: initial !important;
             margin-left: 1.5rem !important;
+            padding-left: 0 !important;
+        }
+
+        #editor li, #preview li {
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+        }
+
+        @media print {
+            #editor ul, #preview ul { list-style-type: disc !important; }
+            #editor ol, #preview ol { list-style-type: decimal !important; }
         }
     </style>
 </head>
