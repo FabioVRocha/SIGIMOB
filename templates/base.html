@@ -370,6 +370,13 @@
         /* Campo de filtro/pesquisa */
         .filter-input { border-color: var(--clr-medium-gray); color: var(--clr-dark-blue); }
         .filter-input:focus { border-color: var(--clr-light-blue); box-shadow: 0 0 0 1px var(--clr-light-blue); }
+
+        /* Garante que listas coladas do Word fiquem dentro da área de texto e sejam impressas corretamente */
+        #editor ul, #editor ol,
+        #preview ul, #preview ol {
+            list-style-position: inside;
+            margin-left: 1.5rem !important;
+        }
     </style>
 </head>
 <body class="flex flex-col md:flex-row min-h-screen">
