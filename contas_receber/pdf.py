@@ -64,9 +64,8 @@ def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: 
     barras e cinco espaços intercalados, combinando larguras finas (``n``)
     e largas (``w``). Este algoritmo replica a mesma lógica empregada na
     visualização HTML, permitindo que o código seja lido por scanners
-    compatíveis. Adiciona‑se ainda a "*quiet zone*" (margem em branco
-    obrigatória) de 10 módulos em cada lado, requisito para leitura
-    correta do código por leitores óticos.
+    compatíveis. A margem em branco necessária (*quiet zone*) deve ser
+    provida pelo layout do PDF que incorporar este código.
     """
 
     padroes = {
@@ -106,26 +105,18 @@ def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: 
     sequencia.extend([(True, 3), (False, 1), (True, 1)])
 
     total_unidades = sum(u for _, u in sequencia)
-    
-    # Reserva 10 módulos à esquerda e à direita como áreas de silêncio. Para
-    # garantir que o espaço reservado não "invada" o código de barras, o
-    # cálculo do módulo considera também essas margens antes de converter os
-    # valores em pixels.
-    quiet_modules = 10
-    modulo = max(int(largura_total / (total_unidades + 2 * quiet_modules)), 1)
-    quiet = quiet_modules * modulo
 
-    # Garante que o espaço do código de barras esteja limpo e com as
-    # margens de silêncio adequadas. Primeiro preenchemos toda a área
-    # com branco, restaurando a cor preta em seguida para desenhar as
-    # barras propriamente ditas.
+    modulo = max(int(largura_total / total_unidades), 1)
+
+    # Preenche o retângulo destinado ao código com branco e, em seguida,
+    # desenha as barras pretas na sequência calculada.
     comandos = [
         "1 g",
         f"{x} {y} {largura_total} {altura} re f",
         "0 g",
     ]
 
-    pos = x + quiet
+    pos = x
     for is_bar, unidades in sequencia:
         largura = unidades * modulo
         if is_bar:

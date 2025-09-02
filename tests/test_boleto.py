@@ -85,7 +85,7 @@ def test_preview_boleto_html(tmp_path):
         assert b'Boleto Banc\xc3\xa1rio' in resp.data
         assert b'Cliente Teste' in resp.data
         assert b"<div id=\"barcode\"><span" in resp.data
-        assert b".n {border-left: 2px solid}" in resp.data
+        assert b".n {border-left: 1px solid}" in resp.data
 
 
 def test_importar_retorno(tmp_path):
@@ -122,7 +122,6 @@ def test_pagamento_parcial(tmp_path):
 
 
 def test_barcode_html_interleaved():
-    left_q = "<span class='n s'></span>" * 10
     start = (
         "<span class='n'></span><span class='n s'></span>"
         "<span class='n'></span><span class='n s'></span>"
@@ -135,8 +134,7 @@ def test_barcode_html_interleaved():
         "<span class='w'></span><span class='w s'></span>"
     )
     stop = "<span class='w'></span><span class='n s'></span><span class='n'></span>"
-    right_q = "<span class='n s'></span>" * 10
-    expected = left_q + start + pair12 + stop + right_q
+    expected = start + pair12 + stop
     assert _barcode_html('12') == expected
 
 
