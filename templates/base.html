@@ -376,8 +376,8 @@
         #preview ul, #preview ol {
             list-style-position: inside;
             list-style-type: initial !important;
-            margin-left: 1.5rem !important;
-            padding-left: 0 !important;
+            margin-left: 0 !important;
+            padding-left: 1.5rem !important;
         }
 
         #editor li, #preview li {
@@ -386,6 +386,13 @@
         }
 
         @media print {
+            #editor ul, #preview ul,
+            #editor ol, #preview ol {
+                list-style-type: initial !important;
+                list-style-position: inside;
+                margin-left: 0 !important;
+                padding-left: 1.5rem !important;
+            }
             #editor ul, #preview ul { list-style-type: disc !important; }
             #editor ol, #preview ol { list-style-type: decimal !important; }
         }
