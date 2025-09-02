@@ -385,6 +385,12 @@
             padding-left: 0 !important;
         }
 
+        /* Remove margens e recuos extras de parágrafos dentro de listas coladas do Word */
+        #editor li p, #preview li p {
+            margin: 0 !important;
+            text-indent: 0 !important;
+        }
+
         @media print {
             #editor ul, #preview ul,
             #editor ol, #preview ol {
