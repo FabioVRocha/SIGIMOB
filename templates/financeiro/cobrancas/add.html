@@ -1,0 +1,56 @@
+<!-- templates/financeiro/cobrancas/add.html -->
+{% extends "base.html" %}
+
+{% block title %}Nova Cobrança{% endblock %}
+
+{% block page_title %}Nova Cobrança{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Registrar Cobrança</h2>
+        <a href="{{ url_for('cobrancas_titulos') }}" class="btn-secondary flex items-center">
+            <i class="fas fa-search mr-2"></i> Buscar Títulos em Aberto
+        </a>
+    </div>
+    {% if conta %}
+    <div class="mb-4">
+        <p><strong>Título:</strong> {{ conta.titulo }}</p>
+        <p><strong>Cliente:</strong> {{ cliente.razao_social_nome }}</p>
+        <p><strong>Vencimento:</strong> {{ conta.data_vencimento.strftime('%d/%m/%Y') }}</p>
+        <p><strong>Valor:</strong> {{ conta.valor_previsto | currency }}</p>
+    </div>
+    <form method="post">
+        <input type="hidden" name="conta_id" value="{{ conta.id }}">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-group">
+                <label for="cobrador" class="form-label">Cobrador</label>
+                <input type="text" id="cobrador" name="cobrador" class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="contato" class="form-label">Contato</label>
+                <input type="text" id="contato" name="contato" class="form-input">
+            </div>
+            <div class="form-group">
+                <label for="data_cobranca" class="form-label">Data da Cobrança</label>
+                <input type="date" id="data_cobranca" name="data_cobranca" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label for="data_prevista_pagamento" class="form-label">Data Prevista do Pagamento</label>
+                <input type="date" id="data_prevista_pagamento" name="data_prevista_pagamento" class="form-input">
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="historico" class="form-label">Histórico</label>
+                <textarea id="historico" name="historico" class="form-input"></textarea>
+            </div>
+        </div>
+        <div class="mt-6">
+            <button type="submit" class="btn-primary">Salvar</button>
+            <a href="{{ url_for('cobrancas_list') }}" class="btn-secondary ml-2">Cancelar</a>
+        </div>
+    </form>
+    {% else %}
+    <p class="text-center text-gray-600">Selecione um título para iniciar o registro da cobrança.</p>
+    {% endif %}
+</div>
+{% endblock %}

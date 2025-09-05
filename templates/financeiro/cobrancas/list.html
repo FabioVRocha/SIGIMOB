@@ -1,0 +1,45 @@
+<!-- templates/financeiro/cobrancas/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Cobranças{% endblock %}
+
+{% block page_title %}Cobranças{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Registros de Cobrança</h2>
+        <a href="{{ url_for('cobrancas_add') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Nova Cobrança
+        </a>
+    </div>
+    {% if cobrancas %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Título</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cliente</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data da Cobrança</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cobrador</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Prevista Pagamento</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cobranca, conta, cliente in cobrancas %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.titulo }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ cliente.razao_social_nome }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ cobranca.data_cobranca.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ cobranca.cobrador }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ cobranca.data_prevista_pagamento.strftime('%d/%m/%Y') if cobranca.data_prevista_pagamento else '' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhuma cobrança registrada.</p>
+    {% endif %}
+</div>
+{% endblock %}

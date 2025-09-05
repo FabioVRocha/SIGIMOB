@@ -33,6 +33,9 @@ from fpdf import FPDF
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
 from caixa_banco import init_app as init_caixa_banco, db
 from contas_receber import init_app as init_contas_receber
+from cobrancas import init_app as init_cobrancas
+from cobrancas.models import Cobranca
+from contas_receber.models import ContaReceber, Pessoa
 from caixa_banco.models import (
     ContaCaixa,
     ContaBanco,
@@ -185,6 +188,7 @@ def render_placeholders(html: str, ctx: dict) -> str:
 # Inicializa o módulo de Caixa e Banco (SQLAlchemy e rotas REST)
 init_caixa_banco(app)
 init_contas_receber(app)
+init_cobrancas(app)
 
 # Variáveis globais para o sistema (exemplo)
 SYSTEM_VERSION = "1.0"
@@ -4004,6 +4008,68 @@ def banco_importar_cnab(conta_id):
         resultados = importar_cnab(arquivo, conta_id, "banco")
         flash(f"{len(resultados)} lançamentos importados.", "success")
     return redirect(url_for("bancos_list"))
+
+
+@app.route("/cobrancas", methods=["GET"])
+@login_required
+@permission_required("Financeiro", "Consultar")
+def cobrancas_list():
+    cobrancas = (
+        db.session.query(Cobranca, ContaReceber, Pessoa)
+        .join(ContaReceber, Cobranca.conta_id == ContaReceber.id)
+        .join(Pessoa, ContaReceber.cliente_id == Pessoa.id)
+        .order_by(Cobranca.data_cobranca.desc())
+        .all()
+    )
+    return render_template("financeiro/cobrancas/list.html", cobrancas=cobrancas)
+
+
+@app.route("/cobrancas/titulos", methods=["GET"])
+@login_required
+@permission_required("Financeiro", "Consultar")
+def cobrancas_titulos():
+    titulos = (
+        db.session.query(ContaReceber, Pessoa)
+        .join(Pessoa, ContaReceber.cliente_id == Pessoa.id)
+        .filter(ContaReceber.status_conta.in_(["Aberta", "Parcial"]))
+        .order_by(ContaReceber.data_vencimento)
+        .all()
+    )
+    return render_template("financeiro/cobrancas/titulos.html", titulos=titulos)
+
+
+@app.route("/cobrancas/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def cobrancas_add():
+    conta_id = request.args.get("conta_id") or request.form.get("conta_id")
+    conta = ContaReceber.query.get(conta_id) if conta_id else None
+    cliente = Pessoa.query.get(conta.cliente_id) if conta else None
+    if request.method == "POST":
+        cobrador = request.form.get("cobrador")
+        contato = request.form.get("contato")
+        data_cobranca = request.form.get("data_cobranca")
+        historico = request.form.get("historico")
+        data_prevista_pagamento = request.form.get("data_prevista_pagamento")
+        if conta and data_cobranca:
+            cobranca = Cobranca(
+                conta_id=conta.id,
+                cobrador=cobrador,
+                contato=contato,
+                data_cobranca=datetime.strptime(data_cobranca, "%Y-%m-%d").date(),
+                historico=historico,
+                data_prevista_pagamento=
+                    datetime.strptime(data_prevista_pagamento, "%Y-%m-%d").date()
+                    if data_prevista_pagamento
+                    else None,
+            )
+            db.session.add(cobranca)
+            db.session.commit()
+            flash("Cobrança registrada com sucesso.", "success")
+            return redirect(url_for("cobrancas_list"))
+        else:
+            flash("Selecione um título e informe a data da cobrança.", "danger")
+    return render_template("financeiro/cobrancas/add.html", conta=conta, cliente=cliente)
 
 
 @app.route("/posicoes", methods=["GET"])

@@ -1,0 +1,40 @@
+<!-- templates/financeiro/cobrancas/titulos.html -->
+{% extends "base.html" %}
+
+{% block title %}Selecionar Título{% endblock %}
+
+{% block page_title %}Selecionar Título{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <h2 class="text-2xl font-semibold text-dark-blue mb-6">Títulos em Aberto</h2>
+    {% if titulos %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Título</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cliente</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Vencimento</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conta, cliente in titulos %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.titulo }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ cliente.razao_social_nome }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.valor_previsto | currency }}</td>
+                    <td class="py-3 px-4 text-sm"><a href="{{ url_for('cobrancas_add', conta_id=conta.id) }}" class="text-blue-600 hover:text-blue-800">Selecionar</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhum título em aberto.</p>
+    {% endif %}
+</div>
+{% endblock %}
