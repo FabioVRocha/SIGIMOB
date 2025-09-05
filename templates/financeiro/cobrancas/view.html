@@ -1,0 +1,47 @@
+<!-- templates/financeiro/cobrancas/view.html -->
+{% extends "base.html" %}
+
+{% block title %}Consultar Cobrança{% endblock %}
+{% block page_title %}Consultar Cobrança{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+            <dt class="font-semibold">Título:</dt>
+            <dd>{{ conta.titulo }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Cliente:</dt>
+            <dd>{{ cliente.razao_social_nome }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Cobrador:</dt>
+            <dd>{{ cobranca.cobrador }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Contato:</dt>
+            <dd>{{ cobranca.contato }}</dd>
+        </div>
+        <div>
+            <dt class="font-semibold">Data da Cobrança:</dt>
+            <dd>{{ cobranca.data_cobranca.strftime('%d/%m/%Y') }}</dd>
+        </div>
+        {% if cobranca.data_prevista_pagamento %}
+        <div>
+            <dt class="font-semibold">Data Prevista do Pagamento:</dt>
+            <dd>{{ cobranca.data_prevista_pagamento.strftime('%d/%m/%Y') }}</dd>
+        </div>
+        {% endif %}
+        {% if cobranca.historico %}
+        <div class="md:col-span-2">
+            <dt class="font-semibold">Histórico:</dt>
+            <dd>{{ cobranca.historico }}</dd>
+        </div>
+        {% endif %}
+    </dl>
+    <div class="flex justify-end mt-6">
+        <a href="{{ url_for('cobrancas_list') }}" class="btn-secondary">Voltar</a>
+    </div>
+</div>
+{% endblock %}

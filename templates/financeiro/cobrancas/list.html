@@ -23,6 +23,7 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data da Cobrança</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cobrador</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Prevista Pagamento</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -33,6 +34,19 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ cobranca.data_cobranca.strftime('%d/%m/%Y') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ cobranca.cobrador }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ cobranca.data_prevista_pagamento.strftime('%d/%m/%Y') if cobranca.data_prevista_pagamento else '' }}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <a href="{{ url_for('cobrancas_view', id=cobranca.id) }}" class="text-green-600 hover:text-green-800 mr-3" title="Consultar">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('cobrancas_edit', id=cobranca.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('cobrancas_delete', id=cobranca.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta cobrança?');">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

@@ -1,9 +1,9 @@
 <!-- templates/financeiro/cobrancas/add.html -->
 {% extends "base.html" %}
 
-{% block title %}Nova Cobrança{% endblock %}
+{% block title %}{{ 'Editar Cobrança' if cobranca else 'Nova Cobrança' }}{% endblock %}
 
-{% block page_title %}Nova Cobrança{% endblock %}
+{% block page_title %}{{ 'Editar Cobrança' if cobranca else 'Nova Cobrança' }}{% endblock %}
 
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl">
@@ -20,28 +20,28 @@
         <p><strong>Vencimento:</strong> {{ conta.data_vencimento.strftime('%d/%m/%Y') }}</p>
         <p><strong>Valor:</strong> {{ conta.valor_previsto | currency }}</p>
     </div>
-    <form method="post">
+    <form method="post" action="{% if cobranca %}{{ url_for('cobrancas_edit', id=cobranca.id) }}{% else %}{{ url_for('cobrancas_add') }}{% endif %}">
         <input type="hidden" name="conta_id" value="{{ conta.id }}">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-group">
                 <label for="cobrador" class="form-label">Cobrador</label>
-                <input type="text" id="cobrador" name="cobrador" class="form-input">
+                <input type="text" id="cobrador" name="cobrador" class="form-input" value="{{ cobranca.cobrador if cobranca else '' }}">
             </div>
             <div class="form-group">
                 <label for="contato" class="form-label">Contato</label>
-                <input type="text" id="contato" name="contato" class="form-input">
+                <input type="text" id="contato" name="contato" class="form-input" value="{{ cobranca.contato if cobranca else '' }}">
             </div>
             <div class="form-group">
                 <label for="data_cobranca" class="form-label">Data da Cobrança</label>
-                <input type="date" id="data_cobranca" name="data_cobranca" class="form-input" required>
+                <input type="date" id="data_cobranca" name="data_cobranca" class="form-input" required value="{{ cobranca.data_cobranca.strftime('%Y-%m-%d') if cobranca else '' }}">
             </div>
             <div class="form-group">
                 <label for="data_prevista_pagamento" class="form-label">Data Prevista do Pagamento</label>
-                <input type="date" id="data_prevista_pagamento" name="data_prevista_pagamento" class="form-input">
+                <input type="date" id="data_prevista_pagamento" name="data_prevista_pagamento" class="form-input" value="{{ cobranca.data_prevista_pagamento.strftime('%Y-%m-%d') if cobranca and cobranca.data_prevista_pagamento else '' }}">
             </div>
             <div class="form-group md:col-span-2">
                 <label for="historico" class="form-label">Histórico</label>
-                <textarea id="historico" name="historico" class="form-input"></textarea>
+                <textarea id="historico" name="historico" class="form-input">{{ cobranca.historico if cobranca else '' }}</textarea>
             </div>
         </div>
         <div class="mt-6">

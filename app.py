@@ -4072,6 +4072,72 @@ def cobrancas_add():
     return render_template("financeiro/cobrancas/add.html", conta=conta, cliente=cliente)
 
 
+@app.route("/cobrancas/view/<int:id>", methods=["GET"])
+@login_required
+@permission_required("Financeiro", "Consultar")
+def cobrancas_view(id):
+    cobranca = Cobranca.query.get(id)
+    if not cobranca:
+        flash("Cobrança não encontrada.", "danger")
+        return redirect(url_for("cobrancas_list"))
+    conta = ContaReceber.query.get(cobranca.conta_id)
+    cliente = Pessoa.query.get(conta.cliente_id) if conta else None
+    return render_template(
+        "financeiro/cobrancas/view.html",
+        cobranca=cobranca,
+        conta=conta,
+        cliente=cliente,
+    )
+
+
+@app.route("/cobrancas/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def cobrancas_edit(id):
+    cobranca = Cobranca.query.get(id)
+    if not cobranca:
+        flash("Cobrança não encontrada.", "danger")
+        return redirect(url_for("cobrancas_list"))
+    conta = ContaReceber.query.get(cobranca.conta_id)
+    cliente = Pessoa.query.get(conta.cliente_id) if conta else None
+    if request.method == "POST":
+        cobranca.cobrador = request.form.get("cobrador")
+        cobranca.contato = request.form.get("contato")
+        data_cobranca = request.form.get("data_cobranca")
+        if data_cobranca:
+            cobranca.data_cobranca = datetime.strptime(data_cobranca, "%Y-%m-%d").date()
+        cobranca.historico = request.form.get("historico")
+        data_prevista_pagamento = request.form.get("data_prevista_pagamento")
+        cobranca.data_prevista_pagamento = (
+            datetime.strptime(data_prevista_pagamento, "%Y-%m-%d").date()
+            if data_prevista_pagamento
+            else None
+        )
+        db.session.commit()
+        flash("Cobrança atualizada com sucesso.", "success")
+        return redirect(url_for("cobrancas_list"))
+    return render_template(
+        "financeiro/cobrancas/add.html",
+        conta=conta,
+        cliente=cliente,
+        cobranca=cobranca,
+    )
+
+
+@app.route("/cobrancas/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Excluir")
+def cobrancas_delete(id):
+    cobranca = Cobranca.query.get(id)
+    if not cobranca:
+        flash("Cobrança não encontrada.", "danger")
+    else:
+        db.session.delete(cobranca)
+        db.session.commit()
+        flash("Cobrança excluída com sucesso.", "success")
+    return redirect(url_for("cobrancas_list"))
+
+
 @app.route("/posicoes", methods=["GET"])
 @login_required
 @permission_required("Financeiro", "Consultar")
