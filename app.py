@@ -33,8 +33,8 @@ from fpdf import FPDF
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
 from caixa_banco import init_app as init_caixa_banco, db
 from contas_receber import init_app as init_contas_receber
-from cobrancas import init_app as init_cobrancas
-from cobrancas.models import Cobranca
+from cobranca import init_app as init_cobrancas
+from cobranca.models import Cobranca
 from contas_receber.models import ContaReceber, Pessoa
 from caixa_banco.models import (
     ContaCaixa,
