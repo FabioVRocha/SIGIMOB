@@ -4033,7 +4033,7 @@ def cobrancas_titulos():
         db.session.query(ContaReceber, Pessoa)
         .join(Pessoa, ContaReceber.cliente_id == Pessoa.id)
         .filter(
-            ContaReceber.status_conta.in_(["Aberta", "Parcial"]),
+            ContaReceber.status_conta.in_(["Aberta", "Parcial", "Vencida"]),
             ContaReceber.data_vencimento < hoje,
         )
         .order_by(ContaReceber.data_vencimento)
