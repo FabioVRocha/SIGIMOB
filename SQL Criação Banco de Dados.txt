@@ -1,7 +1,6 @@
 -- Esquema do Banco de Dados PostgreSQL para o Sistema de Gestão de Imóveis e Aluguéis
 
--- Tabela para Cadastro de Fornecedores e Clientes (Pessoas)
-CREATE TYPE tipo_pessoa_enum AS ENUM ('Fornecedor', 'Cliente');
+CREATE TYPE tipo_pessoa_enum AS ENUM ('Fornecedor', 'Cliente', 'Cliente/Fornecedor');
 CREATE TYPE status_geral_enum AS ENUM ('Ativo', 'Inativo');
 
 CREATE TABLE pessoas (
@@ -104,7 +103,7 @@ CREATE TYPE finalidade_contrato_enum AS ENUM ('Comercial', 'Residencial', 'Comod
 CREATE TABLE contratos_aluguel (
     id SERIAL PRIMARY KEY,
     imovel_id INTEGER NOT NULL REFERENCES imoveis(id),
-    cliente_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Cliente'
+    cliente_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Cliente' ou 'Cliente/Fornecedor'
     nome_inquilino VARCHAR(255), -- Preenchido automaticamente
     endereco_inquilino VARCHAR(255), -- Preenchido automaticamente
     bairro_inquilino VARCHAR(100), -- Preenchido automaticamente
@@ -152,7 +151,7 @@ CREATE TABLE contas_a_receber (
     id SERIAL PRIMARY KEY,
     contrato_id INTEGER REFERENCES contratos_aluguel(id), -- Pode ser NULO para outras receitas
     receita_id INTEGER NOT NULL REFERENCES receitas_cadastro(id),
-    cliente_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Cliente'
+    cliente_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Cliente' ou 'Cliente/Fornecedor'
     titulo VARCHAR(255),
     data_vencimento DATE NOT NULL,
     valor_previsto NUMERIC(10,2) NOT NULL,
@@ -172,7 +171,7 @@ CREATE TABLE contas_a_receber (
 CREATE TABLE contas_a_pagar (
     id SERIAL PRIMARY KEY,
     despesa_id INTEGER NOT NULL REFERENCES despesas_cadastro(id),
-    fornecedor_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Fornecedor'
+    fornecedor_id INTEGER NOT NULL REFERENCES pessoas(id), -- Deve ser do tipo 'Fornecedor' ou 'Cliente/Fornecedor'
     titulo VARCHAR(255) NOT NULL,
     data_vencimento DATE NOT NULL,
     competencia DATE,

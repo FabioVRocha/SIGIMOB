@@ -48,7 +48,7 @@ telefone (VARCHAR)
 
 observacao (TEXT)
 
-tipo (ENUM: 'Fornecedor', 'Cliente', not null)
+tipo (ENUM: 'Fornecedor', 'Cliente', 'Cliente/Fornecedor', not null)
 
 status (ENUM: 'Ativo', 'Inativo', not null, padrão 'Ativo')
 
@@ -184,7 +184,7 @@ id (PK, SERIAL)
 
 imovel_id (FK para Cadastro de Imóveis, not null)
 
-cliente_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Cliente', not null)
+cliente_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Cliente' ou 'Cliente/Fornecedor', not null)
 
 nome_inquilino (VARCHAR, preenchido automaticamente do cliente_id)
 
@@ -256,7 +256,7 @@ contrato_id (FK para Contrato de Aluguel, para contas de aluguel; pode ser NULO 
 
 receita_id (FK para Cadastro de Receitas, not null)
 
-cliente_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Cliente', not null)
+cliente_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Cliente' ou 'Cliente/Fornecedor', not null)
 
 titulo (VARCHAR)
 
@@ -294,7 +294,7 @@ id (PK, SERIAL)
 
 despesa_id (FK para Cadastro de Despesas, not null)
 
-fornecedor_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Fornecedor', not null)
+fornecedor_id (FK para Cadastro de Fornecedores e Clientes - Tipo 'Fornecedor' ou 'Cliente/Fornecedor', not null)
 
 titulo (VARCHAR, not null)
 

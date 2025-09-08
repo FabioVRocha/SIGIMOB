@@ -79,6 +79,7 @@
                     <option value="">Selecione...</option>
                     <option value="Fornecedor" {% if pessoa.tipo == 'Fornecedor' %}selected{% endif %}>Fornecedor</option>
                     <option value="Cliente" {% if pessoa.tipo == 'Cliente' %}selected{% endif %}>Cliente</option>
+                    <option value="Cliente/Fornecedor" {% if pessoa.tipo == 'Cliente/Fornecedor' %}selected{% endif %}>Cliente/Fornecedor</option>
                 </select>
             </div>
             <div class="form-group">

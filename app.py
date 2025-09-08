@@ -417,9 +417,29 @@ def ensure_calcao_columns():
     conn.close()
 
 
+def ensure_tipo_pessoa_enum():
+    """Garante que o enum tipo_pessoa_enum contenha 'Cliente/Fornecedor'."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM pg_type WHERE typname = 'tipo_pessoa_enum'")
+    if cur.fetchone():
+        cur.execute(
+            """
+            SELECT 1 FROM pg_enum
+            WHERE enumtypid = 'tipo_pessoa_enum'::regtype AND enumlabel = 'Cliente/Fornecedor'
+            """
+        )
+        if cur.fetchone() is None:
+            cur.execute("ALTER TYPE tipo_pessoa_enum ADD VALUE 'Cliente/Fornecedor'")
+            conn.commit()
+    cur.close()
+    conn.close()
+
+
 # Assegura colunas necessárias no banco de dados
 ensure_max_contratos_column()
 ensure_calcao_columns()
+ensure_tipo_pessoa_enum()
 
 
 @app.route("/uploads/<path:filename>")
@@ -2126,7 +2146,7 @@ def contratos_add():
             cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
             imoveis = cur.fetchall()
             cur.execute(
-                "SELECT * FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+                "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
             )
             clientes = cur.fetchall()
             return render_template(
@@ -2140,7 +2160,7 @@ def contratos_add():
     cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
     imoveis = cur.fetchall()
     cur.execute(
-        "SELECT * FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+        "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     clientes = cur.fetchall()
     cur.close()
@@ -2310,7 +2330,7 @@ def contratos_edit(id):
     cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
     imoveis = cur.fetchall()
     cur.execute(
-        "SELECT * FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+        "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     clientes = cur.fetchall()
     cur.close()
@@ -2801,7 +2821,7 @@ def contas_a_receber_list():
     contas = cur.fetchall()
     # Listas para filtros (usar mesma conexão antes de fechar)
     cur.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     clientes = cur.fetchall()
     cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
@@ -2900,7 +2920,7 @@ def contas_a_receber_add():
     cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
     receitas = cur.fetchall()
     cur.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     clientes = cur.fetchall()
     cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
@@ -3022,7 +3042,7 @@ def contas_a_receber_edit(id):
     cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
     receitas = cur.fetchall()
     cur.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Cliente' ORDER BY razao_social_nome"
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     clientes = cur.fetchall()
     cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
@@ -3211,7 +3231,7 @@ def contas_a_pagar_list():
 
     # Opções para filtros
     cur.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Fornecedor', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
     cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
@@ -3306,7 +3326,7 @@ def contas_a_pagar_add():
     cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
     despesas = cur.fetchall()
     cur.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Fornecedor', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
     cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
@@ -3428,7 +3448,7 @@ def contas_a_pagar_edit(id):
     cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
     despesas = cur.fetchall()
     cur.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Fornecedor', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
     cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
@@ -4225,7 +4245,7 @@ def relatorios_contas_a_pagar():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
     cur.execute(
-        "SELECT id, razao_social_nome FROM pessoas WHERE tipo = 'Fornecedor' ORDER BY razao_social_nome"
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Fornecedor', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
     cur.execute(
