@@ -17,7 +17,7 @@ import psycopg2
 from psycopg2 import extras
 import os
 import posixpath
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import calendar
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
@@ -4028,10 +4028,14 @@ def cobrancas_list():
 @login_required
 @permission_required("Financeiro", "Consultar")
 def cobrancas_titulos():
+    hoje = date.today()
     titulos = (
         db.session.query(ContaReceber, Pessoa)
         .join(Pessoa, ContaReceber.cliente_id == Pessoa.id)
-        .filter(ContaReceber.status_conta.in_(["Aberta", "Parcial"]))
+        .filter(
+            ContaReceber.status_conta.in_(["Aberta", "Parcial"]),
+            ContaReceber.data_vencimento < hoje,
+        )
         .order_by(ContaReceber.data_vencimento)
         .all()
     )

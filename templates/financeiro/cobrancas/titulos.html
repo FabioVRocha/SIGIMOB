@@ -7,7 +7,7 @@
 
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl">
-    <h2 class="text-2xl font-semibold text-dark-blue mb-6">Títulos em Aberto</h2>
+    <h2 class="text-2xl font-semibold text-dark-blue mb-6">Títulos Vencidos</h2>
     {% if titulos %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
@@ -34,7 +34,7 @@
         </table>
     </div>
     {% else %}
-    <p class="text-center text-gray-600">Nenhum título em aberto.</p>
+    <p class="text-center text-gray-600">Nenhum título vencido.</p>
     {% endif %}
 </div>
 {% endblock %}
