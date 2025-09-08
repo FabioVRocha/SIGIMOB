@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if mascara and mascara.get('id') else 'Nova' }} Máscara DRE{% endblock %}
+{% block page_title %}{{ 'Editar' if mascara and mascara.get('id') else 'Nova' }} Máscara DRE{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 shadow rounded max-w-2xl">
+  <form method="post">
+    <div class="form-group">
+      <label class="form-label">Nome</label>
+      <input type="text" name="nome" class="form-input" required value="{{ mascara.nome if mascara else '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <textarea name="descricao" rows="3" class="form-input">{{ mascara.descricao if mascara else '' }}</textarea>
+    </div>
+    <div class="form-group flex items-center space-x-2">
+      <input type="checkbox" name="ativo" id="ativo" class="" {% if not mascara or mascara.ativo %}checked{% endif %}>
+      <label for="ativo">Ativa</label>
+    </div>
+    <div class="flex space-x-2">
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-2"></i>Salvar</button>
+      <a href="{{ url_for('dre_mascaras_list') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+

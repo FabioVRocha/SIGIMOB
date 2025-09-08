@@ -442,6 +442,63 @@ ensure_calcao_columns()
 ensure_tipo_pessoa_enum()
 
 
+def ensure_dre_tables():
+    """Cria as tabelas de DRE caso não existam."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # Mascaras
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS dre_mascaras (
+            id SERIAL PRIMARY KEY,
+            nome VARCHAR(255) NOT NULL,
+            descricao TEXT,
+            ativo BOOLEAN NOT NULL DEFAULT TRUE,
+            data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    # Nós da máscara (hierarquia)
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS dre_nos (
+            id SERIAL PRIMARY KEY,
+            mascara_id INTEGER NOT NULL REFERENCES dre_mascaras(id) ON DELETE CASCADE,
+            parent_id INTEGER REFERENCES dre_nos(id) ON DELETE CASCADE,
+            titulo VARCHAR(255) NOT NULL,
+            tipo VARCHAR(20) NOT NULL DEFAULT 'grupo',
+            ordem INTEGER NOT NULL DEFAULT 0,
+            CONSTRAINT dre_nos_tipo_chk CHECK (tipo IN ('grupo','receita','despesa'))
+        )
+        """
+    )
+    # Mapeamentos de categorias de receitas/despesas para nós
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS dre_no_receitas (
+            no_id INTEGER NOT NULL REFERENCES dre_nos(id) ON DELETE CASCADE,
+            receita_id INTEGER NOT NULL REFERENCES receitas_cadastro(id) ON DELETE CASCADE,
+            PRIMARY KEY (no_id, receita_id)
+        )
+        """
+    )
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS dre_no_despesas (
+            no_id INTEGER NOT NULL REFERENCES dre_nos(id) ON DELETE CASCADE,
+            despesa_id INTEGER NOT NULL REFERENCES despesas_cadastro(id) ON DELETE CASCADE,
+            PRIMARY KEY (no_id, despesa_id)
+        )
+        """
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+ensure_dre_tables()
+
+
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
     """Serve arquivos enviados pelo usuário."""
@@ -4989,6 +5046,570 @@ def relatorio_financeiro_fluxo_caixa_visualizar():
 @login_required
 def relatorios_gerencial():
     return render_template("relatorios/gerencial/index.html")
+
+
+# ------------------ DRE (Máscara & Relatório) ------------------
+
+
+def _montar_arvore_nos(nos):
+    """Monta uma árvore a partir de uma lista de nós (dicts)."""
+    by_parent = {}
+    for n in nos:
+        by_parent.setdefault(n.get("parent_id"), []).append(n)
+    for lst in by_parent.values():
+        lst.sort(key=lambda x: (x.get("ordem") or 0, x.get("id") or 0))
+
+    def attach(parent_id=None):
+        out = []
+        for n in by_parent.get(parent_id, []):
+            n["filhos"] = attach(n["id"])
+            out.append(n)
+        return out
+
+    return attach(None)
+
+
+@app.route("/gerencial/dre/mascaras")
+@login_required
+@permission_required("Administracao Sistema", "Consultar")
+def dre_mascaras_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        "SELECT * FROM dre_mascaras ORDER BY ativo DESC, data_cadastro DESC, nome ASC"
+    )
+    mascaras = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("gerencial/dre_mascaras/list.html", mascaras=mascaras)
+
+
+@app.route("/gerencial/dre/mascaras/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Administracao Sistema", "Incluir")
+def dre_mascaras_add():
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        descricao = request.form.get("descricao")
+        ativo = True if request.form.get("ativo") == "on" else False
+        if not nome:
+            flash("Informe o nome da máscara.", "danger")
+            return render_template("gerencial/dre_mascaras/add_edit.html", mascara={})
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                "INSERT INTO dre_mascaras (nome, descricao, ativo) VALUES (%s,%s,%s)",
+                (nome, descricao, ativo),
+            )
+            conn.commit()
+            flash("Máscara criada com sucesso!", "success")
+            return redirect(url_for("dre_mascaras_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao criar máscara: {e}", "danger")
+            return render_template("gerencial/dre_mascaras/add_edit.html", mascara={})
+        finally:
+            cur.close()
+            conn.close()
+    return render_template("gerencial/dre_mascaras/add_edit.html", mascara={})
+
+
+@app.route("/gerencial/dre/mascaras/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def dre_mascaras_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        nome = request.form.get("nome", "").strip()
+        descricao = request.form.get("descricao")
+        ativo = True if request.form.get("ativo") == "on" else False
+        if not nome:
+            flash("Informe o nome da máscara.", "danger")
+        else:
+            try:
+                cur.execute(
+                    "UPDATE dre_mascaras SET nome=%s, descricao=%s, ativo=%s WHERE id=%s",
+                    (nome, descricao, ativo, id),
+                )
+                conn.commit()
+                flash("Máscara atualizada com sucesso!", "success")
+                return redirect(url_for("dre_mascaras_list"))
+            except Exception as e:
+                conn.rollback()
+                flash(f"Erro ao atualizar máscara: {e}", "danger")
+    cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (id,))
+    mascara = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not mascara:
+        flash("Máscara não encontrada.", "danger")
+        return redirect(url_for("dre_mascaras_list"))
+    return render_template("gerencial/dre_mascaras/add_edit.html", mascara=mascara)
+
+
+@app.route("/gerencial/dre/mascaras/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Excluir")
+def dre_mascaras_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM dre_mascaras WHERE id=%s", (id,))
+        conn.commit()
+        flash("Máscara excluída com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir máscara: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("dre_mascaras_list"))
+
+
+@app.route("/gerencial/dre/mascaras/<int:id>/builder", methods=["GET"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def dre_mascaras_builder(id):
+    """Tela de montagem da máscara: gerencia nós e mapeamentos."""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (id,))
+    mascara = cur.fetchone()
+    if not mascara:
+        cur.close()
+        conn.close()
+        flash("Máscara não encontrada.", "danger")
+        return redirect(url_for("dre_mascaras_list"))
+
+    cur.execute(
+        "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+        (id,),
+    )
+    nos = cur.fetchall()
+    arvore = _montar_arvore_nos([dict(n) for n in nos])
+
+    # Para formulários: pais possíveis (apenas grupos)
+    cur.execute(
+        "SELECT id, titulo FROM dre_nos WHERE mascara_id=%s AND tipo='grupo' ORDER BY ordem, titulo",
+        (id,),
+    )
+    pais = cur.fetchall()
+
+    # Dados para mapeamentos (caso um nó seja selecionado via query string)
+    no_id = request.args.get("no_id", type=int)
+    no = None
+    receitas = despesas = []
+    mapeadas_receitas = mapeadas_despesas = set()
+    if no_id:
+        cur.execute("SELECT * FROM dre_nos WHERE id=%s AND mascara_id=%s", (no_id, id))
+        no = cur.fetchone()
+        if no and no["tipo"] == "receita":
+            cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+            receitas = cur.fetchall()
+            cur.execute("SELECT receita_id FROM dre_no_receitas WHERE no_id=%s", (no_id,))
+            mapeadas_receitas = {r[0] for r in cur.fetchall()}
+        elif no and no["tipo"] == "despesa":
+            cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+            despesas = cur.fetchall()
+            cur.execute("SELECT despesa_id FROM dre_no_despesas WHERE no_id=%s", (no_id,))
+            mapeadas_despesas = {r[0] for r in cur.fetchall()}
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "gerencial/dre_mascaras/builder.html",
+        mascara=mascara,
+        arvore=arvore,
+        pais=pais,
+        no=no,
+        receitas=receitas,
+        despesas=despesas,
+        mapeadas_receitas=mapeadas_receitas,
+        mapeadas_despesas=mapeadas_despesas,
+    )
+
+
+@app.route("/gerencial/dre/nos/add", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def dre_nos_add():
+    mascara_id = request.form.get("mascara_id", type=int)
+    parent_id = request.form.get("parent_id", type=int)
+    titulo = request.form.get("titulo", "").strip()
+    tipo = request.form.get("tipo", "grupo")
+    ordem = request.form.get("ordem", type=int)
+    if not mascara_id or not titulo or tipo not in ("grupo", "receita", "despesa"):
+        flash("Preencha os dados do novo item corretamente.", "danger")
+        return redirect(url_for("dre_mascaras_builder", id=mascara_id))
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO dre_nos (mascara_id, parent_id, titulo, tipo, ordem) VALUES (%s,%s,%s,%s,COALESCE(%s,0))",
+            (mascara_id, parent_id, titulo, tipo, ordem),
+        )
+        conn.commit()
+        flash("Item adicionado.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao adicionar item: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("dre_mascaras_builder", id=mascara_id))
+
+
+@app.route("/gerencial/dre/nos/<int:no_id>/delete", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Excluir")
+def dre_nos_delete(no_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT mascara_id FROM dre_nos WHERE id=%s", (no_id,))
+    row = cur.fetchone()
+    mascara_id = row["mascara_id"] if row else None
+    try:
+        cur.execute("DELETE FROM dre_nos WHERE id=%s", (no_id,))
+        conn.commit()
+        flash("Item removido.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao remover item: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    if mascara_id:
+        return redirect(url_for("dre_mascaras_builder", id=mascara_id))
+    return redirect(url_for("dre_mascaras_list"))
+
+
+@app.route("/gerencial/dre/nos/<int:no_id>/map", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def dre_nos_map(no_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT mascara_id, tipo FROM dre_nos WHERE id=%s", (no_id,))
+    no = cur.fetchone()
+    if not no:
+        cur.close()
+        conn.close()
+        flash("Item não encontrado.", "danger")
+        return redirect(url_for("dre_mascaras_list"))
+    mascara_id = no["mascara_id"]
+    try:
+        if no["tipo"] == "receita":
+            selecionadas = request.form.getlist("receitas")
+            cur.execute("DELETE FROM dre_no_receitas WHERE no_id=%s", (no_id,))
+            for rid in selecionadas:
+                cur.execute(
+                    "INSERT INTO dre_no_receitas (no_id, receita_id) VALUES (%s,%s)",
+                    (no_id, int(rid)),
+                )
+        elif no["tipo"] == "despesa":
+            selecionadas = request.form.getlist("despesas")
+            cur.execute("DELETE FROM dre_no_despesas WHERE no_id=%s", (no_id,))
+            for did in selecionadas:
+                cur.execute(
+                    "INSERT INTO dre_no_despesas (no_id, despesa_id) VALUES (%s,%s)",
+                    (no_id, int(did)),
+                )
+        conn.commit()
+        flash("Mapeamentos atualizados.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao salvar mapeamentos: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("dre_mascaras_builder", id=mascara_id, no_id=no_id))
+
+
+def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
+    if tipo == "receita":
+        if base == "caixa":
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(cr.valor_pago),0) AS total
+                  FROM contas_a_receber cr
+                  JOIN dre_no_receitas dmr ON dmr.receita_id = cr.receita_id AND dmr.no_id = %s
+                 WHERE cr.data_pagamento IS NOT NULL
+                   AND cr.data_pagamento BETWEEN %s AND %s
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+        else:  # competencia
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(cr.valor_previsto),0) AS total
+                  FROM contas_a_receber cr
+                  JOIN dre_no_receitas dmr ON dmr.receita_id = cr.receita_id AND dmr.no_id = %s
+                 WHERE cr.data_vencimento BETWEEN %s AND %s
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+    else:  # despesa
+        if base == "caixa":
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(cp.valor_pago),0) AS total
+                  FROM contas_a_pagar cp
+                  JOIN dre_no_despesas dmd ON dmd.despesa_id = cp.despesa_id AND dmd.no_id = %s
+                 WHERE cp.data_pagamento IS NOT NULL
+                   AND cp.data_pagamento BETWEEN %s AND %s
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(cp.valor_previsto),0) AS total
+                  FROM contas_a_pagar cp
+                  JOIN dre_no_despesas dmd ON dmd.despesa_id = cp.despesa_id AND dmd.no_id = %s
+                 WHERE cp.data_vencimento BETWEEN %s AND %s
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+    row = cur.fetchone()
+    return Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
+
+
+def _calcular_totais(cur, arvore, base, data_inicio, data_fim):
+    """Calcula o total de cada nó da árvore e retorna a mesma estrutura com 'valor'."""
+    total = Decimal("0")
+    for n in arvore:
+        if n["tipo"] == "grupo":
+            n["filhos"], subtotal = _calcular_totais(cur, n.get("filhos", []), base, data_inicio, data_fim)
+            n["valor"] = subtotal
+        elif n["tipo"] in ("receita", "despesa"):
+            soma = _somar_leaf(cur, n["id"], n["tipo"], base, data_inicio, data_fim)
+            # Despesas negativas para facilitar leitura do resultado
+            n["valor"] = soma if n["tipo"] == "receita" else -soma
+        else:
+            n["valor"] = Decimal("0")
+        total += n["valor"]
+    return arvore, total
+
+
+def _prune_zero_nodes(nos):
+    """Remove nós com valor 0 e sem filhos relevantes."""
+    pruned = []
+    for n in nos:
+        filhos = _prune_zero_nodes(n.get("filhos", []))
+        n["filhos"] = filhos
+        valor = n.get("valor") or Decimal("0")
+        if (valor != 0) or filhos:
+            pruned.append(n)
+    return pruned
+
+
+@app.route("/relatorios/gerencial/dre", methods=["GET", "POST"])
+@login_required
+def relatorio_dre():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT id, nome FROM dre_mascaras WHERE ativo=true ORDER BY nome")
+    mascaras = cur.fetchall()
+
+    resultado = None
+    mascara_sel = None
+    base = (request.form.get("base") or "caixa").lower()
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+    mascara_id = request.form.get("mascara_id", type=int)
+    hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True") or (request.method == "GET")
+
+    if request.method == "POST" and mascara_id and data_inicio and data_fim:
+        # Carrega nós e monta árvore
+        cur.execute(
+            "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+            (mascara_id,),
+        )
+        nos = [dict(n) for n in cur.fetchall()]
+        arvore = _montar_arvore_nos(nos)
+        arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
+        if hide_zeros:
+            arvore_val = _prune_zero_nodes(arvore_val)
+            # Recalcula total após prune (por segurança)
+            _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
+        # Nome da máscara e empresa para cabeçalho
+        cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (mascara_id,))
+        mascara_sel = cur.fetchone()
+        cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+        empresa = cur.fetchone()
+        resultado = {
+            "arvore": arvore_val,
+            "total": total,
+            "empresa": empresa["razao_social_nome"] if empresa else "",
+            "periodo": (
+                datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+                + " a "
+                + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+            ),
+        }
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "relatorios/gerencial/dre.html",
+        mascaras=mascaras,
+        resultado=resultado,
+        base=base,
+        mascara_sel=mascara_sel,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        hide_zeros=hide_zeros,
+    )
+
+
+@app.route("/gerencial/dre/nos/reorder", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Editar")
+def dre_nos_reorder():
+    """Atualiza ordem e pai de uma lista de nós após drag-and-drop."""
+    data = request.get_json(silent=True) or {}
+    mascara_id = data.get("mascara_id")
+    parent_id = data.get("parent_id")
+    ids = data.get("ids") or []
+
+    # Normaliza parent_id
+    if parent_id in ("", "null", None):
+        parent_id = None
+    try:
+        mascara_id = int(mascara_id)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "mascara_id inválido"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        for ordem, no_id in enumerate(ids):
+            try:
+                no_id_int = int(no_id)
+            except (TypeError, ValueError):
+                continue
+            cur.execute(
+                "UPDATE dre_nos SET parent_id=%s, ordem=%s WHERE id=%s AND mascara_id=%s",
+                (parent_id, ordem, no_id_int, mascara_id),
+            )
+        conn.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/relatorios/gerencial/dre/pdf", methods=["POST"])
+@login_required
+def relatorio_dre_pdf():
+    """Gera PDF do DRE com base nos parâmetros informados."""
+    base = (request.form.get("base") or "caixa").lower()
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+    mascara_id = request.form.get("mascara_id", type=int)
+    hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True")
+
+    if not (mascara_id and data_inicio and data_fim):
+        flash("Parâmetros inválidos para gerar o PDF.", "danger")
+        return redirect(url_for("relatorio_dre"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    cur.execute(
+        "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+        (mascara_id,),
+    )
+    nos = [dict(n) for n in cur.fetchall()]
+    arvore = _montar_arvore_nos(nos)
+    arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
+    if hide_zeros:
+        arvore_val = _prune_zero_nodes(arvore_val)
+        _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
+    cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (mascara_id,))
+    mascara_sel = cur.fetchone()
+    cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+    empresa = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            page_width = self.w - self.l_margin - self.r_margin
+            self.cell(page_width, 6, "Demonstração do Resultado (DRE)", 0, 1, "C")
+            self.set_font("Arial", "", 10)
+            empresa_nome = empresa["razao_social_nome"] if empresa else ""
+            periodo = (
+                datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+                + " a "
+                + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+            )
+            subtitulo = f"{empresa_nome} | {periodo}"
+            self.cell(page_width, 5, subtitulo, 0, 1, "C")
+            if mascara_sel:
+                self.cell(page_width, 5, f"Máscara: {mascara_sel['nome']}", 0, 1, "C")
+            self.ln(2)
+
+    pdf = PDF()
+    pdf.set_auto_page_break(True, 15)
+    pdf.add_page()
+
+    def render_lines(nos, nivel=0):
+        indent = 5 * nivel
+        for n in nos:
+            # Definições de layout
+            left_margin = pdf.l_margin + indent
+            page_width = pdf.w - pdf.l_margin - pdf.r_margin
+            value_col_w = 45
+            title_w = page_width - value_col_w - indent
+
+            # Fonte por tipo
+            is_group = (n.get("tipo") == "grupo")
+            pdf.set_font("Arial", "B" if is_group else "", 10)
+
+            # Título
+            # Estilos para grupo (subtotais): sombreamento + borda
+            fill = False
+            border = 0
+            if is_group:
+                pdf.set_fill_color(240, 240, 240)
+                fill = True
+                border = "TB"
+
+            # Título
+            pdf.set_x(left_margin)
+            pdf.cell(title_w, 6, str(n.get("titulo") or ""), border, 0, "L", fill)
+
+            # Valor
+            valor_fmt = format_currency(n.get("valor") or 0)
+            pdf.cell(value_col_w, 6, valor_fmt, border, 1, "R", fill)
+
+            # Filhos
+            filhos = n.get("filhos") or []
+            if filhos:
+                render_lines(filhos, nivel + 1)
+
+    render_lines(arvore_val, 0)
+
+    # Total
+    pdf.ln(2)
+    pdf.set_font("Arial", "B", 11)
+    page_width = pdf.w - pdf.l_margin - pdf.r_margin
+    pdf.set_fill_color(230, 230, 230)
+    pdf.cell(page_width - 45, 7, "Total do Período", "TB", 0, "L", True)
+    pdf.cell(45, 7, format_currency(total), "TB", 1, "R", True)
+
+    output = pdf.output(dest="S").encode("latin1", "ignore")
+    filename = f"dre_{mascara_sel['nome'] if mascara_sel else 'mascara'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return send_file(io.BytesIO(output), mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 # --- Módulo de Administração do Sistema ---
 @app.route("/admin/backup", methods=["GET", "POST"])

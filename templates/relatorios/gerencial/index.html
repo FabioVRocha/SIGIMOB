@@ -6,6 +6,16 @@
 
 {% block content %}
 <div class="p-6 bg-white shadow rounded">
-    <p class="text-medium-gray">Em construção...</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a href="{{ url_for('relatorio_dre') }}" class="card block">
+            <div class="flex items-center">
+                <i class="fas fa-chart-line text-icon-purple text-3xl mr-4"></i>
+                <div>
+                    <h2 class="text-lg font-semibold">DRE</h2>
+                    <p class="text-gray-600">Demonstração do Resultado customizável por máscara.</p>
+                </div>
+            </div>
+        </a>
+    </div>
 </div>
 {% endblock %}

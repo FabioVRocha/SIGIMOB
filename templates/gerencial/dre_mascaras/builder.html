@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Builder Máscara DRE{% endblock %}
+{% block page_title %}Builder Máscara DRE - {{ mascara.nome }}{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Coluna: Adicionar Item -->
+  <div class="bg-white p-6 shadow rounded">
+    <h3 class="text-lg font-semibold mb-4">Adicionar Item</h3>
+    <form method="post" action="{{ url_for('dre_nos_add') }}">
+      <input type="hidden" name="mascara_id" value="{{ mascara.id }}">
+      <div class="form-group">
+        <label class="form-label">Pai</label>
+        <select name="parent_id" class="form-select">
+          <option value="">(Raiz)</option>
+          {% for p in pais %}
+          <option value="{{ p.id }}">{{ p.titulo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select name="tipo" class="form-select" required>
+          <option value="grupo">Grupo</option>
+          <option value="receita">Receita</option>
+          <option value="despesa">Despesa</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Título</label>
+        <input type="text" name="titulo" class="form-input" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ordem</label>
+        <input type="number" name="ordem" class="form-input" placeholder="0">
+      </div>
+      <button type="submit" class="btn btn-add"><i class="fas fa-plus mr-2"></i>Adicionar</button>
+    </form>
+
+    <hr class="my-6">
+    <a href="{{ url_for('dre_mascaras_list') }}" class="btn btn-secondary">Voltar</a>
+    <a href="{{ url_for('relatorio_dre') }}" class="btn btn-primary ml-2"><i class="fas fa-chart-line mr-2"></i>Ver Relatório DRE</a>
+  </div>
+
+  <!-- Coluna: Árvore -->
+  <div class="bg-white p-6 shadow rounded lg:col-span-2">
+    <h3 class="text-lg font-semibold mb-4">Estrutura da Máscara</h3>
+    {% macro render_nos(nos, nivel=0, parent_id=None) %}
+      <ul class="dre-list" data-parent-id="{{ parent_id if parent_id is not none else '' }}" style="margin-left: {{ 18 * nivel }}px;">
+        {% for n in nos %}
+          <li class="mb-2 dre-item" data-id="{{ n.id }}">
+            <div class="flex items-center justify-between p-2 rounded border border-gray-200 {{ 'bg-gray-50' if n.tipo=='grupo' else '' }}">
+              <div>
+                <span class="text-sm text-gray-500 mr-2">{{ n.ordem or 0 }}</span>
+                <span class="font-semibold">{{ n.titulo }}</span>
+                <span class="ml-2 px-2 py-0.5 text-xs rounded {{ 'bg-blue-100 text-blue-700' if n.tipo=='receita' else ('bg-red-100 text-red-700' if n.tipo=='despesa' else 'bg-gray-100 text-gray-700') }}">{{ n.tipo|capitalize }}</span>
+              </div>
+              <div class="space-x-2">
+                {% if n.tipo != 'grupo' %}
+                  <a class="btn btn-primary" href="{{ url_for('dre_mascaras_builder', id=mascara.id) }}?no_id={{ n.id }}"><i class="fas fa-link mr-1"></i>Mapear</a>
+                {% endif %}
+              </div>
+            </div>
+            {% if n.filhos %}
+              {{ render_nos(n.filhos, nivel+1, n.id) }}
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endmacro %}
+
+    {% if arvore %}
+      {{ render_nos(arvore, 0, None) }}
+    {% else %}
+      <p class="text-gray-500">Nenhum item adicionado ainda.</p>
+    {% endif %}
+
+    {% if no %}
+      <hr class="my-6">
+      <h3 class="text-lg font-semibold mb-2">Mapeamento do item: <span class="text-gray-700">{{ no.titulo }}</span> <span class="ml-2 px-2 py-0.5 text-xs rounded {{ 'bg-blue-100 text-blue-700' if no.tipo=='receita' else 'bg-red-100 text-red-700' }}">{{ no.tipo|capitalize }}</span></h3>
+      <form method="post" action="{{ url_for('dre_nos_map', no_id=no.id) }}">
+        {% if no.tipo == 'receita' %}
+          <div class="form-group">
+            <label class="form-label">Receitas vinculadas</label>
+            <select name="receitas" multiple size="10" class="form-select">
+              {% for r in receitas %}
+                <option value="{{ r.id }}" {% if r.id in mapeadas_receitas %}selected{% endif %}>{{ r.descricao }}</option>
+              {% endfor %}
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Segure Ctrl (Windows) ou Cmd (Mac) para selecionar múltiplas.</p>
+          </div>
+        {% elif no.tipo == 'despesa' %}
+          <div class="form-group">
+            <label class="form-label">Despesas vinculadas</label>
+            <select name="despesas" multiple size="10" class="form-select">
+              {% for d in despesas %}
+                <option value="{{ d.id }}" {% if d.id in mapeadas_despesas %}selected{% endif %}>{{ d.descricao }}</option>
+              {% endfor %}
+            </select>
+            <p class="text-xs text-gray-500 mt-1">Segure Ctrl (Windows) ou Cmd (Mac) para selecionar múltiplas.</p>
+          </div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-2"></i>Salvar Mapeamento</button>
+        <a href="{{ url_for('dre_mascaras_builder', id=mascara.id) }}" class="btn btn-secondary ml-2">Fechar</a>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+  (function(){
+    function collectIds(listEl){
+      const items = listEl.querySelectorAll('.dre-item');
+      return Array.from(items).map(li => li.dataset.id);
+    }
+    function syncList(listEl){
+      const parentId = listEl.getAttribute('data-parent-id') || null;
+      const ids = collectIds(listEl);
+      fetch('{{ url_for('dre_nos_reorder') }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mascara_id: {{ mascara.id }},
+          parent_id: parentId,
+          ids: ids
+        })
+      }).then(r => r.json()).then(resp => {
+        if(!resp.ok){ console.error('Erro ao reordenar:', resp.error); }
+      }).catch(err => console.error('Falha ao reordenar:', err));
+    }
+
+    const lists = document.querySelectorAll('.dre-list');
+    lists.forEach(list => {
+      new Sortable(list, {
+        group: 'dre',
+        animation: 150,
+        ghostClass: 'bg-yellow-50',
+        onEnd: function(evt){
+          // Sincroniza lista de origem e destino (caso diferentes)
+          syncList(evt.to);
+          if(evt.from !== evt.to){ syncList(evt.from); }
+        }
+      });
+    });
+  })();
+  </script>
+{% endblock %}

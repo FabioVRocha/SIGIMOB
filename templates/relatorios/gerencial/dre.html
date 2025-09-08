@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório DRE{% endblock %}
+{% block page_title %}Relatório DRE{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 shadow rounded">
+  <form method="post" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+    <div>
+      <label class="form-label">Máscara</label>
+      <select name="mascara_id" class="form-select" required>
+        <option value="">Selecione...</option>
+        {% for m in mascaras %}
+          <option value="{{ m.id }}" {% if mascara_sel and mascara_sel.id==m.id %}selected{% endif %}>{{ m.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Base</label>
+      <select name="base" class="form-select">
+        <option value="caixa" {% if base=='caixa' %}selected{% endif %}>Caixa (pagamentos/recebimentos)</option>
+        <option value="competencia" {% if base=='competencia' %}selected{% endif %}>Competência (vencimentos)</option>
+      </select>
+    </div>
+    <div>
+      <label class="form-label">Início</label>
+      <input type="date" name="data_inicio" class="form-input" value="{{ data_inicio or '' }}" required>
+    </div>
+    <div>
+      <label class="form-label">Fim</label>
+      <input type="date" name="data_fim" class="form-input" value="{{ data_fim or '' }}" required>
+    </div>
+    <div class="flex items-end">
+      <button type="submit" class="btn btn-primary w-full"><i class="fas fa-search mr-2"></i>Gerar</button>
+    </div>
+    <div class="md:col-span-5 flex items-center">
+      <input type="checkbox" id="hide_zeros" name="hide_zeros" value="1" class="mr-2" {% if hide_zeros %}checked{% endif %}>
+      <label for="hide_zeros">Ocultar linhas com valor zero</label>
+    </div>
+  </form>
+</div>
+
+{% if resultado %}
+<div class="bg-white p-6 shadow rounded mt-6">
+  <div class="flex justify-between items-center mb-4">
+    <div>
+      <h3 class="text-lg font-semibold">{{ mascara_sel.nome }}</h3>
+      <p class="text-gray-500">{{ resultado.empresa }} | {{ resultado.periodo }}</p>
+    </div>
+    <div>
+      <form method="post" action="{{ url_for('relatorio_dre_pdf') }}" target="_blank" class="inline">
+        <input type="hidden" name="mascara_id" value="{{ mascara_sel.id }}">
+        <input type="hidden" name="base" value="{{ base }}">
+        <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
+        <input type="hidden" name="data_fim" value="{{ data_fim }}">
+        {% if hide_zeros %}
+        <input type="hidden" name="hide_zeros" value="1">
+        {% endif %}
+        <button type="submit" class="btn btn-primary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
+      </form>
+    </div>
+  </div>
+
+  {% macro render_dre(nos, nivel=0) %}
+    <ul class="ml-{{ 2 * nivel }}">
+      {% for n in nos %}
+        <li class="py-1">
+          <div class="flex justify-between">
+            <div>
+              <span class="text-sm text-gray-400 mr-2">{{ n.ordem or 0 }}</span>
+              <span class="{{ 'font-semibold' if n.tipo=='grupo' else '' }}">{{ n.titulo }}</span>
+            </div>
+            <div class="text-right {{ 'font-bold' if n.tipo=='grupo' else '' }}">
+              {{ n.valor|currency }}
+            </div>
+          </div>
+          {% if n.filhos %}
+            {{ render_dre(n.filhos, nivel+1) }}
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endmacro %}
+
+  {{ render_dre(resultado.arvore) }}
+
+  <hr class="my-4">
+  <div class="flex justify-between text-lg">
+    <div class="font-semibold">Total do Período</div>
+    <div class="font-bold">{{ resultado.total|currency }}</div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
