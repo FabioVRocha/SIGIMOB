@@ -1920,6 +1920,15 @@ def contratos_add():
             valor_calcao = request.form.get("valor_calcao")
             status_contrato = request.form["status_contrato"]
             observacao = request.form.get("observacao")
+            vencimento_mesmo_dia = request.form.get("vencimento_mesmo_dia")
+            dias_intervalo = request.form.get("dias_intervalo")
+            if finalidade != "Comodato":
+                if (vencimento_mesmo_dia and dias_intervalo) or (
+                    not vencimento_mesmo_dia and not dias_intervalo
+                ):
+                    raise ValueError(
+                        "Informe apenas um dos campos: Vencimento no mesmo dia ou Dias e intervalo"
+                    )
 
             # Para contratos de Comodato não há contas a receber; força valores neutros
             if finalidade == "Comodato":
@@ -1998,26 +2007,62 @@ def contratos_add():
                     receita_id = cur.fetchone()[0]
 
                 total_parcelas = int(quantidade_parcelas)
-                for numero in range(1, total_parcelas + 1):
-                    titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
-                    vencimento = data_inicio + timedelta(days=30 * numero)
-                    cur.execute(
-                        """
-                        INSERT INTO contas_a_receber (
-                            contrato_id, receita_id, cliente_id, titulo,
-                            data_vencimento, valor_previsto, valor_pendente
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                        """,
-                        (
-                            contrato_id,
-                            receita_id,
-                            cliente_id,
-                            titulo_parcela,
-                            vencimento,
-                            valor_parcela,
-                            valor_parcela,
-                        ),
-                    )
+                if vencimento_mesmo_dia:
+                    due_day = int(vencimento_mesmo_dia)
+
+                    def add_months(start_date, months):
+                        month = start_date.month - 1 + months
+                        year = start_date.year + month // 12
+                        month = month % 12 + 1
+                        day = min(start_date.day, calendar.monthrange(year, month)[1])
+                        return date(year, month, day)
+
+                    for numero in range(1, total_parcelas + 1):
+                        titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
+                        target_month = add_months(data_inicio, numero)
+                        last_day = calendar.monthrange(target_month.year, target_month.month)[1]
+                        day = min(due_day, last_day)
+                        vencimento = target_month.replace(day=day)
+                        cur.execute(
+                            """
+                            INSERT INTO contas_a_receber (
+                                contrato_id, receita_id, cliente_id, titulo,
+                                data_vencimento, valor_previsto, valor_pendente
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                contrato_id,
+                                receita_id,
+                                cliente_id,
+                                titulo_parcela,
+                                vencimento,
+                                valor_parcela,
+                                valor_parcela,
+                            ),
+                        )
+                else:
+                    intervalo = int(dias_intervalo)
+                    vencimento = data_inicio
+                    for numero in range(1, total_parcelas + 1):
+                        titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
+                        vencimento = vencimento + timedelta(days=intervalo)
+                        cur.execute(
+                            """
+                            INSERT INTO contas_a_receber (
+                                contrato_id, receita_id, cliente_id, titulo,
+                                data_vencimento, valor_previsto, valor_pendente
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            """,
+                            (
+                                contrato_id,
+                                receita_id,
+                                cliente_id,
+                                titulo_parcela,
+                                vencimento,
+                                valor_parcela,
+                                valor_parcela,
+                            ),
+                        )
 
                 # Receitas de calção (quando houver)
                 if quantidade_calcao > 0 and valor_calcao:

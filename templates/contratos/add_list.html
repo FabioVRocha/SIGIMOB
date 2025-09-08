@@ -18,7 +18,9 @@
     #imovel-modal tbody tr:nth-child(odd), #cliente-modal tbody tr:nth-child(odd) { background-color: var(--clr-white); }
     #imovel-modal tbody tr:nth-child(even), #cliente-modal tbody tr:nth-child(even) { background-color: var(--clr-light-gray); }
     </style>
-    <form action="{% if contrato.id %}{{ url_for('contratos_edit', id=contrato.id) }}{% else %}{{ url_for('contratos_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
+    <form id="contrato-form" action="{% if contrato.id %}{{ url_for('contratos_edit', id=contrato.id) }}{% else %}{{ url_for('contratos_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" id="vencimento_mesmo_dia_field" name="vencimento_mesmo_dia">
+        <input type="hidden" id="dias_intervalo_field" name="dias_intervalo">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div class="form-group">
                 <label for="imovel_display" class="form-label">Imóvel:</label>
@@ -205,6 +207,25 @@
                 </tbody>
             </table>
         </div>
+</div>
+</div>
+
+<div id="vencimento-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeVencimentoModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Configurar Vencimento</h2>
+        <div class="form-group mb-4">
+            <label for="modal_vencimento_mesmo_dia" class="form-label">Vencimento no mesmo dia:</label>
+            <input type="number" id="modal_vencimento_mesmo_dia" class="form-input">
+        </div>
+        <div class="form-group mb-4">
+            <label for="modal_dias_intervalo" class="form-label">Dias e intervalo:</label>
+            <input type="number" id="modal_dias_intervalo" class="form-input">
+        </div>
+        <div class="flex justify-end space-x-4 mt-6">
+            <button type="button" class="btn-secondary" onclick="closeVencimentoModal()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="confirmarVencimento()">Confirmar</button>
+        </div>
     </div>
 </div>
 
@@ -261,6 +282,31 @@ function selectCliente(btn){
     closeClienteModal();
 }
 
+function openVencimentoModal(){
+    document.getElementById('vencimento-modal').style.display = 'flex';
+}
+function closeVencimentoModal(){
+    document.getElementById('vencimento-modal').style.display = 'none';
+}
+function confirmarVencimento(){
+    const mesmoDia = document.getElementById('modal_vencimento_mesmo_dia').value;
+    const intervalo = document.getElementById('modal_dias_intervalo').value;
+    if (mesmoDia && intervalo) {
+        alert('Preencha apenas um dos campos.');
+        return;
+    }
+    if (!mesmoDia && !intervalo) {
+        alert('Preencha um dos campos.');
+        return;
+    }
+    document.getElementById('vencimento_mesmo_dia_field').value = mesmoDia;
+    document.getElementById('dias_intervalo_field').value = intervalo;
+    const form = document.getElementById('contrato-form');
+    form.dataset.vencimentoReady = 'true';
+    closeVencimentoModal();
+    form.submit();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Ajusta campos conforme a finalidade ao carregar
     toggleCamposPorFinalidade();
@@ -281,6 +327,32 @@ document.addEventListener('DOMContentLoaded', () => {
             selectCliente(btn);
         });
     });
+    
+    const modalVencimento = document.getElementById('modal_vencimento_mesmo_dia');
+    const modalIntervalo = document.getElementById('modal_dias_intervalo');
+    if (modalVencimento && modalIntervalo) {
+        modalVencimento.addEventListener('input', () => {
+            modalIntervalo.disabled = modalVencimento.value !== '';
+        });
+        modalIntervalo.addEventListener('input', () => {
+            modalVencimento.disabled = modalIntervalo.value !== '';
+        });
+    }
+
+    {% if not contrato.id %}
+    const form = document.getElementById('contrato-form');
+    if (form) {
+        form.addEventListener('submit', (e) => {
+            if (!form.dataset.vencimentoReady) {
+                const finalidadeSel = document.getElementById('finalidade');
+                if (finalidadeSel && finalidadeSel.value !== 'Comodato') {
+                    e.preventDefault();
+                    openVencimentoModal();
+                }
+            }
+        });
+    }
+    {% endif %}
 });
 </script>
 {% endblock %}
