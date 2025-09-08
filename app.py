@@ -4614,21 +4614,22 @@ def relatorio_financeiro_despesas_imovel():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
     query = (
-        "SELECT cp.data_vencimento, cp.titulo, p.razao_social_nome AS fornecedor, "
-        "d.descricao AS despesa, cp.valor_previsto "
+        "SELECT cp.data_pagamento, cp.titulo, p.razao_social_nome AS fornecedor, "
+        "d.descricao AS despesa, cp.valor_pago "
         "FROM contas_a_pagar cp "
         "JOIN pessoas p ON cp.fornecedor_id = p.id "
         "LEFT JOIN despesas_cadastro d ON cp.despesa_id = d.id "
-        "WHERE cp.imovel_id = %s AND cp.data_vencimento BETWEEN %s AND %s"
+        "WHERE cp.imovel_id = %s AND cp.data_pagamento BETWEEN %s AND %s "
+        "AND cp.status = 'Paga'"
     )
     params = [imovel_id, data_inicio, data_fim]
     if despesa_id:
         query += " AND cp.despesa_id = %s"
         params.append(despesa_id)
-    query += " ORDER BY cp.data_vencimento ASC"
+    query += " ORDER BY cp.data_pagamento ASC"
     cur.execute(query, params)
     contas = cur.fetchall()
-    total_valor = sum(c["valor_previsto"] for c in contas)
+    total_valor = sum(c["valor_pago"] for c in contas)
 
     cur.execute(
         "SELECT tipo_imovel, endereco, cidade, estado FROM imoveis WHERE id = %s",
@@ -4674,11 +4675,11 @@ def relatorio_financeiro_despesas_imovel():
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(200, 200, 200)
     headers = [
-        ("Data Vencimento", 25),
+        ("Data Pagamento", 25),
         ("Título", 45),
         ("Fornecedor", 50),
         ("Despesas", 40),
-        ("Valor", 30),
+        ("Valor Pago", 30),
     ]
     for text, width in headers:
         pdf.cell(width, 8, text, 1, 0, "C", True)
@@ -4697,11 +4698,11 @@ def relatorio_financeiro_despesas_imovel():
         return text + "..."
 
     for c in contas:
-        pdf.cell(25, 8, c["data_vencimento"].strftime("%d/%m/%Y"), 1)
+        pdf.cell(25, 8, c["data_pagamento"].strftime("%d/%m/%Y"), 1)
         pdf.cell(45, 8, truncate_text(c["titulo"], 43), 1)
         pdf.cell(50, 8, truncate_text(c["fornecedor"], 48), 1)
         pdf.cell(40, 8, truncate_text(c["despesa"] or "", 38), 1)
-        pdf.cell(30, 8, format_currency(c["valor_previsto"]), 1, 1, "R")
+        pdf.cell(30, 8, format_currency(c["valor_pago"]), 1, 1, "R")
 
     pdf.set_font("Arial", "B", 10)
     pdf.cell(160, 8, "Total", 1, 0, "R")
