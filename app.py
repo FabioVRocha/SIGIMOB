@@ -5349,8 +5349,10 @@ def dre_nos_map(no_id):
 
 
 def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
+    total = Decimal("0")
     if tipo == "receita":
         if base == "caixa":
+            # Contas a receber pagas
             cur.execute(
                 """
                 SELECT COALESCE(SUM(cr.valor_pago),0) AS total
@@ -5361,7 +5363,25 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                 """,
                 (no_id, data_inicio, data_fim),
             )
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
+
+            # Entradas diretas (Movimento Financeiro)
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(mf.valor),0) AS total
+                  FROM movimento_financeiro mf
+                  JOIN dre_no_receitas dmr ON dmr.receita_id = mf.receita_id AND dmr.no_id = %s
+                 WHERE mf.tipo = 'entrada'
+                   AND mf.data_movimento BETWEEN %s AND %s
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CR-%')
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
         else:  # competencia
+            # Contas a receber por vencimento
             cur.execute(
                 """
                 SELECT COALESCE(SUM(cr.valor_previsto),0) AS total
@@ -5371,8 +5391,26 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                 """,
                 (no_id, data_inicio, data_fim),
             )
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
+
+            # Previsões diretas (Movimento Financeiro)
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(mf.valor_previsto, mf.valor)),0) AS total
+                  FROM movimento_financeiro mf
+                  JOIN dre_no_receitas dmr ON dmr.receita_id = mf.receita_id AND dmr.no_id = %s
+                 WHERE mf.tipo = 'entrada'
+                   AND mf.data_movimento BETWEEN %s AND %s
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CR-%')
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
     else:  # despesa
         if base == "caixa":
+            # Contas a pagar pagas
             cur.execute(
                 """
                 SELECT COALESCE(SUM(cp.valor_pago),0) AS total
@@ -5383,7 +5421,25 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                 """,
                 (no_id, data_inicio, data_fim),
             )
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
+
+            # Saídas diretas (Movimento Financeiro)
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(mf.valor),0) AS total
+                  FROM movimento_financeiro mf
+                  JOIN dre_no_despesas dmd ON dmd.despesa_id = mf.despesa_id AND dmd.no_id = %s
+                 WHERE mf.tipo = 'saida'
+                   AND mf.data_movimento BETWEEN %s AND %s
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CP-%')
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
         else:
+            # Contas a pagar por vencimento
             cur.execute(
                 """
                 SELECT COALESCE(SUM(cp.valor_previsto),0) AS total
@@ -5393,8 +5449,25 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                 """,
                 (no_id, data_inicio, data_fim),
             )
-    row = cur.fetchone()
-    return Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
+
+            # Previsões diretas (Movimento Financeiro)
+            cur.execute(
+                """
+                SELECT COALESCE(SUM(COALESCE(mf.valor_previsto, mf.valor)),0) AS total
+                  FROM movimento_financeiro mf
+                  JOIN dre_no_despesas dmd ON dmd.despesa_id = mf.despesa_id AND dmd.no_id = %s
+                 WHERE mf.tipo = 'saida'
+                   AND mf.data_movimento BETWEEN %s AND %s
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CP-%')
+                """,
+                (no_id, data_inicio, data_fim),
+            )
+            row = cur.fetchone()
+            total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
+
+    return total
 
 
 def _calcular_totais(cur, arvore, base, data_inicio, data_fim):
