@@ -5374,7 +5374,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                   JOIN dre_no_receitas dmr ON dmr.receita_id = mf.receita_id AND dmr.no_id = %s
                  WHERE mf.tipo = 'entrada'
                    AND mf.data_movimento BETWEEN %s AND %s
-                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CR-%')
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CR-%%')
                 """,
                 (no_id, data_inicio, data_fim),
             )
@@ -5402,7 +5402,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                   JOIN dre_no_receitas dmr ON dmr.receita_id = mf.receita_id AND dmr.no_id = %s
                  WHERE mf.tipo = 'entrada'
                    AND mf.data_movimento BETWEEN %s AND %s
-                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CR-%')
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CR-%%')
                 """,
                 (no_id, data_inicio, data_fim),
             )
@@ -5432,7 +5432,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                   JOIN dre_no_despesas dmd ON dmd.despesa_id = mf.despesa_id AND dmd.no_id = %s
                  WHERE mf.tipo = 'saida'
                    AND mf.data_movimento BETWEEN %s AND %s
-                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CP-%')
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CP-%%')
                 """,
                 (no_id, data_inicio, data_fim),
             )
@@ -5460,7 +5460,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
                   JOIN dre_no_despesas dmd ON dmd.despesa_id = mf.despesa_id AND dmd.no_id = %s
                  WHERE mf.tipo = 'saida'
                    AND mf.data_movimento BETWEEN %s AND %s
-                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CP-%')
+                   AND (mf.documento IS NULL OR mf.documento NOT LIKE 'CP-%%')
                 """,
                 (no_id, data_inicio, data_fim),
             )
