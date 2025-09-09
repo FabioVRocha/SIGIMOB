@@ -39,8 +39,14 @@
     </form>
 
     <hr class="my-6">
-    <a href="{{ url_for('dre_mascaras_list') }}" class="btn btn-secondary">Voltar</a>
-    <a href="{{ url_for('relatorio_dre') }}" class="btn btn-primary ml-2"><i class="fas fa-chart-line mr-2"></i>Ver Relatório DRE</a>
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ url_for('dre_mascaras_list') }}" class="btn btn-secondary">Voltar</a>
+      <a href="{{ url_for('dre_mascaras_edit', id=mascara.id) }}" class="btn btn-primary"><i class="fas fa-pen mr-2"></i>Editar Máscara</a>
+      <a href="{{ url_for('relatorio_dre') }}" class="btn btn-primary"><i class="fas fa-chart-line mr-2"></i>Ver Relatório DRE</a>
+      <form method="post" action="{{ url_for('dre_mascaras_estrutura_delete', id=mascara.id) }}" onsubmit="return confirm('Excluir TODA a estrutura (todos os itens) desta máscara? Esta ação não pode ser desfeita.');">
+        <button type="submit" class="btn bg-red-600 text-white hover:bg-red-700"><i class="fas fa-trash mr-2"></i>Excluir Estrutura</button>
+      </form>
+    </div>
   </div>
 
   <!-- Coluna: Árvore -->

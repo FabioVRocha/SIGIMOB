@@ -5232,6 +5232,26 @@ def dre_mascaras_builder(id):
     )
 
 
+@app.route("/gerencial/dre/mascaras/<int:id>/estrutura/delete", methods=["POST"])
+@login_required
+@permission_required("Administracao Sistema", "Excluir")
+def dre_mascaras_estrutura_delete(id):
+    """Exclui toda a estrutura (nós) de uma máscara, mantendo a máscara."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM dre_nos WHERE mascara_id=%s", (id,))
+        conn.commit()
+        flash("Estrutura da máscara excluída com sucesso.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir estrutura: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("dre_mascaras_builder", id=id))
+
+
 @app.route("/gerencial/dre/nos/add", methods=["POST"])
 @login_required
 @permission_required("Administracao Sistema", "Editar")
