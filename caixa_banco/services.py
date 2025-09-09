@@ -43,6 +43,7 @@ def atualizar_movimento(movimento, data):
     """Atualiza um movimento existente ajustando saldos."""
     # Reverte efeito anterior
     valor_antigo = movimento.valor
+    data_antiga = movimento.data_movimento
     if movimento.tipo == 'entrada':
         atualizar_saldo(movimento.conta_origem_tipo, movimento.conta_origem_id, -valor_antigo)
     elif movimento.tipo == 'saida':
@@ -51,6 +52,13 @@ def atualizar_movimento(movimento, data):
         atualizar_saldo(movimento.conta_origem_tipo, movimento.conta_origem_id, valor_antigo)
         if movimento.conta_destino_id:
             atualizar_saldo(movimento.conta_destino_tipo, movimento.conta_destino_id, -valor_antigo)
+
+    data_mov = data.get('data_movimento')
+    if isinstance(data_mov, str):
+        try:
+            data['data_movimento'] = datetime.strptime(data_mov, '%Y-%m-%d').date()
+        except ValueError:
+            data['data_movimento'] = data_antiga
 
     for key, value in data.items():
         setattr(movimento, key, value)
@@ -68,7 +76,7 @@ def atualizar_movimento(movimento, data):
 
     db.session.commit()
     # Recalcula posições a partir da menor data envolvida
-    data_ref = min(movimento.data_movimento, data.get('data_movimento', movimento.data_movimento))
+    data_ref = min(data_antiga, movimento.data_movimento)
     recalcular_posicoes(data_ref)
     return movimento
 
