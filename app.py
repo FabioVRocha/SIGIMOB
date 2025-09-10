@@ -158,6 +158,49 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
     put("MatriculaImovel", contrato.get("matricula"))
     put("InscricaoIPTU", contrato.get("inscricao_iptu"))
 
+    # Campos derivados solicitados para modelos de contrato
+    # 1) Mês e ano do início do contrato (ex: "Janeiro de 2025")
+    data_inicio_dt = contrato.get("data_inicio")
+    if data_inicio_dt:
+        meses_pt = [
+            "",
+            "Janeiro",
+            "Fevereiro",
+            "Março",
+            "Abril",
+            "Maio",
+            "Junho",
+            "Julho",
+            "Agosto",
+            "Setembro",
+            "Outubro",
+            "Novembro",
+            "Dezembro",
+        ]
+        put("MesEAnoInicioContrato", f"{meses_pt[data_inicio_dt.month]} de {data_inicio_dt.year}")
+    else:
+        put("MesEAnoInicioContrato", "")
+
+    # 2) Dia do vencimento e 3) Data do Primeiro Vencimento
+    # Considera apenas parcelas de aluguel (ignora títulos de calção que começam com 'C')
+    cur.execute(
+        """
+        SELECT MIN(data_vencimento) AS primeiro
+          FROM contas_a_receber
+         WHERE contrato_id = %s
+           AND (titulo IS NULL OR titulo NOT LIKE 'C%%')
+        """,
+        (contrato_id,),
+    )
+    row_first = cur.fetchone()
+    primeiro_venc = row_first["primeiro"] if row_first and row_first.get("primeiro") else None
+    if primeiro_venc:
+        put("DiaVencimento", str(primeiro_venc.day))
+        put("DataPrimeiroVencimento", primeiro_venc.strftime("%d/%m/%Y"))
+    else:
+        put("DiaVencimento", "")
+        put("DataPrimeiroVencimento", "")
+
     # Empresa licenciada
     if empresa:
         put("EmpresaNome", empresa.get("razao_social_nome"))
