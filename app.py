@@ -4761,7 +4761,7 @@ def relatorio_financeiro_despesas_imovel():
         "JOIN pessoas p ON cp.fornecedor_id = p.id "
         "LEFT JOIN despesas_cadastro d ON cp.despesa_id = d.id "
         "WHERE cp.imovel_id = %s AND cp.data_pagamento BETWEEN %s AND %s "
-        "AND cp.status = 'Paga'"
+        "AND cp.status_conta = 'Paga'"
     )
     params = [imovel_id, data_inicio, data_fim]
     if despesa_id:
