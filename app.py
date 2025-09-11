@@ -178,8 +178,29 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
             "Dezembro",
         ]
         put("MesEAnoInicioContrato", f"{meses_pt[data_inicio_dt.month]} de {data_inicio_dt.year}")
+        # Data de início por extenso, com mês em minúsculas (ex: "10 de janeiro de 2025")
+        meses_pt_lower = [
+            "",
+            "janeiro",
+            "fevereiro",
+            "março",
+            "abril",
+            "maio",
+            "junho",
+            "julho",
+            "agosto",
+            "setembro",
+            "outubro",
+            "novembro",
+            "dezembro",
+        ]
+        put(
+            "DataInicioExtenso",
+            f"{data_inicio_dt.day} de {meses_pt_lower[data_inicio_dt.month]} de {data_inicio_dt.year}",
+        )
     else:
         put("MesEAnoInicioContrato", "")
+        put("DataInicioExtenso", "")
 
     # 2) Dia do vencimento e 3) Data do Primeiro Vencimento
     # Considera apenas parcelas de aluguel (ignora títulos de calção que começam com 'C')
