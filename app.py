@@ -4877,7 +4877,16 @@ def relatorios_contas_a_pagar():
 @app.route("/relatorios/contas-a-receber")
 @login_required
 def relatorios_contas_a_receber():
-    return render_template("relatorios/contas_a_receber/index.html")
+    # Carrega lista de receitas para filtro opcional
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+    try:
+        cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
+        receitas = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+    return render_template("relatorios/contas_a_receber/index.html", receitas=receitas)
 
 
 @app.route("/relatorios/contas-a-receber/recebimento-inquilino", methods=["POST"])
@@ -4890,6 +4899,7 @@ def relatorio_recebimento_por_inquilino():
     """
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
+    receitas_ids = [int(x) for x in request.form.getlist("receitas_ids") if str(x).strip()]
 
     if not (data_inicio and data_fim):
         flash("Informe o período.", "warning")
@@ -4933,10 +4943,15 @@ def relatorio_recebimento_por_inquilino():
             ) mf ON TRUE
          WHERE cr.data_pagamento IS NOT NULL
            AND cr.data_pagamento BETWEEN %s AND %s
-         ORDER BY cr.data_pagamento ASC, cr.id ASC
         """
     )
-    cur.execute(query, (data_inicio, data_fim))
+    params = [data_inicio, data_fim]
+    if receitas_ids:
+        placeholders = ",".join(["%s"] * len(receitas_ids))
+        query += f" AND cr.receita_id IN ({placeholders})"
+        params.extend(receitas_ids)
+    query += " ORDER BY cr.data_pagamento ASC, cr.id ASC"
+    cur.execute(query, tuple(params))
     rows = cur.fetchall()
     cur.close()
     conn.close()
