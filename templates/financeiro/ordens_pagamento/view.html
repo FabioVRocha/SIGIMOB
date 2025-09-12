@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Ordem #{{ ordem.id }}{% endblock %}
+{% block page_title %}Ordem de Pagamento #{{ ordem.id }}{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Detalhes da Ordem</h2>
+        <div class="space-x-2 flex items-center">
+            <a href="{{ url_for('ordens_pagamento_edit', id=ordem.id) }}" class="btn-primary"><i class="fas fa-edit mr-2"></i>Editar</a>
+            <a href="{{ url_for('ordens_pagamento_print', id=ordem.id) }}" class="btn-secondary" target="_blank"><i class="fas fa-print mr-2"></i>Imprimir</a>
+            <form action="{{ url_for('ordens_pagamento_delete', id=ordem.id) }}" method="POST" onsubmit="return confirm('Tem certeza que deseja excluir esta ordem?');" class="inline">
+                <button type="submit" class="btn-secondary" style="background-color:#dc2626"><i class="fas fa-trash mr-2"></i>Excluir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div><span class="font-semibold">Número:</span> {{ ordem.id }}</div>
+        <div><span class="font-semibold">Emissão:</span> {{ ordem.data_emissao.strftime('%d/%m/%Y %H:%M') }}</div>
+        <div><span class="font-semibold">Imóvel:</span> {{ ordem.imovel_endereco or '-' }}</div>
+        <div><span class="font-semibold">Fornecedor:</span> {{ ordem.fornecedor_nome }}</div>
+        <div><span class="font-semibold">Documento:</span> {{ ordem.fornecedor_documento }}</div>
+        <div><span class="font-semibold">Forma de Pagamento:</span> {{ ordem.forma_pagamento or '-' }}</div>
+        <div><span class="font-semibold">Vencimento:</span> {{ ordem.data_vencimento.strftime('%d/%m/%Y') if ordem.data_vencimento else '-' }}</div>
+    </div>
+
+    <h3 class="text-lg font-semibold mb-2">Serviço</h3>
+    <div class="mb-6">
+        <div><span class="font-semibold">Descrição:</span> {{ ordem.descricao_servico or '-' }}</div>
+        <div><span class="font-semibold">Valor:</span> {{ ordem.valor_servico | currency }}</div>
+    </div>
+
+    <h3 class="text-lg font-semibold mb-2">Produtos</h3>
+    <div class="overflow-x-auto mb-6">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Código</th>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Descrição</th>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Qtd</th>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Unitário</th>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Desc.</th>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in itens %}
+                <tr class="border-b border-gray-200">
+                    <td class="py-2 px-2">{{ it.codigo_produto or '' }}</td>
+                    <td class="py-2 px-2">{{ it.descricao_produto or '' }}</td>
+                    <td class="py-2 px-2">{{ it.quantidade }}</td>
+                    <td class="py-2 px-2">{{ it.valor_unitario | currency }}</td>
+                    <td class="py-2 px-2">{{ it.valor_desconto | currency }}</td>
+                    <td class="py-2 px-2">{{ it.valor_total | currency }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="text-lg font-semibold mb-2">Resumo</h3>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div><span class="font-semibold">Subtotal Serviços:</span> {{ ordem.subtotal_servicos | currency }}</div>
+        <div><span class="font-semibold">Subtotal Produtos:</span> {{ ordem.subtotal_produtos | currency }}</div>
+        <div><span class="font-semibold">Desconto Produtos:</span> {{ ordem.desconto_produtos | currency }}</div>
+        <div><span class="font-semibold">Desconto (Manual):</span> {{ ordem.desconto_manual | currency }}</div>
+        <div class="md:col-span-3"></div>
+        <div><span class="font-semibold">Total:</span> {{ ordem.total | currency }}</div>
+    </div>
+
+    <h3 class="text-lg font-semibold mb-2">Observações</h3>
+    <div class="whitespace-pre-wrap">{{ ordem.observacoes or '-' }}</div>
+
+    <h3 class="text-lg font-semibold mt-6 mb-2">Títulos (Parcelas)</h3>
+    {% if parcelas and parcelas|length > 0 %}
+    <div class="overflow-x-auto mb-6">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Nº</th>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Vencimento</th>
+                    <th class="py-3 px-2 text-left text-sm font-semibold text-white">Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_parc = 0 %}
+                {% for p in parcelas %}
+                {% set _ = namespace(t=0) %}
+                <tr class="border-b border-gray-200">
+                    <td class="py-2 px-2">{{ p.numero or loop.index }}</td>
+                    <td class="py-2 px-2">{{ p.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-2 px-2">{{ p.valor | currency }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-600">Nenhum título cadastrado.</p>
+    {% endif %}
+</div>
+{% endblock %}

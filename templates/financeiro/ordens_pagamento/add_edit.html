@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if ordem else 'Nova' }} Ordem de Pagamento{% endblock %}
+{% block page_title %}{{ 'Editar' if ordem else 'Nova' }} Ordem de Pagamento{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="" method="POST" id="op-form">
+        <!-- 1. Dados da Ordem -->
+        <h2 class="text-xl font-semibold mb-4">Dados da Ordem</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div>
+                <label class="form-label">Número da Ordem</label>
+                <input type="text" class="form-input" value="{{ ordem.id if ordem else 'Automático' }}" disabled>
+            </div>
+            <div>
+                <label class="form-label">Data de Emissão</label>
+                <input type="text" class="form-input" value="{{ ordem.data_emissao.strftime('%d/%m/%Y %H:%M') if ordem else 'Automático' }}" disabled>
+            </div>
+            <div>
+                <label for="imovel_id" class="form-label">Imóvel</label>
+                <select id="imovel_id" name="imovel_id" class="form-input">
+                    <option value="">Selecione</option>
+                    {% for i in imoveis %}
+                    <option value="{{ i.id }}" {% if ordem and ordem.imovel_id == i.id %}selected{% endif %}>{{ i.endereco }} - {{ i.bairro }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="fornecedor_id" class="form-label">Fornecedor</label>
+                <select id="fornecedor_id" name="fornecedor_id" class="form-input" required>
+                    <option value="">Selecione</option>
+                    {% for f in fornecedores %}
+                    <option value="{{ f.id }}" data-documento="{{ f.documento }}" {% if ordem and ordem.fornecedor_id == f.id %}selected{% endif %}>{{ f.razao_social_nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label">CNPJ/CPF do Fornecedor</label>
+                <input type="text" id="fornecedor_documento" class="form-input" value="{{ ordem.fornecedor_documento if ordem else '' }}" disabled>
+            </div>
+            <div>
+                <label for="forma_pagamento" class="form-label">Forma de Pagamento</label>
+                <select id="forma_pagamento" name="forma_pagamento" class="form-input">
+                    {% set fp = ordem.forma_pagamento if ordem else '' %}
+                    {% for opt in ['Boleto','Transferência','PIX','Dinheiro','Cartão','Outros'] %}
+                    <option value="{{ opt }}" {% if fp==opt %}selected{% endif %}>{{ opt }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="data_vencimento" class="form-label">Data de Vencimento</label>
+                <input type="date" id="data_vencimento" name="data_vencimento" class="form-input" value="{{ ordem.data_vencimento if ordem and ordem.data_vencimento else '' }}">
+            </div>
+        </div>
+
+        <!-- 2. Seção de Serviços -->
+        <h2 class="text-xl font-semibold mb-4">Serviço</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="md:col-span-2">
+                <label for="descricao_servico" class="form-label">Descrição do Serviço</label>
+                <input type="text" id="descricao_servico" name="descricao_servico" class="form-input" value="{{ ordem.descricao_servico if ordem else '' }}" placeholder="Descreva o serviço prestado">
+            </div>
+            <div>
+                <label for="valor_servico" class="form-label">Valor do Serviço</label>
+                <input type="text" inputmode="decimal" id="valor_servico" name="valor_servico" class="form-input currency-input" value="{{ (ordem.valor_servico if ordem else 0) | currency }}">
+            </div>
+        </div>
+
+        <!-- 3. Seção de Produtos -->
+        <h2 class="text-xl font-semibold mb-4">Produtos</h2>
+        <div class="mb-3">
+            <button type="button" class="btn-add" onclick="addItemRow()"><i class="fas fa-plus mr-2"></i>Adicionar Item</button>
+        </div>
+        <div class="overflow-x-auto mb-6">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden" id="itens-tabela">
+                <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                    <tr>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Código</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Descrição</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Quantidade</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Valor Unitário</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Desconto</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Total Item</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="itens-body">
+                    {% if itens and itens|length > 0 %}
+                    {% for it in itens %}
+                    <tr>
+                        <td class="py-2 px-2"><input name="item_codigo[]" class="form-input" value="{{ it.codigo_produto }}"></td>
+                        <td class="py-2 px-2"><input name="item_descricao[]" class="form-input" value="{{ it.descricao_produto }}"></td>
+                        <td class="py-2 px-2"><input name="item_quantidade[]" class="form-input number-input" inputmode="decimal" value="{{ it.quantidade }}" oninput="recalc()"></td>
+                        <td class="py-2 px-2"><input name="item_valor_unitario[]" class="form-input currency-input" inputmode="decimal" value="{{ it.valor_unitario | currency }}" oninput="recalc()"></td>
+                        <td class="py-2 px-2"><input name="item_desconto[]" class="form-input currency-input" inputmode="decimal" value="{{ it.valor_desconto | currency }}" oninput="recalc()"></td>
+                        <td class="py-2 px-2"><input class="form-input" value="{{ it.valor_total | currency }}" disabled></td>
+                        <td class="py-2 px-2 text-center"><button type="button" class="text-red-600" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td class="py-2 px-2"><input name="item_codigo[]" class="form-input"></td>
+                        <td class="py-2 px-2"><input name="item_descricao[]" class="form-input"></td>
+                        <td class="py-2 px-2"><input name="item_quantidade[]" class="form-input number-input" inputmode="decimal" value="1" oninput="recalc()"></td>
+                        <td class="py-2 px-2"><input name="item_valor_unitario[]" class="form-input currency-input" inputmode="decimal" value="0" oninput="recalc()"></td>
+                        <td class="py-2 px-2"><input name="item_desconto[]" class="form-input currency-input" inputmode="decimal" value="0" oninput="recalc()"></td>
+                        <td class="py-2 px-2"><input class="form-input" value="R$ 0,00" disabled></td>
+                        <td class="py-2 px-2 text-center"><button type="button" class="text-red-600" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 4. Resumo -->
+        <h2 class="text-xl font-semibold mb-4">Resumo</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div>
+                <label class="form-label">Subtotal Serviços</label>
+                <input type="text" id="subtotal_servicos" class="form-input" value="{{ (ordem.subtotal_servicos if ordem else 0) | currency }}" disabled>
+            </div>
+            <div>
+                <label class="form-label">Subtotal Produtos</label>
+                <input type="text" id="subtotal_produtos" class="form-input" value="{{ (ordem.subtotal_produtos if ordem else 0) | currency }}" disabled>
+            </div>
+            <div>
+                <label class="form-label">Desconto de Produtos</label>
+                <input type="text" id="desconto_produtos" class="form-input" value="{{ (ordem.desconto_produtos if ordem else 0) | currency }}" disabled>
+            </div>
+            <div>
+                <label for="desconto_manual" class="form-label">Valor de Desconto</label>
+                <input type="text" inputmode="decimal" id="desconto_manual" name="desconto_manual" class="form-input currency-input" value="{{ (ordem.desconto_manual if ordem else 0) | currency }}" oninput="recalc()">
+            </div>
+            <div class="md:col-span-3"></div>
+            <div>
+                <label class="form-label font-semibold">Total</label>
+                <input type="text" id="total_geral" class="form-input font-semibold" value="{{ (ordem.total if ordem else 0) | currency }}" disabled>
+            </div>
+        </div>
+
+        <!-- 5. Observações -->
+        <h2 class="text-xl font-semibold mb-4">Observações</h2>
+        <div class="mb-6">
+            <textarea id="observacoes" name="observacoes" class="form-input" rows="3" placeholder="Notas adicionais sobre a ordem de pagamento">{{ ordem.observacoes if ordem else '' }}</textarea>
+        </div>
+
+        <!-- 6. Títulos (Parcelas) -->
+        <h2 class="text-xl font-semibold mb-4">Títulos (Parcelas)</h2>
+        <div class="mb-3 flex items-center space-x-2">
+            <button type="button" class="btn-add" onclick="addParcelaRow()"><i class="fas fa-plus mr-2"></i>Adicionar Parcela</button>
+        </div>
+        <div class="overflow-x-auto mb-4">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden" id="parcelas-tabela">
+                <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                    <tr>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Nº</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Vencimento</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Valor</th>
+                        <th class="py-3 px-2 text-left text-sm font-semibold text-white">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="parcelas-body">
+                    {% if parcelas and parcelas|length > 0 %}
+                    {% for p in parcelas %}
+                    <tr>
+                        <td class="py-2 px-2"><input name="parcela_numero[]" class="form-input number-input" inputmode="numeric" value="{{ p.numero }}"></td>
+                        <td class="py-2 px-2"><input name="parcela_vencimento[]" type="date" class="form-input" value="{{ p.data_vencimento }}"></td>
+                        <td class="py-2 px-2"><input name="parcela_valor[]" class="form-input currency-input" inputmode="decimal" value="{{ p.valor | currency }}" oninput="recalcParcelas()"></td>
+                        <td class="py-2 px-2 text-center"><button type="button" class="text-red-600" onclick="removeParcelaRow(this)"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td class="py-2 px-2"><input name="parcela_numero[]" class="form-input number-input" inputmode="numeric" value="1"></td>
+                        <td class="py-2 px-2"><input name="parcela_vencimento[]" type="date" class="form-input"></td>
+                        <td class="py-2 px-2"><input name="parcela_valor[]" class="form-input currency-input" inputmode="decimal" value="0" oninput="recalcParcelas()"></td>
+                        <td class="py-2 px-2 text-center"><button type="button" class="text-red-600" onclick="removeParcelaRow(this)"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div></div><div></div>
+            <div>
+                <label class="form-label">Total das Parcelas</label>
+                <input type="text" id="total_parcelas" class="form-input" value="R$ 0,00" disabled>
+            </div>
+        </div>
+
+        <div class="flex justify-end space-x-4">
+            <a href="{{ url_for('ordens_pagamento_list') }}" class="btn-secondary">Cancelar</a>
+            <button type="submit" class="btn-primary">Salvar Ordem</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function moneyToNumber(v){
+    if(v==null) return 0;
+    v = (''+v).trim();
+    if(v === '') return 0;
+    v = v.replace(/[^0-9,.-]/g,'');
+    if(v.indexOf(',')>-1 && v.indexOf('.')>-1){
+        if(v.lastIndexOf(',')>v.lastIndexOf('.')){ v = v.replace(/\./g,'').replace(',', '.'); }
+        else { v = v.replace(/,/g,''); }
+    } else if(v.indexOf(',')>-1){ v = v.replace(/\./g,'').replace(',', '.'); }
+    else { v = v.replace(/,/g,''); }
+    const n = parseFloat(v);
+    return isNaN(n)?0:n;
+}
+function numberToMoney(n){
+    return (n||0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+}
+function recalc(){
+    let subtotalProdutos = 0, descontoProdutos = 0;
+    document.querySelectorAll('#itens-body tr').forEach(tr=>{
+        const qtd = moneyToNumber(tr.querySelector('[name="item_quantidade[]"]').value);
+        const unit = moneyToNumber(tr.querySelector('[name="item_valor_unitario[]"]').value);
+        const desc = moneyToNumber(tr.querySelector('[name="item_desconto[]"]').value);
+        const total = qtd*unit;
+        subtotalProdutos += total;
+        descontoProdutos += desc;
+        const totalInput = tr.querySelector('td:nth-child(6) input');
+        if(totalInput) totalInput.value = numberToMoney(total);
+    });
+    const valorServico = moneyToNumber(document.getElementById('valor_servico').value);
+    const descontoManual = moneyToNumber(document.getElementById('desconto_manual').value);
+    document.getElementById('subtotal_servicos').value = numberToMoney(valorServico);
+    document.getElementById('subtotal_produtos').value = numberToMoney(subtotalProdutos);
+    document.getElementById('desconto_produtos').value = numberToMoney(descontoProdutos);
+    const total = valorServico + subtotalProdutos - descontoProdutos - descontoManual;
+    document.getElementById('total_geral').value = numberToMoney(total);
+    recalcParcelas();
+}
+function addItemRow(){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td class="py-2 px-2"><input name="item_codigo[]" class="form-input"></td>
+        <td class="py-2 px-2"><input name="item_descricao[]" class="form-input"></td>
+        <td class="py-2 px-2"><input name="item_quantidade[]" class="form-input number-input" inputmode="decimal" value="1" oninput="recalc()"></td>
+        <td class="py-2 px-2"><input name="item_valor_unitario[]" class="form-input currency-input" inputmode="decimal" value="0" oninput="recalc()"></td>
+        <td class="py-2 px-2"><input name="item_desconto[]" class="form-input currency-input" inputmode="decimal" value="0" oninput="recalc()"></td>
+        <td class="py-2 px-2"><input class="form-input" value="R$ 0,00" disabled></td>
+        <td class="py-2 px-2 text-center"><button type="button" class="text-red-600" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
+    `;
+    document.getElementById('itens-body').appendChild(tr);
+}
+function removeRow(btn){
+    const tr = btn.closest('tr');
+    tr.parentNode.removeChild(tr);
+    recalc();
+}
+function addParcelaRow(){
+    const tr = document.createElement('tr');
+    const body = document.getElementById('parcelas-body');
+    const next = body.querySelectorAll('tr').length + 1;
+    tr.innerHTML = `
+        <td class="py-2 px-2"><input name="parcela_numero[]" class="form-input number-input" inputmode="numeric" value="${next}"></td>
+        <td class="py-2 px-2"><input name="parcela_vencimento[]" type="date" class="form-input"></td>
+        <td class="py-2 px-2"><input name="parcela_valor[]" class="form-input currency-input" inputmode="decimal" value="0" oninput="recalcParcelas()"></td>
+        <td class="py-2 px-2 text-center"><button type="button" class="text-red-600" onclick="removeParcelaRow(this)"><i class="fas fa-trash"></i></button></td>
+    `;
+    body.appendChild(tr);
+    recalcParcelas();
+}
+function removeParcelaRow(btn){
+    const tr = btn.closest('tr');
+    tr.parentNode.removeChild(tr);
+    recalcParcelas();
+}
+function recalcParcelas(){
+    let total = 0;
+    document.querySelectorAll('#parcelas-body [name="parcela_valor[]"]').forEach(inp=>{
+        total += moneyToNumber(inp.value);
+    });
+    document.getElementById('total_parcelas').value = numberToMoney(total);
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+    const fornSel = document.getElementById('fornecedor_id');
+    const fornDoc = document.getElementById('fornecedor_documento');
+    const updateDoc = ()=>{
+        const opt = fornSel.options[fornSel.selectedIndex];
+        fornDoc.value = opt ? (opt.getAttribute('data-documento')||'') : '';
+    };
+    fornSel && fornSel.addEventListener('change', updateDoc);
+    updateDoc();
+    recalc();
+    recalcParcelas();
+});
+</script>
+{% endblock %}

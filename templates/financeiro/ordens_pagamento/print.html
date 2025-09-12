@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ordem de Pagamento #{{ ordem.id }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        h1 { font-size: 20px; margin-bottom: 8px; }
+        h2 { font-size: 16px; margin-top: 24px; margin-bottom: 8px; }
+        .row { display: flex; flex-wrap: wrap; margin-bottom: 8px; }
+        .col { flex: 1; min-width: 220px; margin-right: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; font-size: 12px; }
+        th { background: #f5f5f5; text-align: left; }
+        .totais { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 8px; }
+        .box { border: 1px solid #ddd; padding: 8px; }
+        .right { text-align: right; }
+        .muted { color: #444; }
+        .print-btn { display: inline-block; margin-bottom: 12px; padding: 6px 12px; background: #4F83CC; color: #fff; text-decoration: none; border-radius: 4px; }
+        /* Assinatura da Diretoria */
+        .signature { text-align: center; margin-top: 40px; }
+        .signature .line { border-top: 1px solid #000; width: 60%; margin: 48px auto 4px; }
+        .signature .label { font-size: 12px; color: #444; }
+        @media print { .no-print { display: none !important; } }
+    </style>
+    <script>function doPrint(){ window.print(); }</script>
+    <script>
+        function formatBRL(n){ try{ return (parseFloat(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}catch(e){return n;} }
+        document.addEventListener('DOMContentLoaded', ()=>{
+            document.querySelectorAll('[data-money]')?.forEach(el=>{ el.textContent = formatBRL(el.textContent); });
+        });
+    </script>
+    <meta name="robots" content="noindex,nofollow">
+    <meta http-equiv="Cache-Control" content="no-store" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+</head>
+<body>
+    <div class="no-print">
+        <a class="print-btn" href="#" onclick="doPrint()">Imprimir</a>
+    </div>
+    <h1>Ordem de Pagamento #{{ ordem.id }}</h1>
+    <div class="row">
+        <div class="col"><strong>Emissão:</strong> {{ ordem.data_emissao.strftime('%d/%m/%Y %H:%M') }}</div>
+        <div class="col"><strong>Vencimento:</strong> {{ ordem.data_vencimento.strftime('%d/%m/%Y') if ordem.data_vencimento else '-' }}</div>
+        <div class="col"><strong>Forma de Pagamento:</strong> {{ ordem.forma_pagamento or '-' }}</div>
+    </div>
+    <div class="row">
+        <div class="col"><strong>Fornecedor:</strong> {{ ordem.fornecedor_nome }}</div>
+        <div class="col"><strong>Documento:</strong> {{ ordem.fornecedor_documento }}</div>
+    </div>
+    <div class="row">
+        <div class="col"><strong>Imóvel:</strong> {{ ordem.imovel_endereco or '-' }}</div>
+    </div>
+
+    <h2>Serviço</h2>
+    <div class="row">
+        <div class="col"><strong>Descrição:</strong> {{ ordem.descricao_servico or '-' }}</div>
+        <div class="col right"><strong>Valor:</strong> <span data-money>{{ ordem.valor_servico }}</span></div>
+    </div>
+
+    <h2>Produtos</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descrição</th>
+                <th>Qtd</th>
+                <th>Unitário</th>
+                <th>Desconto</th>
+                <th>Total Item</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in itens %}
+            <tr>
+                <td>{{ it.codigo_produto or '' }}</td>
+                <td>{{ it.descricao_produto or '' }}</td>
+                <td class="right">{{ it.quantidade }}</td>
+                <td class="right" data-money>{{ it.valor_unitario }}</td>
+                <td class="right" data-money>{{ it.valor_desconto }}</td>
+                <td class="right" data-money>{{ it.valor_total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totais">
+        <div class="box"><strong>Subtotal Serviços:</strong> <span class="right" style="float:right" data-money>{{ ordem.subtotal_servicos }}</span></div>
+        <div class="box"><strong>Subtotal Produtos:</strong> <span class="right" style="float:right" data-money>{{ ordem.subtotal_produtos }}</span></div>
+        <div class="box"><strong>Desconto Produtos:</strong> <span class="right" style="float:right" data-money>{{ ordem.desconto_produtos }}</span></div>
+        <div class="box"><strong>Desconto Manual:</strong> <span class="right" style="float:right" data-money>{{ ordem.desconto_manual }}</span></div>
+        <div class="box"><strong>Total:</strong> <span class="right" style="float:right" data-money>{{ ordem.total }}</span></div>
+    </div>
+
+    <h2>Títulos (Parcelas)</h2>
+    {% if parcelas and parcelas|length > 0 %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nº</th>
+                <th>Vencimento</th>
+                <th>Valor</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set totalp = 0 %}
+            {% for p in parcelas %}
+            <tr>
+                <td>{{ p.numero or loop.index }}</td>
+                <td>{{ p.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                <td class="right" data-money>{{ p.valor }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="muted">Sem parcelas cadastradas.</div>
+    {% endif %}
+
+    <h2>Observações</h2>
+    <div class="box muted">{{ ordem.observacoes or '-' }}</div>
+
+    <div class="signature">
+        <div class="line"></div>
+        <div class="label">Assinatura da Diretoria</div>
+    </div>
+</body>
+</html>

@@ -504,6 +504,64 @@ def ensure_tipo_pessoa_enum():
 ensure_max_contratos_column()
 ensure_calcao_columns()
 ensure_tipo_pessoa_enum()
+ 
+
+
+def ensure_ordens_pagamento_tables():
+    """Cria as tabelas de Ordens de Pagamento (cabecalho e itens) caso não existam."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # Tabela principal de ordens de pagamento
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ordens_pagamento (
+            id SERIAL PRIMARY KEY,
+            data_emissao TIMESTAMP NOT NULL DEFAULT NOW(),
+            imovel_id INTEGER REFERENCES imoveis(id),
+            fornecedor_id INTEGER NOT NULL REFERENCES pessoas(id),
+            forma_pagamento VARCHAR(30),
+            data_vencimento DATE,
+            descricao_servico TEXT,
+            valor_servico NUMERIC(12,2) NOT NULL DEFAULT 0,
+            desconto_manual NUMERIC(12,2) NOT NULL DEFAULT 0,
+            subtotal_servicos NUMERIC(12,2) NOT NULL DEFAULT 0,
+            subtotal_produtos NUMERIC(12,2) NOT NULL DEFAULT 0,
+            desconto_produtos NUMERIC(12,2) NOT NULL DEFAULT 0,
+            total NUMERIC(12,2) NOT NULL DEFAULT 0,
+            observacoes TEXT
+        )
+        """
+    )
+    # Itens de produtos da OP
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ordem_pagamento_itens (
+            id SERIAL PRIMARY KEY,
+            ordem_id INTEGER NOT NULL REFERENCES ordens_pagamento(id) ON DELETE CASCADE,
+            codigo_produto VARCHAR(50),
+            descricao_produto TEXT,
+            quantidade NUMERIC(12,2) NOT NULL DEFAULT 0,
+            valor_unitario NUMERIC(12,2) NOT NULL DEFAULT 0,
+            valor_desconto NUMERIC(12,2) NOT NULL DEFAULT 0,
+            valor_total NUMERIC(12,2) NOT NULL DEFAULT 0
+        )
+        """
+    )
+    # Parcelas (títulos) da OP
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS ordem_pagamento_parcelas (
+            id SERIAL PRIMARY KEY,
+            ordem_id INTEGER NOT NULL REFERENCES ordens_pagamento(id) ON DELETE CASCADE,
+            numero INTEGER,
+            data_vencimento DATE NOT NULL,
+            valor NUMERIC(12,2) NOT NULL DEFAULT 0
+        )
+        """
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 def ensure_dre_tables():
@@ -561,6 +619,7 @@ def ensure_dre_tables():
 
 
 ensure_dre_tables()
+ensure_ordens_pagamento_tables()
 
 
 @app.route("/uploads/<path:filename>")
@@ -3824,6 +3883,441 @@ def contas_a_pagar_pagar(id):
 
 
 # --- Módulo Caixa e Banco ---
+
+# --- Ordens de Pagamento ---
+
+
+@app.route("/ordens-pagamento")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def ordens_pagamento_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT op.*, p.razao_social_nome AS fornecedor_nome, p.documento AS fornecedor_documento,
+               i.endereco AS imovel_endereco
+          FROM ordens_pagamento op
+          JOIN pessoas p ON p.id = op.fornecedor_id
+          LEFT JOIN imoveis i ON i.id = op.imovel_id
+         ORDER BY op.data_emissao DESC, op.id DESC
+        """
+    )
+    ordens = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("financeiro/ordens_pagamento/list.html", ordens=ordens)
+
+
+@app.route("/ordens-pagamento/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def ordens_pagamento_add():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            imovel_id = parse_int(request.form.get("imovel_id"))
+            fornecedor_id = int(request.form.get("fornecedor_id"))
+            forma_pagamento = request.form.get("forma_pagamento")
+            data_vencimento = request.form.get("data_vencimento") or None
+            descricao_servico = request.form.get("descricao_servico")
+            valor_servico = parse_decimal(request.form.get("valor_servico")) or Decimal("0")
+            desconto_manual = parse_decimal(request.form.get("desconto_manual")) or Decimal("0")
+            observacoes = request.form.get("observacoes")
+
+            codigos = request.form.getlist("item_codigo[]")
+            descrs = request.form.getlist("item_descricao[]")
+            qtes = request.form.getlist("item_quantidade[]")
+            units = request.form.getlist("item_valor_unitario[]")
+            descs = request.form.getlist("item_desconto[]")
+
+            itens = []
+            subtotal_produtos = Decimal("0")
+            desconto_produtos = Decimal("0")
+            for idx in range(len(codigos)):
+                codigo = (codigos[idx] or "").strip()
+                descricao = (descrs[idx] or "").strip()
+                qtd = parse_decimal(qtes[idx]) or Decimal("0")
+                unit = parse_decimal(units[idx]) or Decimal("0")
+                desconto = parse_decimal(descs[idx]) or Decimal("0")
+                total_item = (qtd * unit)
+                subtotal_produtos += total_item
+                desconto_produtos += desconto
+                if any([codigo, descricao]) or total_item > 0:
+                    itens.append({
+                        "codigo": codigo,
+                        "descricao": descricao,
+                        "quantidade": qtd,
+                        "valor_unitario": unit,
+                        "valor_desconto": desconto,
+                        "valor_total": total_item,
+                    })
+
+            subtotal_servicos = valor_servico
+            total = subtotal_servicos + subtotal_produtos - desconto_produtos - desconto_manual
+
+            cur.execute(
+                """
+                INSERT INTO ordens_pagamento (
+                    imovel_id, fornecedor_id, forma_pagamento, data_vencimento,
+                    descricao_servico, valor_servico, desconto_manual,
+                    subtotal_servicos, subtotal_produtos, desconto_produtos, total, observacoes
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
+                """,
+                (
+                    imovel_id,
+                    fornecedor_id,
+                    forma_pagamento,
+                    data_vencimento,
+                    descricao_servico,
+                    valor_servico,
+                    desconto_manual,
+                    subtotal_servicos,
+                    subtotal_produtos,
+                    desconto_produtos,
+                    total,
+                    observacoes,
+                ),
+            )
+            ordem_id = cur.fetchone()[0]
+            for it in itens:
+                cur.execute(
+                    """
+                    INSERT INTO ordem_pagamento_itens (
+                        ordem_id, codigo_produto, descricao_produto, quantidade,
+                        valor_unitario, valor_desconto, valor_total
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        ordem_id,
+                        it["codigo"],
+                        it["descricao"],
+                        it["quantidade"],
+                        it["valor_unitario"],
+                        it["valor_desconto"],
+                        it["valor_total"],
+                    ),
+                )
+            # Parcelas (títulos)
+            parc_nums = request.form.getlist("parcela_numero[]")
+            parc_vencs = request.form.getlist("parcela_vencimento[]")
+            parc_vals = request.form.getlist("parcela_valor[]")
+            for idx in range(max(len(parc_vencs), len(parc_vals))):
+                try:
+                    n = parse_int(parc_nums[idx]) if idx < len(parc_nums) else (idx + 1)
+                except Exception:
+                    n = idx + 1
+                venc = parc_vencs[idx] if idx < len(parc_vencs) else None
+                val = parse_decimal(parc_vals[idx]) if idx < len(parc_vals) else None
+                if venc and (val is not None):
+                    cur.execute(
+                        """
+                        INSERT INTO ordem_pagamento_parcelas (ordem_id, numero, data_vencimento, valor)
+                        VALUES (%s,%s,%s,%s)
+                        """,
+                        (ordem_id, n, venc, val),
+                    )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Ordem de Pagamento salva com sucesso!", "success")
+            return redirect(url_for("ordens_pagamento_view", id=ordem_id))
+        except Exception as e:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            flash(f"Erro ao salvar a Ordem de Pagamento: {e}", "danger")
+            return redirect(url_for("ordens_pagamento_add"))
+
+    # GET
+    cur.execute(
+        "SELECT id, endereco, bairro FROM imoveis ORDER BY endereco"
+    )
+    imoveis = cur.fetchall()
+    cur.execute(
+        "SELECT id, razao_social_nome, documento FROM pessoas WHERE tipo IN ('Fornecedor','Cliente/Fornecedor') ORDER BY razao_social_nome"
+    )
+    fornecedores = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/ordens_pagamento/add_edit.html",
+        ordem=None,
+        itens=[],
+        imoveis=imoveis,
+        fornecedores=fornecedores,
+    )
+
+
+@app.route("/ordens-pagamento/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def ordens_pagamento_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        try:
+            imovel_id = parse_int(request.form.get("imovel_id"))
+            fornecedor_id = int(request.form.get("fornecedor_id"))
+            forma_pagamento = request.form.get("forma_pagamento")
+            data_vencimento = request.form.get("data_vencimento") or None
+            descricao_servico = request.form.get("descricao_servico")
+            valor_servico = parse_decimal(request.form.get("valor_servico")) or Decimal("0")
+            desconto_manual = parse_decimal(request.form.get("desconto_manual")) or Decimal("0")
+            observacoes = request.form.get("observacoes")
+
+            codigos = request.form.getlist("item_codigo[]")
+            descrs = request.form.getlist("item_descricao[]")
+            qtes = request.form.getlist("item_quantidade[]")
+            units = request.form.getlist("item_valor_unitario[]")
+            descs = request.form.getlist("item_desconto[]")
+
+            itens = []
+            subtotal_produtos = Decimal("0")
+            desconto_produtos = Decimal("0")
+            for idx in range(len(codigos)):
+                codigo = (codigos[idx] or "").strip()
+                descricao = (descrs[idx] or "").strip()
+                qtd = parse_decimal(qtes[idx]) or Decimal("0")
+                unit = parse_decimal(units[idx]) or Decimal("0")
+                desconto = parse_decimal(descs[idx]) or Decimal("0")
+                total_item = (qtd * unit)
+                subtotal_produtos += total_item
+                desconto_produtos += desconto
+                if any([codigo, descricao]) or total_item > 0:
+                    itens.append({
+                        "codigo": codigo,
+                        "descricao": descricao,
+                        "quantidade": qtd,
+                        "valor_unitario": unit,
+                        "valor_desconto": desconto,
+                        "valor_total": total_item,
+                    })
+
+            subtotal_servicos = valor_servico
+            total = subtotal_servicos + subtotal_produtos - desconto_produtos - desconto_manual
+
+            cur.execute(
+                """
+                UPDATE ordens_pagamento SET
+                    imovel_id=%s, fornecedor_id=%s, forma_pagamento=%s, data_vencimento=%s,
+                    descricao_servico=%s, valor_servico=%s, desconto_manual=%s,
+                    subtotal_servicos=%s, subtotal_produtos=%s, desconto_produtos=%s, total=%s, observacoes=%s
+                WHERE id=%s
+                """,
+                (
+                    imovel_id,
+                    fornecedor_id,
+                    forma_pagamento,
+                    data_vencimento,
+                    descricao_servico,
+                    valor_servico,
+                    desconto_manual,
+                    subtotal_servicos,
+                    subtotal_produtos,
+                    desconto_produtos,
+                    total,
+                    observacoes,
+                    id,
+                ),
+            )
+            # Remove itens antigos e insere os novos
+            cur.execute("DELETE FROM ordem_pagamento_itens WHERE ordem_id = %s", (id,))
+            for it in itens:
+                cur.execute(
+                    """
+                    INSERT INTO ordem_pagamento_itens (
+                        ordem_id, codigo_produto, descricao_produto, quantidade,
+                        valor_unitario, valor_desconto, valor_total
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        id,
+                        it["codigo"],
+                        it["descricao"],
+                        it["quantidade"],
+                        it["valor_unitario"],
+                        it["valor_desconto"],
+                        it["valor_total"],
+                    ),
+                )
+            # Remove parcelas antigas e insere as novas
+            cur.execute("DELETE FROM ordem_pagamento_parcelas WHERE ordem_id = %s", (id,))
+            parc_nums = request.form.getlist("parcela_numero[]")
+            parc_vencs = request.form.getlist("parcela_vencimento[]")
+            parc_vals = request.form.getlist("parcela_valor[]")
+            for idx in range(max(len(parc_vencs), len(parc_vals))):
+                try:
+                    n = parse_int(parc_nums[idx]) if idx < len(parc_nums) else (idx + 1)
+                except Exception:
+                    n = idx + 1
+                venc = parc_vencs[idx] if idx < len(parc_vencs) else None
+                val = parse_decimal(parc_vals[idx]) if idx < len(parc_vals) else None
+                if venc and (val is not None):
+                    cur.execute(
+                        """
+                        INSERT INTO ordem_pagamento_parcelas (ordem_id, numero, data_vencimento, valor)
+                        VALUES (%s,%s,%s,%s)
+                        """,
+                        (id, n, venc, val),
+                    )
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Ordem de Pagamento atualizada com sucesso!", "success")
+            return redirect(url_for("ordens_pagamento_view", id=id))
+        except Exception as e:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            flash(f"Erro ao atualizar a Ordem de Pagamento: {e}", "danger")
+            return redirect(url_for("ordens_pagamento_edit", id=id))
+
+    # GET
+    cur.execute(
+        """
+        SELECT op.*, p.razao_social_nome AS fornecedor_nome, p.documento AS fornecedor_documento,
+               i.endereco AS imovel_endereco
+          FROM ordens_pagamento op
+          JOIN pessoas p ON p.id = op.fornecedor_id
+          LEFT JOIN imoveis i ON i.id = op.imovel_id
+         WHERE op.id = %s
+        """,
+        (id,),
+    )
+    ordem = cur.fetchone()
+    if not ordem:
+        cur.close()
+        conn.close()
+        flash("Ordem de Pagamento não encontrada.", "danger")
+        return redirect(url_for("ordens_pagamento_list"))
+    cur.execute(
+        "SELECT * FROM ordem_pagamento_itens WHERE ordem_id = %s ORDER BY id",
+        (id,),
+    )
+    itens = cur.fetchall()
+    cur.execute(
+        "SELECT * FROM ordem_pagamento_parcelas WHERE ordem_id = %s ORDER BY COALESCE(numero, 999999), data_vencimento, id",
+        (id,),
+    )
+    parcelas = cur.fetchall()
+    cur.execute(
+        "SELECT id, endereco, bairro FROM imoveis ORDER BY endereco"
+    )
+    imoveis = cur.fetchall()
+    cur.execute(
+        "SELECT id, razao_social_nome, documento FROM pessoas WHERE tipo IN ('Fornecedor','Cliente/Fornecedor') ORDER BY razao_social_nome"
+    )
+    fornecedores = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/ordens_pagamento/add_edit.html",
+        ordem=ordem,
+        itens=itens,
+        parcelas=parcelas,
+        imoveis=imoveis,
+        fornecedores=fornecedores,
+    )
+
+
+@app.route("/ordens-pagamento/view/<int:id>")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def ordens_pagamento_view(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT op.*, p.razao_social_nome AS fornecedor_nome, p.documento AS fornecedor_documento,
+               i.endereco AS imovel_endereco
+          FROM ordens_pagamento op
+          JOIN pessoas p ON p.id = op.fornecedor_id
+          LEFT JOIN imoveis i ON i.id = op.imovel_id
+         WHERE op.id = %s
+        """,
+        (id,),
+    )
+    ordem = cur.fetchone()
+    if not ordem:
+        cur.close()
+        conn.close()
+        flash("Ordem de Pagamento não encontrada.", "danger")
+        return redirect(url_for("ordens_pagamento_list"))
+    cur.execute(
+        "SELECT * FROM ordem_pagamento_itens WHERE ordem_id = %s ORDER BY id",
+        (id,),
+    )
+    itens = cur.fetchall()
+    cur.execute(
+        "SELECT * FROM ordem_pagamento_parcelas WHERE ordem_id = %s ORDER BY COALESCE(numero, 999999), data_vencimento, id",
+        (id,),
+    )
+    parcelas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("financeiro/ordens_pagamento/view.html", ordem=ordem, itens=itens, parcelas=parcelas)
+
+
+@app.route("/ordens-pagamento/print/<int:id>")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def ordens_pagamento_print(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT op.*, p.razao_social_nome AS fornecedor_nome, p.documento AS fornecedor_documento,
+               i.endereco AS imovel_endereco
+          FROM ordens_pagamento op
+          JOIN pessoas p ON p.id = op.fornecedor_id
+          LEFT JOIN imoveis i ON i.id = op.imovel_id
+         WHERE op.id = %s
+        """,
+        (id,),
+    )
+    ordem = cur.fetchone()
+    if not ordem:
+        cur.close()
+        conn.close()
+        flash("Ordem de Pagamento não encontrada.", "danger")
+        return redirect(url_for("ordens_pagamento_list"))
+    cur.execute(
+        "SELECT * FROM ordem_pagamento_itens WHERE ordem_id = %s ORDER BY id",
+        (id,),
+    )
+    itens = cur.fetchall()
+    cur.execute(
+        "SELECT * FROM ordem_pagamento_parcelas WHERE ordem_id = %s ORDER BY COALESCE(numero, 999999), data_vencimento, id",
+        (id,),
+    )
+    parcelas = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("financeiro/ordens_pagamento/print.html", ordem=ordem, itens=itens, parcelas=parcelas)
+
+
+# --- Módulo Caixa e Banco ---
+
+@app.route("/ordens-pagamento/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Excluir")
+def ordens_pagamento_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Itens são removidos por ON DELETE CASCADE
+        cur.execute("DELETE FROM ordens_pagamento WHERE id = %s", (id,))
+        conn.commit()
+        flash("Ordem de Pagamento excluída com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir a Ordem de Pagamento: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("ordens_pagamento_list"))
 
 @app.route("/caixas")
 @login_required
