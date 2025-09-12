@@ -4879,6 +4879,190 @@ def relatorios_contas_a_pagar():
 def relatorios_contas_a_receber():
     return render_template("relatorios/contas_a_receber/index.html")
 
+
+@app.route("/relatorios/contas-a-receber/recebimento-inquilino", methods=["POST"])
+@login_required
+def relatorio_recebimento_por_inquilino():
+    """Relatório de recebimentos por inquilino, filtrado por data de recebimento.
+
+    Colunas: Data | Cliente | CPF | Imóvel | Receita | Valor Previsto | Multa | Juros | Desconto | Total Recebido | Histórico
+    Orientação: Paisagem
+    """
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+
+    if not (data_inicio and data_fim):
+        flash("Informe o período.", "warning")
+        return redirect(url_for("relatorios_contas_a_receber"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+
+    # Empresa para cabeçalho
+    cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+    empresa = cur.fetchone()
+
+    query = (
+        """
+        SELECT cr.id,
+               cr.data_pagamento,
+               p.razao_social_nome AS cliente,
+               p.documento AS cpf,
+               i.tipo_imovel, i.endereco, i.cidade, i.estado,
+               r.descricao AS receita,
+               cr.valor_previsto,
+               COALESCE(cr.valor_multa, 0) AS valor_multa,
+               COALESCE(cr.valor_juros, 0) AS valor_juros,
+               COALESCE(cr.valor_desconto, 0) AS valor_desconto,
+               COALESCE(cr.valor_pago, 0) AS valor_pago,
+               mf.historico AS historico,
+               mf.valor AS valor_mov
+          FROM contas_a_receber cr
+          JOIN pessoas p ON cr.cliente_id = p.id
+     LEFT JOIN contratos_aluguel ca ON ca.id = cr.contrato_id
+     LEFT JOIN imoveis i ON i.id = ca.imovel_id
+     LEFT JOIN receitas_cadastro r ON r.id = cr.receita_id
+     LEFT JOIN LATERAL (
+                SELECT historico, valor
+                  FROM movimento_financeiro
+                 WHERE documento = 'CR-' || cr.id::text
+                   AND tipo = 'entrada'
+                   AND data_movimento = cr.data_pagamento
+                 ORDER BY id DESC
+                 LIMIT 1
+            ) mf ON TRUE
+         WHERE cr.data_pagamento IS NOT NULL
+           AND cr.data_pagamento BETWEEN %s AND %s
+         ORDER BY cr.data_pagamento ASC, cr.id ASC
+        """
+    )
+    cur.execute(query, (data_inicio, data_fim))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    # Monta linhas já com campos prontos e totais
+    linhas = []
+    for r in rows:
+        imovel = ""
+        if r.get("tipo_imovel") or r.get("endereco"):
+            tipo = r.get("tipo_imovel") or ""
+            ender = r.get("endereco") or ""
+            cid = r.get("cidade") or ""
+            uf = r.get("estado") or ""
+            if cid and uf:
+                imovel = f"{tipo} / {ender} / {cid}/{uf}".strip()
+            else:
+                imovel = f"{tipo} / {ender}".strip(" /")
+        total_recebido = r.get("valor_mov")
+        if total_recebido is None:
+            # Fallback quando não houver movimento associado
+            total_recebido = (r.get("valor_pago") or 0) + (r.get("valor_juros") or 0) + (r.get("valor_multa") or 0) - (r.get("valor_desconto") or 0)
+        linhas.append(
+            {
+                "data": r["data_pagamento"],
+                "cliente": r["cliente"],
+                "cpf": r["cpf"],
+                "imovel": imovel,
+                "receita": r["receita"],
+                "valor_previsto": r["valor_previsto"],
+                "multa": r["valor_multa"],
+                "juros": r["valor_juros"],
+                "desconto": r["valor_desconto"],
+                "total_recebido": total_recebido,
+                "historico": r.get("historico") or "",
+            }
+        )
+
+    periodo_txt = (
+        datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+        + " a "
+        + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+    )
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            page_width = self.w - self.l_margin - self.r_margin
+            self.cell(page_width / 3, 8, "", 0, 0, "L")
+            self.cell(page_width / 3, 8, "Recebimento Por Inquilino", 0, 0, "C")
+            self.set_font("Arial", "", 10)
+            self.cell(page_width / 3, 8, getattr(self, "gerado_em", ""), 0, 1, "R")
+            emp = getattr(self, "empresa", "")
+            if emp:
+                self.cell(0, 6, emp, 0, 1, "C")
+            per = getattr(self, "periodo", "")
+            if per:
+                self.cell(0, 6, f"Período: {per}", 0, 1, "C")
+            self.ln(3)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    # Larguras pensadas para A4 paisagem (~277mm úteis)
+    headers = [
+        ("Data", 20),
+        ("Cliente", 35),
+        ("CPF", 28),
+        ("Imóvel", 38),
+        ("Receita", 25),
+        ("Valor Previsto", 22),
+        ("Multa", 18),
+        ("Juros", 18),
+        ("Desconto", 18),
+        ("Total Recebido", 25),
+        ("Histórico", 30),
+    ]
+
+    def truncate_text(pdf, text, max_width):
+        if not text:
+            return ""
+        s = str(text)
+        if pdf.get_string_width(s) <= max_width:
+            return s
+        while s and pdf.get_string_width(s + "...") > max_width:
+            s = s[:-1]
+        return s + "..."
+
+    pdf = PDF(orientation="L")
+    pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.empresa = empresa["razao_social_nome"] if empresa else ""
+    pdf.periodo = periodo_txt
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    # Cabeçalho da tabela
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(200, 200, 200)
+    for text, width in headers:
+        pdf.cell(width, 8, text, 1, 0, "C", True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "", 9)
+    for l in linhas:
+        pdf.cell(headers[0][1], 7, l["data"].strftime("%d/%m/%Y"), 1)
+        pdf.cell(headers[1][1], 7, truncate_text(pdf, l["cliente"], headers[1][1] - 2), 1)
+        pdf.cell(headers[2][1], 7, str(l["cpf"] or ""), 1)
+        pdf.cell(headers[3][1], 7, truncate_text(pdf, l["imovel"], headers[3][1] - 2), 1)
+        pdf.cell(headers[4][1], 7, truncate_text(pdf, l["receita"] or "", headers[4][1] - 2), 1)
+        pdf.cell(headers[5][1], 7, format_currency(l["valor_previsto"]), 1, 0, "R")
+        pdf.cell(headers[6][1], 7, format_currency(l["multa"]), 1, 0, "R")
+        pdf.cell(headers[7][1], 7, format_currency(l["juros"]), 1, 0, "R")
+        pdf.cell(headers[8][1], 7, format_currency(l["desconto"]), 1, 0, "R")
+        pdf.cell(headers[9][1], 7, format_currency(l["total_recebido"]), 1, 0, "R")
+        pdf.cell(headers[10][1], 7, truncate_text(pdf, l["historico"], headers[10][1] - 2), 1)
+        pdf.ln(7)
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="recebimento_por_inquilino.pdf",
+    )
+
 @app.route("/relatorios/contas-a-pagar/por-periodo", methods=["POST"])
 @login_required
 def relatorio_contas_a_pagar_periodo():
