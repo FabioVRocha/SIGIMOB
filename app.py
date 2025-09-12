@@ -80,6 +80,23 @@ def _normalize_key(key: str) -> str:
     return re.sub(r"\s+", "", key.strip().lower())
 
 
+def format_currency(value):
+    """Formata valores monetários no padrão brasileiro: R$ 1.234,56.
+    Aceita Decimal, float, int ou string numérica.
+    """
+    try:
+        if isinstance(value, Decimal):
+            d = value
+        else:
+            d = Decimal(str(value or 0))
+    except Exception:
+        d = Decimal("0")
+    s = f"{d:,.2f}"
+    # Converte 1,234.56 -> 1.234,56
+    s = s.replace(",", "X").replace(".", ",").replace("X", ".")
+    return f"R$ {s}"
+
+
 def build_contrato_context(cur, contrato_id: int) -> dict:
     """Monta um dicionário com dados do contrato, inquilino, imóvel e empresa.
     As chaves são normalizadas para facilitar matching de placeholders.
@@ -574,11 +591,45 @@ def ensure_dre_tables():
             id SERIAL PRIMARY KEY,
             nome VARCHAR(255) NOT NULL,
             descricao TEXT,
+            ordem INTEGER NOT NULL DEFAULT 0,
+            eh_formula BOOLEAN NOT NULL DEFAULT FALSE,
+            formula TEXT,
             ativo BOOLEAN NOT NULL DEFAULT TRUE,
             data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
         )
         """
     )
+    # Commit imediato para garantir existência da tabela antes de tentar alterar
+    conn.commit()
+    # Garante coluna 'ordem' para bases já existentes (sem usar IF NOT EXISTS para compatibilidade)
+    try:
+        cur.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name='dre_mascaras' AND column_name='ordem'"
+        )
+        tem_ordem = cur.fetchone() is not None
+        if not tem_ordem:
+            cur.execute("ALTER TABLE dre_mascaras ADD COLUMN ordem INTEGER NOT NULL DEFAULT 0")
+    except Exception:
+        # Evita transação abortada caso haja erro em ambiente legado
+        conn.rollback()
+
+    # Garante colunas de fórmula
+    try:
+        cur.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name='dre_mascaras' AND column_name='eh_formula'"
+        )
+        tem_eh_formula = cur.fetchone() is not None
+        if not tem_eh_formula:
+            cur.execute("ALTER TABLE dre_mascaras ADD COLUMN eh_formula BOOLEAN NOT NULL DEFAULT FALSE")
+        cur.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name='dre_mascaras' AND column_name='formula'"
+        )
+        tem_formula = cur.fetchone() is not None
+        if not tem_formula:
+            cur.execute("ALTER TABLE dre_mascaras ADD COLUMN formula TEXT")
+    except Exception:
+        conn.rollback()
+    
     # Nós da máscara (hierarquia)
     cur.execute(
         """
@@ -5831,9 +5882,7 @@ def _montar_arvore_nos(nos):
 def dre_mascaras_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cur.execute(
-        "SELECT * FROM dre_mascaras ORDER BY ativo DESC, data_cadastro DESC, nome ASC"
-    )
+    cur.execute("SELECT * FROM dre_mascaras ORDER BY ordem ASC, nome ASC")
     mascaras = cur.fetchall()
     cur.close()
     conn.close()
@@ -5848,15 +5897,25 @@ def dre_mascaras_add():
         nome = request.form.get("nome", "").strip()
         descricao = request.form.get("descricao")
         ativo = True if request.form.get("ativo") == "on" else False
+        ordem = request.form.get("ordem", type=int)
+        eh_formula = True if request.form.get("eh_formula") == "on" else False
+        formula = request.form.get("formula")
         if not nome:
             flash("Informe o nome da máscara.", "danger")
-            return render_template("gerencial/dre_mascaras/add_edit.html", mascara={})
+            # Carrega tokens de máscaras existentes
+            conn = get_db_connection()
+            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cur.execute("SELECT id, nome FROM dre_mascaras ORDER BY ordem ASC, nome ASC")
+            mascaras_tokens = cur.fetchall()
+            cur.close()
+            conn.close()
+            return render_template("gerencial/dre_mascaras/add_edit.html", mascara={}, mascaras_tokens=mascaras_tokens)
         conn = get_db_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO dre_mascaras (nome, descricao, ativo) VALUES (%s,%s,%s)",
-                (nome, descricao, ativo),
+                "INSERT INTO dre_mascaras (nome, descricao, ordem, eh_formula, formula, ativo) VALUES (%s,%s,COALESCE(%s,0),%s,%s,%s)",
+                (nome, descricao, ordem, eh_formula, formula, ativo),
             )
             conn.commit()
             flash("Máscara criada com sucesso!", "success")
@@ -5864,11 +5923,26 @@ def dre_mascaras_add():
         except Exception as e:
             conn.rollback()
             flash(f"Erro ao criar máscara: {e}", "danger")
-            return render_template("gerencial/dre_mascaras/add_edit.html", mascara={})
+            # Carrega tokens de máscaras existentes
+            try:
+                cur2 = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+                cur2.execute("SELECT id, nome FROM dre_mascaras ORDER BY ordem ASC, nome ASC")
+                mascaras_tokens = cur2.fetchall()
+                cur2.close()
+            except Exception:
+                mascaras_tokens = []
+            return render_template("gerencial/dre_mascaras/add_edit.html", mascara={}, mascaras_tokens=mascaras_tokens)
         finally:
             cur.close()
             conn.close()
-    return render_template("gerencial/dre_mascaras/add_edit.html", mascara={})
+    # GET: Carrega tokens de máscaras existentes
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT id, nome FROM dre_mascaras ORDER BY ordem ASC, nome ASC")
+    mascaras_tokens = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("gerencial/dre_mascaras/add_edit.html", mascara={}, mascaras_tokens=mascaras_tokens)
 
 
 @app.route("/gerencial/dre/mascaras/edit/<int:id>", methods=["GET", "POST"])
@@ -5881,13 +5955,16 @@ def dre_mascaras_edit(id):
         nome = request.form.get("nome", "").strip()
         descricao = request.form.get("descricao")
         ativo = True if request.form.get("ativo") == "on" else False
+        ordem = request.form.get("ordem", type=int)
+        eh_formula = True if request.form.get("eh_formula") == "on" else False
+        formula = request.form.get("formula")
         if not nome:
             flash("Informe o nome da máscara.", "danger")
         else:
             try:
                 cur.execute(
-                    "UPDATE dre_mascaras SET nome=%s, descricao=%s, ativo=%s WHERE id=%s",
-                    (nome, descricao, ativo, id),
+                    "UPDATE dre_mascaras SET nome=%s, descricao=%s, ordem=COALESCE(%s,0), eh_formula=%s, formula=%s, ativo=%s WHERE id=%s",
+                    (nome, descricao, ordem, eh_formula, formula, ativo, id),
                 )
                 conn.commit()
                 flash("Máscara atualizada com sucesso!", "success")
@@ -5897,12 +5974,15 @@ def dre_mascaras_edit(id):
                 flash(f"Erro ao atualizar máscara: {e}", "danger")
     cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (id,))
     mascara = cur.fetchone()
+    # Carrega tokens de máscaras existentes (exceto a própria)
+    cur.execute("SELECT id, nome FROM dre_mascaras WHERE id<>%s ORDER BY ordem ASC, nome ASC", (id,))
+    mascaras_tokens = cur.fetchall()
     cur.close()
     conn.close()
     if not mascara:
         flash("Máscara não encontrada.", "danger")
         return redirect(url_for("dre_mascaras_list"))
-    return render_template("gerencial/dre_mascaras/add_edit.html", mascara=mascara)
+    return render_template("gerencial/dre_mascaras/add_edit.html", mascara=mascara, mascaras_tokens=mascaras_tokens)
 
 
 @app.route("/gerencial/dre/mascaras/delete/<int:id>", methods=["POST"])
@@ -6012,6 +6092,7 @@ def dre_mascaras_estrutura_delete(id):
 @login_required
 @permission_required("Administracao Sistema", "Editar")
 def dre_nos_add():
+    mascara_id = request.form.get("mascara_id", type=int)
     parent_id = request.form.get("parent_id", type=int)
     titulo = request.form.get("titulo", "").strip()
     tipo = request.form.get("tipo", "grupo")
@@ -6259,72 +6340,157 @@ def _prune_zero_nodes(nos):
 def relatorio_dre():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cur.execute("SELECT id, nome FROM dre_mascaras WHERE ativo=true ORDER BY nome")
+    cur.execute("SELECT id, nome, eh_formula, formula FROM dre_mascaras WHERE ativo=true ORDER BY ordem ASC, nome ASC")
     mascaras = cur.fetchall()
+
+    # Gera lista de períodos (últimos 24 meses, incluindo mês atual)
+    hoje = date.today()
+    periodos_lista = []  # [{"value": "YYYY-MM", "label": "MM/YYYY"}, ...]
+    ano = hoje.year
+    mes = hoje.month
+    for k in range(24):
+        m = mes - k
+        y = ano
+        while m <= 0:
+            m += 12
+            y -= 1
+        periodos_lista.append({"value": f"{y:04d}-{m:02d}", "label": f"{m:02d}/{y:04d}"})
 
     resultados = None
     base = (request.form.get("base") or "caixa").lower()
-    data_inicio = request.form.get("data_inicio")
-    data_fim = request.form.get("data_fim")
+    periodos_sel = request.form.getlist("periodos")  # ["YYYY-MM", ...]
     hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True") or (request.method == "GET")
 
-    if False and request.method == "POST" and data_inicio and data_fim:
-        # Carrega nós e monta árvore
-        cur.execute(
-            "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
-            (mascara_id,),
-        )
-        nos = [dict(n) for n in cur.fetchall()]
-        arvore = _montar_arvore_nos(nos)
-        arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
-        if hide_zeros:
-            arvore_val = _prune_zero_nodes(arvore_val)
-            # Recalcula total após prune (por segurança)
-            _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
-        # Nome da máscara e empresa para cabeçalho
-        cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (mascara_id,))
-        mascara_sel = cur.fetchone()
+    if request.method == "POST" and periodos_sel:
         cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
         empresa = cur.fetchone()
-        resultado = {
-            "arvore": arvore_val,
-            "total": total,
-            "empresa": empresa["razao_social_nome"] if empresa else "",
-            "periodo": (
-                datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
-                + " a "
-                + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
-            ),
-        }
+        resultados = []  # lista por período
+        # Map de alias por nome normalizado -> id
+        def _norm(s):
+            return re.sub(r"[^0-9a-zA-Z]+", "", (s or "").lower())
+        alias_to_id = {_norm(m["nome"]): m["id"] for m in mascaras}
+        for per in periodos_sel:
+            try:
+                y, m = per.split("-")
+                y = int(y)
+                m = int(m)
+                di = date(y, m, 1)
+                last_day = calendar.monthrange(y, m)[1]
+                df = date(y, m, last_day)
+            except Exception:
+                continue
 
-    if request.method == "POST" and data_inicio and data_fim:
-        cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
-        empresa = cur.fetchone()
-        resultados = []
-        for m in mascaras:
-            cur.execute(
-                "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
-                (m["id"],),
-            )
-            nos = [dict(n) for n in cur.fetchall()]
-            arvore = _montar_arvore_nos(nos)
-            arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
-            if hide_zeros:
-                arvore_val = _prune_zero_nodes(arvore_val)
-                _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
-            resultados.append(
-                {
-                    "mascara": m,
-                    "arvore": arvore_val,
-                    "total": total,
-                    "empresa": empresa["razao_social_nome"] if empresa else "",
-                    "periodo": (
-                        datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
-                        + " a "
-                        + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
-                    ),
-                }
-            )
+            grupo = {
+                "periodo_value": per,
+                "periodo_label": f"{m:02d}/{y:04d}",
+                "data_inicio": di.strftime("%Y-%m-%d"),
+                "data_fim": df.strftime("%Y-%m-%d"),
+                "itens": [],  # por máscara
+            }
+
+            # Primeiro, calcula máscaras base (não fórmula) e guarda por id
+            totals_by_id = {}
+            item_by_id = {}
+            for mask in mascaras:
+                if not mask.get("eh_formula"):
+                    cur.execute(
+                        "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+                        (mask["id"],),
+                    )
+                    nos = [dict(n) for n in cur.fetchall()]
+                    arvore = _montar_arvore_nos(nos)
+                    arvore_val, total = _calcular_totais(cur, arvore, base, di, df)
+                    if hide_zeros:
+                        arvore_val = _prune_zero_nodes(arvore_val)
+                        _, total = _calcular_totais(cur, arvore_val, base, di, df)
+                    totals_by_id[mask["id"]] = total
+                    item_by_id[mask["id"]] = {
+                        "mascara": mask,
+                        "arvore": arvore_val,
+                        "total": total,
+                        "empresa": empresa["razao_social_nome"] if empresa else "",
+                        "periodo": di.strftime("%d/%m/%Y") + " a " + df.strftime("%d/%m/%Y"),
+                        "data_inicio": di.strftime("%Y-%m-%d"),
+                        "data_fim": df.strftime("%Y-%m-%d"),
+                    }
+
+            # Depois, calcula máscaras por fórmula e guarda por id
+            def _eval_formula(expr, totals_by_id, alias_to_id):
+                if not expr:
+                    return Decimal("0")
+                # Substitui tokens #ID e nomes
+                def repl_token(m):
+                    tok = m.group(0)
+                    if tok.startswith('#') and tok[1:].isdigit():
+                        mid = int(tok[1:])
+                        val = totals_by_id.get(mid, Decimal("0"))
+                        return str(val)
+                    norm = re.sub(r"[^0-9a-zA-Z]+", "", tok.lower())
+                    mid = alias_to_id.get(norm)
+                    if mid is not None:
+                        val = totals_by_id.get(mid, Decimal("0"))
+                        return str(val)
+                    return tok  # mantém operadores/parênteses
+
+                expr_num = re.sub(r"#\d+|[A-Za-zÀ-ÿ0-9_]+", repl_token, expr)
+
+                # Avaliador seguro com Decimal
+                tokens = re.findall(r"\d+(?:\.\d+)?|[()+\-*/]", expr_num)
+                # Shunting-yard
+                prec = {'+':1,'-':1,'*':2,'/':2}
+                output = []
+                ops = []
+                for t in tokens:
+                    if re.match(r"\d", t):
+                        output.append(Decimal(t))
+                    elif t in "+-*/":
+                        while ops and ops[-1] in "+-*/" and prec[ops[-1]] >= prec[t]:
+                            output.append(ops.pop())
+                        ops.append(t)
+                    elif t == '(':
+                        ops.append(t)
+                    elif t == ')':
+                        while ops and ops[-1] != '(':
+                            output.append(ops.pop())
+                        if ops and ops[-1] == '(':
+                            ops.pop()
+                while ops:
+                    output.append(ops.pop())
+                # Avalia RPN
+                stack = []
+                for t in output:
+                    if isinstance(t, str):
+                        b = stack.pop() if stack else Decimal("0")
+                        a = stack.pop() if stack else Decimal("0")
+                        if t == '+': stack.append(a + b)
+                        elif t == '-': stack.append(a - b)
+                        elif t == '*': stack.append(a * b)
+                        elif t == '/': stack.append(b and (a / b) or Decimal("0"))
+                    else:
+                        stack.append(t)
+                return stack[-1] if stack else Decimal("0")
+
+            for mask in mascaras:
+                if mask.get("eh_formula"):
+                    total = _eval_formula(mask.get("formula") or "", totals_by_id, alias_to_id)
+                    item_by_id[mask["id"]] = {
+                        "mascara": mask,
+                        "arvore": [],
+                        "total": total,
+                        "empresa": empresa["razao_social_nome"] if empresa else "",
+                        "periodo": di.strftime("%d/%m/%Y") + " a " + df.strftime("%d/%m/%Y"),
+                        "data_inicio": di.strftime("%Y-%m-%d"),
+                        "data_fim": df.strftime("%Y-%m-%d"),
+                    }
+
+            # Por fim, preenche itens na ordem cadastrada
+            grupo["itens"] = []
+            for mask in mascaras:
+                it = item_by_id.get(mask["id"]) 
+                if it:
+                    grupo["itens"].append(it)
+
+            resultados.append(grupo)
 
     cur.close()
     conn.close()
@@ -6334,8 +6500,8 @@ def relatorio_dre():
         mascaras=mascaras,
         resultados=resultados,
         base=base,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
+        periodos_lista=periodos_lista,
+        periodos_sel=periodos_sel,
         hide_zeros=hide_zeros,
     )
 
@@ -6397,18 +6563,91 @@ def relatorio_dre_pdf():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    cur.execute(
-        "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
-        (mascara_id,),
-    )
-    nos = [dict(n) for n in cur.fetchall()]
-    arvore = _montar_arvore_nos(nos)
-    arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
-    if hide_zeros:
-        arvore_val = _prune_zero_nodes(arvore_val)
-        _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
+    # Busca máscara
     cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (mascara_id,))
     mascara_sel = cur.fetchone()
+    # Se máscara for por fórmula, calcula total pela fórmula; caso contrário, usa estrutura
+    arvore_val = []
+    if mascara_sel and mascara_sel.get('eh_formula'):
+        # Carrega todas as máscaras ativas para mapear nomes/ids
+        cur.execute("SELECT id, nome FROM dre_mascaras WHERE ativo=true ORDER BY ordem ASC, nome ASC")
+        all_masks = cur.fetchall()
+        alias_to_id = {re.sub(r"[^0-9a-zA-Z]+", "", (m['nome'] or '').lower()): m['id'] for m in all_masks}
+        # Calcula totais das máscaras base
+        totals_by_id = {}
+        for m in all_masks:
+            if m['id'] == mascara_id:
+                continue
+            cur.execute(
+                "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+                (m['id'],),
+            )
+            nos_m = [dict(n) for n in cur.fetchall()]
+            arv = _montar_arvore_nos(nos_m)
+            arv_val, tot = _calcular_totais(cur, arv, base, data_inicio, data_fim)
+            if hide_zeros:
+                arv_val = _prune_zero_nodes(arv_val)
+                _, tot = _calcular_totais(cur, arv_val, base, data_inicio, data_fim)
+            totals_by_id[m['id']] = tot
+
+        def _eval_formula(expr, totals_by_id, alias_to_id):
+            if not expr:
+                return Decimal('0')
+            def repl_token(mm):
+                tok = mm.group(0)
+                if tok.startswith('#') and tok[1:].isdigit():
+                    mid = int(tok[1:])
+                    return str(totals_by_id.get(mid, Decimal('0')))
+                norm = re.sub(r"[^0-9a-zA-Z]+", "", tok.lower())
+                mid = alias_to_id.get(norm)
+                if mid is not None:
+                    return str(totals_by_id.get(mid, Decimal('0')))
+                return tok
+            expr_num = re.sub(r"#\d+|[A-Za-zÀ-ÿ0-9_]+", repl_token, mascara_sel.get('formula') or '')
+            tokens = re.findall(r"\d+(?:\.\d+)?|[()+\-*/]", expr_num)
+            prec = {'+':1,'-':1,'*':2,'/':2}
+            output, ops = [], []
+            for t in tokens:
+                if re.match(r"\d", t):
+                    output.append(Decimal(t))
+                elif t in "+-*/":
+                    while ops and ops[-1] in "+-*/" and prec[ops[-1]] >= prec[t]:
+                        output.append(ops.pop())
+                    ops.append(t)
+                elif t == '(':
+                    ops.append(t)
+                elif t == ')':
+                    while ops and ops[-1] != '(':
+                        output.append(ops.pop())
+                    if ops and ops[-1] == '(':
+                        ops.pop()
+            while ops:
+                output.append(ops.pop())
+            stack = []
+            for t in output:
+                if isinstance(t, str):
+                    b = stack.pop() if stack else Decimal('0')
+                    a = stack.pop() if stack else Decimal('0')
+                    if t == '+': stack.append(a + b)
+                    elif t == '-': stack.append(a - b)
+                    elif t == '*': stack.append(a * b)
+                    elif t == '/': stack.append(b and (a / b) or Decimal('0'))
+                else:
+                    stack.append(t)
+            return stack[-1] if stack else Decimal('0')
+
+        total = _eval_formula(mascara_sel.get('formula') or '', totals_by_id, alias_to_id)
+    else:
+        cur.execute(
+            "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+            (mascara_id,),
+        )
+        nos = [dict(n) for n in cur.fetchall()]
+        arvore = _montar_arvore_nos(nos)
+        arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
+        if hide_zeros:
+            arvore_val = _prune_zero_nodes(arvore_val)
+            _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
     cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
     empresa = cur.fetchone()
     cur.close()
@@ -6483,6 +6722,178 @@ def relatorio_dre_pdf():
 
     output = pdf.output(dest="S").encode("latin1", "ignore")
     filename = f"dre_{mascara_sel['nome'] if mascara_sel else 'mascara'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    return send_file(io.BytesIO(output), mimetype="application/pdf", as_attachment=True, download_name=filename)
+
+
+@app.route("/relatorios/gerencial/dre/pdf_full", methods=["POST"])
+@login_required
+def relatorio_dre_pdf_full():
+    """Gera PDF completo do DRE (todas as máscaras ativas) para um período."""
+    base = (request.form.get("base") or "caixa").lower()
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+    hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True")
+
+    if not (data_inicio and data_fim):
+        flash("Parâmetros inválidos para gerar o PDF.", "danger")
+        return redirect(url_for("relatorio_dre"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    # Máscaras ativas ordenadas
+    cur.execute("SELECT id, nome, eh_formula, formula FROM dre_mascaras WHERE ativo=true ORDER BY ordem ASC, nome ASC")
+    mascaras = cur.fetchall()
+
+    # Empresa
+    cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+    empresa = cur.fetchone()
+
+    # Calcula itens por máscara
+    resultados = []
+    alias_to_id = {re.sub(r"[^0-9a-zA-Z]+", "", (m["nome"] or "").lower()): m["id"] for m in mascaras}
+    totals_by_id = {}
+    item_by_id = {}
+
+    # Base (não fórmula)
+    for mask in mascaras:
+        if not mask.get("eh_formula"):
+            cur.execute(
+                "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+                (mask["id"],),
+            )
+            nos = [dict(n) for n in cur.fetchall()]
+            arvore = _montar_arvore_nos(nos)
+            arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
+            if hide_zeros:
+                arvore_val = _prune_zero_nodes(arvore_val)
+                _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
+            totals_by_id[mask["id"]] = total
+            item_by_id[mask["id"]] = {"mascara": mask, "arvore": arvore_val, "total": total}
+
+    # Fórmula
+    def _eval_formula(expr):
+        if not expr:
+            return Decimal("0")
+        def repl_token(mm):
+            tok = mm.group(0)
+            if tok.startswith('#') and tok[1:].isdigit():
+                mid = int(tok[1:])
+                return str(totals_by_id.get(mid, Decimal('0')))
+            norm = re.sub(r"[^0-9a-zA-Z]+", "", tok.lower())
+            mid = alias_to_id.get(norm)
+            if mid is not None:
+                return str(totals_by_id.get(mid, Decimal('0')))
+            return tok
+        expr_num = re.sub(r"#\d+|[A-Za-zÀ-ÿ0-9_]+", repl_token, expr)
+        tokens = re.findall(r"\d+(?:\.\d+)?|[()+\-*/]", expr_num)
+        prec = {'+':1,'-':1,'*':2,'/':2}
+        output, ops = [], []
+        for t in tokens:
+            if re.match(r"\d", t):
+                output.append(Decimal(t))
+            elif t in "+-*/":
+                while ops and ops[-1] in "+-*/" and prec[ops[-1]] >= prec[t]:
+                    output.append(ops.pop())
+                ops.append(t)
+            elif t == '(':
+                ops.append(t)
+            elif t == ')':
+                while ops and ops[-1] != '(':
+                    output.append(ops.pop())
+                if ops and ops[-1] == '(':
+                    ops.pop()
+        while ops:
+            output.append(ops.pop())
+        stack = []
+        for t in output:
+            if isinstance(t, str):
+                b = stack.pop() if stack else Decimal('0')
+                a = stack.pop() if stack else Decimal('0')
+                if t == '+': stack.append(a + b)
+                elif t == '-': stack.append(a - b)
+                elif t == '*': stack.append(a * b)
+                elif t == '/': stack.append(b and (a / b) or Decimal('0'))
+            else:
+                stack.append(t)
+        return stack[-1] if stack else Decimal('0')
+
+    for mask in mascaras:
+        if mask.get("eh_formula"):
+            total = _eval_formula(mask.get("formula") or "")
+            item_by_id[mask["id"]] = {"mascara": mask, "arvore": [], "total": total}
+
+    # Ordena por ordem e compõe lista
+    for mask in mascaras:
+        it = item_by_id.get(mask["id"])
+        if it:
+            resultados.append(it)
+
+    # Empresa/Período já capturados
+    cur.close()
+    conn.close()
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            page_width = self.w - self.l_margin - self.r_margin
+            self.cell(page_width, 6, "Demonstração do Resultado (DRE)", 0, 1, "C")
+            self.set_font("Arial", "", 10)
+            empresa_nome = empresa["razao_social_nome"] if empresa else ""
+            periodo = (
+                datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+                + " a "
+                + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+            )
+            self.cell(page_width, 5, f"{empresa_nome} | {periodo}", 0, 1, "C")
+            self.ln(2)
+
+    pdf = PDF()
+    pdf.set_auto_page_break(True, 15)
+    pdf.add_page()
+
+    def render_lines(nos, nivel=0):
+        indent = 5 * nivel
+        for n in nos:
+            left_margin = pdf.l_margin + indent
+            page_width = pdf.w - pdf.l_margin - pdf.r_margin
+            value_col_w = 45
+            title_w = page_width - value_col_w - indent
+            is_group = (n.get("tipo") == "grupo")
+            pdf.set_font("Arial", "B" if is_group else "", 10)
+            fill = False
+            border = 0
+            pdf.set_x(left_margin)
+            pdf.cell(title_w, 6, str(n.get("titulo") or ""), border, 0, "L", fill)
+            valor_fmt = format_currency(n.get("valor") or 0)
+            pdf.cell(value_col_w, 6, valor_fmt, border, 1, "R", fill)
+            filhos = n.get("filhos") or []
+            if filhos:
+                render_lines(filhos, nivel + 1)
+
+    # Conteúdo por máscara
+    page_width = pdf.w - pdf.l_margin - pdf.r_margin
+    value_col_w = 45
+    for item in resultados:
+        mask = item["mascara"]
+        total = item["total"]
+        arvore_val = item["arvore"]
+        # Cabeçalho da máscara com total
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(page_width - value_col_w, 7, str(mask["nome"]), 0, 0, "L")
+        pdf.cell(value_col_w, 7, format_currency(total), 0, 1, "R")
+        pdf.set_font("Arial", "", 10)
+        if mask.get("eh_formula"):
+            formula = mask.get("formula") or ""
+            if formula:
+                pdf.cell(page_width, 6, f"Fórmula: {formula}", 0, 1, "L")
+        else:
+            render_lines(arvore_val, 0)
+        # separador
+        pdf.ln(2)
+
+    output = pdf.output(dest="S").encode("latin1", "ignore")
+    filename = f"dre_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     return send_file(io.BytesIO(output), mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 # --- Módulo de Administração do Sistema ---

@@ -22,13 +22,27 @@
         <option value="competencia" {% if base=='competencia' %}selected{% endif %}>Competência (vencimentos)</option>
       </select>
     </div>
-    <div>
-      <label class="form-label">Início</label>
-      <input type="date" name="data_inicio" class="form-input" value="{{ data_inicio or '' }}" required>
-    </div>
-    <div>
-      <label class="form-label">Fim</label>
-      <input type="date" name="data_fim" class="form-input" value="{{ data_fim or '' }}" required>
+    <div class="md:col-span-3">
+      <label class="form-label">Períodos (Mês/Ano)</label>
+      <div class="relative">
+        <button type="button" id="periodo-toggle" class="form-select w-full text-left">
+          <span id="periodo-summary">Selecione períodos...</span>
+        </button>
+        <div id="periodo-dropdown" class="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow hidden max-h-64 overflow-auto">
+          <div class="px-3 py-2 border-b flex items-center justify-between">
+            <span class="text-sm text-gray-600">Marque os períodos desejados</span>
+            <button type="button" id="periodo-toggle-all" class="text-sm text-blue-600 hover:underline">Selecionar todos</button>
+          </div>
+          <div class="p-2 space-y-1">
+            {% for per in periodos_lista %}
+              <label class="flex items-center space-x-2 px-2 py-1 hover:bg-gray-50 rounded">
+                <input type="checkbox" name="periodos" value="{{ per.value }}" {% if periodos_sel and per.value in periodos_sel %}checked{% endif %}>
+                <span>{{ per.label }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
     </div>
     <div class="flex items-end">
       <button type="submit" class="btn btn-primary w-full"><i class="fas fa-search mr-2"></i>Gerar</button>
@@ -41,56 +55,145 @@
 </div>
 
 {% if resultados %}
-{% for res in resultados %}
-<div class="bg-white p-6 shadow rounded mt-6">
-  <div class="flex justify-between items-center mb-4">
-    <div>
-      <h3 class="text-lg font-semibold">{{ res.mascara.nome }}</h3>
-      <p class="text-gray-500">{{ res.empresa }} | {{ res.periodo }}</p>
-    </div>
-    <div>
-      <form method="post" action="{{ url_for('relatorio_dre_pdf') }}" target="_blank" class="inline">
-        <input type="hidden" name="mascara_id" value="{{ res.mascara.id }}">
-        <input type="hidden" name="base" value="{{ base }}">
-        <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
-        <input type="hidden" name="data_fim" value="{{ data_fim }}">
-        {% if hide_zeros %}
-        <input type="hidden" name="hide_zeros" value="1">
-        {% endif %}
-        <button type="submit" class="btn btn-primary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
-      </form>
-    </div>
-  </div>
-
-  {% macro render_dre(nos, nivel=0) %}
-    <ul class="ml-{{ 2 * nivel }}">
-      {% for n in nos %}
-        <li class="py-1">
-          <div class="flex justify-between">
-            <div>
-              <span class="text-sm text-gray-400 mr-2">{{ n.ordem or 0 }}</span>
-              <span class="{{ 'font-semibold' if n.tipo=='grupo' else '' }}">{{ n.titulo }}</span>
-            </div>
-            <div class="text-right {{ 'font-bold' if n.tipo=='grupo' else '' }}">
-              {{ n.valor|currency }}
-            </div>
-          </div>
-          {% if n.filhos %}
-            {{ render_dre(n.filhos, nivel+1) }}
+  {% for grupo in resultados %}
+  <div class="bg-white rounded-lg shadow mt-6">
+    <div class="p-6 sm:p-8 border-b flex items-center justify-between">
+      <div class="flex-1">
+        <h2 class="text-xl font-bold text-gray-800 text-center">Demonstração do Resultado do Exercício</h2>
+        {% set primeiro = grupo.itens|first %}
+        <p class="text-center text-gray-500 mt-2">{{ primeiro.empresa if primeiro else '' }} - Período: {{ grupo.periodo_label }}</p>
+      </div>
+      <div class="ml-4">
+        <form method="post" action="{{ url_for('relatorio_dre_pdf_full') }}" target="_blank" class="inline">
+          <input type="hidden" name="base" value="{{ base }}">
+          <input type="hidden" name="data_inicio" value="{{ grupo.data_inicio }}">
+          <input type="hidden" name="data_fim" value="{{ grupo.data_fim }}">
+          {% if hide_zeros %}
+          <input type="hidden" name="hide_zeros" value="1">
           {% endif %}
-        </li>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
+        </form>
+      </div>
+    </div>
+    <div class="px-6 sm:px-8 py-4">
+      <style>
+        .dre-item-header{display:flex;align-items:center;justify-content:space-between;padding:0.75rem 0;cursor:pointer;border-bottom:1px solid #e5e7eb;}
+        .dre-sub-items{display:none;padding:0.5rem 0 0.75rem 0;}
+        .dre-sub-items.expanded{display:block;}
+        .dre-sub-item{display:flex;justify-content:space-between;padding:0.25rem 0.25rem 0.25rem 1rem;color:#4b5563;}
+        .dre-total{font-weight:600;border-top:2px solid #374151;padding-top:0.5rem;margin-top:0.5rem;}
+      </style>
+
+      {% macro render_dre(nos, nivel=0) %}
+        <ul class="ml-{{ 2 * nivel }}">
+          {% for n in nos %}
+            <li class="py-1">
+              <div class="flex justify-between">
+                <div>
+                  <span class="{{ 'font-semibold' if n.tipo=='grupo' else '' }}">{{ n.titulo }}</span>
+                </div>
+                <div class="text-right {{ 'font-bold' if n.tipo=='grupo' else '' }}">
+                  {{ n.valor|currency }}
+                </div>
+              </div>
+              {% if n.filhos %}
+                {{ render_dre(n.filhos, nivel+1) }}
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endmacro %}
+
+      {% for res in grupo.itens %}
+        {% set target = 'm' ~ res.mascara.id ~ '-' ~ grupo.periodo_value %}
+        <div class="dre-item">
+          <div class="dre-item-header" data-target="{{ target }}">
+            <div class="flex items-center space-x-3">
+              <span class="font-bold text-gray-500 toggle-icon" data-icon="{{ target }}">+</span>
+              <span class="font-bold text-lg">{{ res.mascara.nome }}</span>
+              {% if res.mascara.eh_formula %}
+                <span class="text-xs text-gray-500">Fórmula: {{ res.mascara.formula }}</span>
+              {% endif %}
+            </div>
+            <div class="text-right font-bold">{{ res.total|currency }}</div>
+          </div>
+          <div class="dre-sub-items" data-body="{{ target }}">
+            {% if res.mascara.eh_formula %}
+              <div class="dre-sub-item text-sm text-gray-500">Resultado calculado por fórmula: {{ res.mascara.formula }}</div>
+            {% elif res.arvore and res.arvore|length > 0 %}
+              {{ render_dre(res.arvore) }}
+            {% else %}
+              <div class="dre-sub-item text-sm text-gray-500">Sem itens mapeados.</div>
+            {% endif %}
+          </div>
+        </div>
       {% endfor %}
-    </ul>
-  {% endmacro %}
-
-  {{ render_dre(res.arvore) }}
-
-  <hr class="my-4">
-  <div class="flex justify-between text-lg">
-    <div class="font-semibold">Total do Período</div>
-    <div class="font-bold">{{ res.total|currency }}</div>
+    </div>
   </div>
-</div>
-{% endfor %}
+  {% endfor %}
 {% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function() {
+    const toggleBtn = document.getElementById('periodo-toggle');
+    const dropdown = document.getElementById('periodo-dropdown');
+    const toggleAll = document.getElementById('periodo-toggle-all');
+    const summary = document.getElementById('periodo-summary');
+
+    function updateSummary() {
+      if (!dropdown) return;
+      const checked = dropdown.querySelectorAll('input[type="checkbox"]:checked');
+      if (checked.length === 0) {
+        summary && (summary.textContent = 'Selecione períodos...');
+      } else {
+        summary && (summary.textContent = checked.length + ' período(s) selecionado(s)');
+      }
+    }
+
+    if (toggleBtn && dropdown) {
+      toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        dropdown.classList.toggle('hidden');
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!dropdown) return;
+      if (!dropdown.contains(e.target) && e.target !== toggleBtn && !(toggleBtn && toggleBtn.contains(e.target))) {
+        dropdown.classList.add('hidden');
+      }
+    });
+
+    dropdown && dropdown.addEventListener('change', updateSummary);
+
+    toggleAll && toggleAll.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!dropdown) return;
+      const boxes = dropdown.querySelectorAll('input[type="checkbox"]');
+      const anyUnchecked = Array.from(boxes).some(b => !b.checked);
+      boxes.forEach(b => b.checked = anyUnchecked);
+      updateSummary();
+    });
+
+    // Initialize summary on load
+    updateSummary();
+
+    // DRE collapsible groups
+    const headers = document.querySelectorAll('.dre-item-header');
+    headers.forEach(h => {
+      h.addEventListener('click', () => {
+        const target = h.getAttribute('data-target');
+        const body = document.querySelector(`[data-body="${target}"]`);
+        const icon = document.querySelector(`[data-icon="${target}"]`);
+        if (body) {
+          const expanded = body.classList.toggle('expanded');
+          if (icon) icon.textContent = expanded ? '−' : '+';
+        }
+      });
+    });
+  })();
+  </script>
 {% endblock %}

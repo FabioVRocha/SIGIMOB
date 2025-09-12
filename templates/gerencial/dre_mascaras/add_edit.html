@@ -14,6 +14,30 @@
       <label class="form-label">Descrição</label>
       <textarea name="descricao" rows="3" class="form-input">{{ mascara.descricao if mascara else '' }}</textarea>
     </div>
+    <div class="form-group">
+      <label class="form-label">Ordem</label>
+      <input type="number" name="ordem" class="form-input" min="0" step="1" value="{{ mascara.ordem if mascara and mascara.ordem is not none else 0 }}">
+      <small class="text-gray-500">Menores primeiro. Não aparece na exibição.</small>
+    </div>
+    <div class="form-group flex items-center space-x-2">
+      <input type="checkbox" name="eh_formula" id="eh_formula" class="" {% if mascara and mascara.eh_formula %}checked{% endif %}>
+      <label for="eh_formula">Máscara de resultado (por fórmula)</label>
+    </div>
+    <div id="formula_container" class="form-group" {% if not (mascara and mascara.eh_formula) %}style="display:none"{% endif %}>
+      <label class="form-label">Fórmula</label>
+      <input type="text" name="formula" class="form-input" placeholder="Ex.: Receitas - Despesas ou #1 - #2" value="{{ mascara.formula if mascara else '' }}">
+      <small class="text-gray-500">Use +, -, *, /. Referencie por nome da máscara ou por id com #ID. Ex.: #3 - #4</small>
+      {% if mascaras_tokens %}
+      <div class="mt-2 p-2 bg-gray-50 rounded border border-gray-200 text-sm">
+        <div class="font-semibold mb-1">Máscaras disponíveis:</div>
+        <ul class="grid grid-cols-1 md:grid-cols-2 gap-1">
+          {% for m in mascaras_tokens %}
+            <li><span class="text-gray-700">{{ m.nome }}</span> <span class="text-gray-500">(id: #{{ m.id }})</span></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
     <div class="form-group flex items-center space-x-2">
       <input type="checkbox" name="ativo" id="ativo" class="" {% if not mascara or mascara.ativo %}checked{% endif %}>
       <label for="ativo">Ativa</label>
@@ -26,3 +50,17 @@
 </div>
 {% endblock %}
 
+{% block scripts %}
+<script>
+  (function(){
+    const chk = document.getElementById('eh_formula');
+    const cont = document.getElementById('formula_container');
+    if (chk) {
+      chk.addEventListener('change', function(){
+        if (this.checked) { if (cont) cont.style.display = 'block'; }
+        else { if (cont) cont.style.display = 'none'; }
+      });
+    }
+  })();
+</script>
+{% endblock %}

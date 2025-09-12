@@ -4,6 +4,17 @@
 {% block page_title %}Builder Máscara DRE - {{ mascara.nome }}{% endblock %}
 
 {% block content %}
+{% if mascara.eh_formula %}
+<div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded mb-4">
+  <div class="flex items-center justify-between">
+    <div>
+      <p class="font-semibold text-yellow-800">Esta máscara é do tipo "resultado por fórmula".</p>
+      <p class="text-sm text-yellow-700">A estrutura (itens) não se aplica. Edite a máscara para ajustar a fórmula.</p>
+    </div>
+    <a href="{{ url_for('dre_mascaras_edit', id=mascara.id) }}" class="btn btn-primary"><i class="fas fa-pen mr-2"></i>Editar Máscara</a>
+  </div>
+</div>
+{% else %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
   <!-- Coluna: Adicionar Item -->
   <div class="bg-white p-6 shadow rounded">
@@ -113,6 +124,7 @@
     {% endif %}
   </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
