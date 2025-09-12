@@ -6,12 +6,12 @@
 {% block content %}
 <div class="bg-white p-6 shadow rounded">
   <form method="post" class="grid grid-cols-1 md:grid-cols-5 gap-4">
-    <div>
+    <div class="hidden">
       <label class="form-label">Máscara</label>
-      <select name="mascara_id" class="form-select" required>
+      <select name="mascara_id" class="form-select" style="display:none" disabled>
         <option value="">Selecione...</option>
         {% for m in mascaras %}
-          <option value="{{ m.id }}" {% if mascara_sel and mascara_sel.id==m.id %}selected{% endif %}>{{ m.nome }}</option>
+          <option value="{{ m.id }}">{{ m.nome }}</option>
         {% endfor %}
       </select>
     </div>
@@ -40,16 +40,17 @@
   </form>
 </div>
 
-{% if resultado %}
+{% if resultados %}
+{% for res in resultados %}
 <div class="bg-white p-6 shadow rounded mt-6">
   <div class="flex justify-between items-center mb-4">
     <div>
-      <h3 class="text-lg font-semibold">{{ mascara_sel.nome }}</h3>
-      <p class="text-gray-500">{{ resultado.empresa }} | {{ resultado.periodo }}</p>
+      <h3 class="text-lg font-semibold">{{ res.mascara.nome }}</h3>
+      <p class="text-gray-500">{{ res.empresa }} | {{ res.periodo }}</p>
     </div>
     <div>
       <form method="post" action="{{ url_for('relatorio_dre_pdf') }}" target="_blank" class="inline">
-        <input type="hidden" name="mascara_id" value="{{ mascara_sel.id }}">
+        <input type="hidden" name="mascara_id" value="{{ res.mascara.id }}">
         <input type="hidden" name="base" value="{{ base }}">
         <input type="hidden" name="data_inicio" value="{{ data_inicio }}">
         <input type="hidden" name="data_fim" value="{{ data_fim }}">
@@ -82,13 +83,14 @@
     </ul>
   {% endmacro %}
 
-  {{ render_dre(resultado.arvore) }}
+  {{ render_dre(res.arvore) }}
 
   <hr class="my-4">
   <div class="flex justify-between text-lg">
     <div class="font-semibold">Total do Período</div>
-    <div class="font-bold">{{ resultado.total|currency }}</div>
+    <div class="font-bold">{{ res.total|currency }}</div>
   </div>
 </div>
+{% endfor %}
 {% endif %}
 {% endblock %}

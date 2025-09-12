@@ -560,8 +560,7 @@ def ensure_ordens_pagamento_tables():
         """
     )
     conn.commit()
-    cur.close()
-    conn.close()
+    
 
 
 def ensure_dre_tables():
@@ -6013,7 +6012,6 @@ def dre_mascaras_estrutura_delete(id):
 @login_required
 @permission_required("Administracao Sistema", "Editar")
 def dre_nos_add():
-    mascara_id = request.form.get("mascara_id", type=int)
     parent_id = request.form.get("parent_id", type=int)
     titulo = request.form.get("titulo", "").strip()
     tipo = request.form.get("tipo", "grupo")
@@ -6264,15 +6262,13 @@ def relatorio_dre():
     cur.execute("SELECT id, nome FROM dre_mascaras WHERE ativo=true ORDER BY nome")
     mascaras = cur.fetchall()
 
-    resultado = None
-    mascara_sel = None
+    resultados = None
     base = (request.form.get("base") or "caixa").lower()
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
-    mascara_id = request.form.get("mascara_id", type=int)
     hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True") or (request.method == "GET")
 
-    if request.method == "POST" and mascara_id and data_inicio and data_fim:
+    if False and request.method == "POST" and data_inicio and data_fim:
         # Carrega nós e monta árvore
         cur.execute(
             "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
@@ -6301,15 +6297,43 @@ def relatorio_dre():
             ),
         }
 
+    if request.method == "POST" and data_inicio and data_fim:
+        cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+        empresa = cur.fetchone()
+        resultados = []
+        for m in mascaras:
+            cur.execute(
+                "SELECT * FROM dre_nos WHERE mascara_id=%s ORDER BY parent_id NULLS FIRST, ordem ASC, id ASC",
+                (m["id"],),
+            )
+            nos = [dict(n) for n in cur.fetchall()]
+            arvore = _montar_arvore_nos(nos)
+            arvore_val, total = _calcular_totais(cur, arvore, base, data_inicio, data_fim)
+            if hide_zeros:
+                arvore_val = _prune_zero_nodes(arvore_val)
+                _, total = _calcular_totais(cur, arvore_val, base, data_inicio, data_fim)
+            resultados.append(
+                {
+                    "mascara": m,
+                    "arvore": arvore_val,
+                    "total": total,
+                    "empresa": empresa["razao_social_nome"] if empresa else "",
+                    "periodo": (
+                        datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+                        + " a "
+                        + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+                    ),
+                }
+            )
+
     cur.close()
     conn.close()
 
     return render_template(
         "relatorios/gerencial/dre.html",
         mascaras=mascaras,
-        resultado=resultado,
+        resultados=resultados,
         base=base,
-        mascara_sel=mascara_sel,
         data_inicio=data_inicio,
         data_fim=data_fim,
         hide_zeros=hide_zeros,
