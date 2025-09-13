@@ -94,6 +94,54 @@
             flex-grow: 1;
             background-color: var(--clr-dashboard-bg);
         }
+        
+        /* Responsividade: comportamento da sidebar em telas menores (mobile <768px) */
+        @media (max-width: 767px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+                left: 0;
+                top: 0;
+                z-index: 1000;
+                width: 280px;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0; /* Conteúdo ocupa 100% quando a sidebar está oculta */
+            }
+
+            /* Header: grid no mobile para centralizar o título entre os botões */
+            .main-header {
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                gap: 0.5rem;
+            }
+            .main-header h1 { text-align: center; }
+        }
+
+        /* Botão hamburguer: estilo melhorado */
+        .hamburger-btn {
+            background-color: var(--clr-light-blue);
+            color: var(--clr-white);
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+            transition: background-color 0.2s, transform 0.05s ease, box-shadow 0.2s;
+        }
+        .hamburger-btn:hover {
+            background-color: color-mix(in srgb, var(--clr-light-blue) 85%, black);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .hamburger-btn:active {
+            transform: scale(0.98);
+        }
+        .hamburger-btn:focus-visible {
+            outline: 2px solid rgba(59,130,246,0.75); /* azul */
+            outline-offset: 2px;
+        }
 
         .main-header {
             background-color: var(--clr-card-bg);
@@ -327,6 +375,18 @@
             cursor: pointer;
         }
 
+        /* Busca mobile: animação de expansão */
+        .mobile-search {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.25s ease, opacity 0.2s ease;
+        }
+        .mobile-search.open {
+            max-height: 80px; /* altura suficiente para o container da busca */
+            opacity: 1;
+        }
+
         /* Formulários */
         .form-group { margin-bottom: 1.5rem; }
         .form-label {
@@ -496,15 +556,36 @@
         </div>
         <div class="mt-4 text-xs text-center text-white">Versão {{ system_version }} / Usuário: {{ usuario_logado }}</div>
     </div>
+    <!-- Overlay para quando a sidebar estiver aberta no mobile -->
+    <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40"></div>
 
     <!-- Main Content -->
     <div class="main-content">
         <!-- Main Header -->
         <div class="main-header">
-            <h1>{% block page_title %}{% endblock %}</h1>
-            <div class="search-bar">
+            <!-- Botão hamburguer visível apenas em telas menores -->
+            <button id="sidebarToggle" class="md:hidden inline-flex items-center justify-center mr-1 hamburger-btn" aria-label="Abrir menu">
+                <i class="fas fa-bars text-lg"></i>
+            </button>
+            <h1 class="main-title">{% block page_title %}{% endblock %}</h1>
+            <!-- Barra de busca: visível no desktop/tablet (>= md) -->
+            <div class="search-bar hidden md:flex">
                 <i class="fas fa-search"></i>
                 <input type="text" placeholder="Pesquisar...">
+            </div>
+            <!-- Ícone de busca no mobile -->
+            <button id="mobileSearchToggle" class="md:hidden inline-flex items-center justify-center ml-1 hamburger-btn" aria-label="Abrir busca">
+                <i class="fas fa-search text-lg"></i>
+            </button>
+        </div>
+        <!-- Barra de busca mobile (expansível) -->
+        <div id="mobile-search-container" class="md:hidden mt-2 mobile-search">
+            <div class="search-bar" style="width: 100%;">
+                <i class="fas fa-search"></i>
+                <input id="mobileSearchInput" type="text" placeholder="Pesquisar...">
+                <button id="mobileSearchClose" class="ml-2 hamburger-btn" aria-label="Fechar busca">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
         </div>
 
@@ -526,8 +607,80 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Controle de abertura/fechamento da sidebar no mobile
+            const sidebarEl = document.querySelector('.sidebar');
+            const sidebarToggleBtn = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+            const openSidebar = () => {
+                sidebarEl.classList.add('open');
+                if (sidebarOverlay) sidebarOverlay.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            };
+
+            const closeSidebar = () => {
+                sidebarEl.classList.remove('open');
+                if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+                document.body.style.overflow = '';
+            };
+
+            sidebarToggleBtn && sidebarToggleBtn.addEventListener('click', () => {
+                if (sidebarEl.classList.contains('open')) {
+                    closeSidebar();
+                } else {
+                    openSidebar();
+                }
+            });
+
+            sidebarOverlay && sidebarOverlay.addEventListener('click', closeSidebar);
+
+            // Garante estado consistente ao redimensionar
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 768) {
+                    // Desktop: overlay some e scroll volta ao normal
+                    sidebarEl.classList.remove('open');
+                    if (sidebarOverlay) sidebarOverlay.classList.add('hidden');
+                    document.body.style.overflow = '';
+                    // Fecha busca mobile ao ir para desktop
+                    const mobileSearch = document.getElementById('mobile-search-container');
+                    mobileSearch && mobileSearch.classList.remove('open');
+                }
+            });
+
+            // Tecla ESC fecha sidebar e busca mobile
+            document.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Escape') {
+                    closeSidebar();
+                    closeMobileSearch();
+                }
+            });
+
             const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
             const currentPath = window.location.pathname;
+
+            // Toggle da busca mobile
+            const mobileSearchToggleBtn = document.getElementById('mobileSearchToggle');
+            const mobileSearchContainer = document.getElementById('mobile-search-container');
+            const mobileSearchClose = document.getElementById('mobileSearchClose');
+            const mobileSearchInput = document.getElementById('mobileSearchInput');
+
+            const openMobileSearch = () => {
+                if (!mobileSearchContainer) return;
+                mobileSearchContainer.classList.add('open');
+                // foco no input
+                setTimeout(() => { mobileSearchInput && mobileSearchInput.focus(); }, 0);
+            };
+            const closeMobileSearch = () => {
+                mobileSearchContainer && mobileSearchContainer.classList.remove('open');
+            };
+            mobileSearchToggleBtn && mobileSearchToggleBtn.addEventListener('click', () => {
+                if (mobileSearchContainer.classList.contains('open')) {
+                    closeMobileSearch();
+                } else {
+                    openMobileSearch();
+                }
+            });
+            mobileSearchClose && mobileSearchClose.addEventListener('click', closeMobileSearch);
 
             // Função para ativar o item da sidebar
             const activateSidebarItem = (path) => {
