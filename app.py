@@ -6361,6 +6361,7 @@ def relatorio_dre():
     periodos_sel = request.form.getlist("periodos")  # ["YYYY-MM", ...]
     hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True") or (request.method == "GET")
 
+    comparativo = None
     if request.method == "POST" and periodos_sel:
         cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
         empresa = cur.fetchone()
@@ -6492,6 +6493,35 @@ def relatorio_dre():
 
             resultados.append(grupo)
 
+        # Monta estrutura comparativa (períodos em colunas)
+        periodos_comp = [
+            {
+                "value": g["periodo_value"],
+                "label": g["periodo_label"],
+                "data_inicio": g.get("data_inicio"),
+                "data_fim": g.get("data_fim"),
+            }
+            for g in resultados
+        ]
+        rows = []
+        for m in mascaras:
+            valores = []
+            for g in resultados:
+                it = next((it for it in g["itens"] if it["mascara"]["id"] == m["id"]), None)
+                valores.append(it["total"] if it else Decimal("0"))
+            variacoes = []
+            for i, v in enumerate(valores):
+                if i == 0:
+                    variacoes.append(None)
+                else:
+                    prev = valores[i - 1]
+                    try:
+                        variacoes.append((v - prev) / (abs(prev) if prev != 0 else Decimal("1")))
+                    except Exception:
+                        variacoes.append(None)
+            rows.append({"mascara": m, "valores": valores, "variacoes": variacoes})
+        comparativo = {"periodos": periodos_comp, "rows": rows}
+
     cur.close()
     conn.close()
 
@@ -6503,6 +6533,7 @@ def relatorio_dre():
         periodos_lista=periodos_lista,
         periodos_sel=periodos_sel,
         hide_zeros=hide_zeros,
+        comparativo=comparativo,
     )
 
 

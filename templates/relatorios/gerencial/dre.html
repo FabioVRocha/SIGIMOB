@@ -54,7 +54,67 @@
   </form>
 </div>
 
-{% if resultados %}
+{% if comparativo and (comparativo.periodos|length) > 1 %}
+  <div class="bg-white rounded-lg shadow mt-6">
+    <div class="p-6 sm:p-8 border-b flex items-center justify-between">
+      <div class="flex-1">
+        <h2 class="text-xl font-bold text-gray-800 text-center">Demonstração do Resultado do Exercício</h2>
+        {% set first_group = resultados|first %}
+        {% set first_item = first_group.itens|first if first_group else None %}
+        <p class="text-center text-gray-500 mt-2">{{ first_item.empresa if first_item else '' }}</p>
+      </div>
+      <div class="ml-4 flex items-center space-x-2">
+        <form id="pdf_full_form" method="post" action="{{ url_for('relatorio_dre_pdf_full') }}" target="_blank" class="inline flex items-center space-x-2">
+          <input type="hidden" name="base" value="{{ base }}">
+          <input type="hidden" name="data_inicio" id="pdf_data_inicio" value="{{ comparativo.periodos[-1].data_inicio if comparativo.periodos else '' }}">
+          <input type="hidden" name="data_fim" id="pdf_data_fim" value="{{ comparativo.periodos[-1].data_fim if comparativo.periodos else '' }}">
+          {% if hide_zeros %}
+          <input type="hidden" name="hide_zeros" value="1">
+          {% endif %}
+          <select id="pdf_periodo" class="form-select">
+            {% for p in comparativo.periodos %}
+            <option value="{{ p.value }}" data-inicio="{{ p.data_inicio }}" data-fim="{{ p.data_fim }}" {% if loop.last %}selected{% endif %}>{{ p.label }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
+        </form>
+      </div>
+    </div>
+    <div class="px-6 sm:px-8 py-4 overflow-x-auto">
+      <table class="min-w-full bg-white border border-gray-200 rounded">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-4 py-2 text-left">Máscara</th>
+            {% for p in comparativo.periodos %}
+            <th class="px-4 py-2 text-right">{{ p.label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in comparativo.rows %}
+          <tr class="{{ 'table-row-even' if loop.index % 2 == 0 else 'table-row-odd' }}">
+            <td class="px-4 py-2 font-semibold">{{ row.mascara.nome }}</td>
+            {% for p in comparativo.periodos %}
+            {% set i = loop.index0 %}
+            {% set val = row.valores[i] %}
+            {% set var = row.variacoes[i] %}
+            <td class="px-4 py-2 text-right">
+              <div>{{ val | currency }}</div>
+              {% if i > 0 and var is not none %}
+                {% set pct = (var * 100) %}
+                <div class="text-xs {% if pct > 0 %}text-green-600{% elif pct < 0 %}text-red-600{% else %}text-gray-500{% endif %}">
+                  {{ pct | round(2) }}%
+                </div>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% elif resultados %}
   {% for grupo in resultados %}
   <div class="bg-white rounded-lg shadow mt-6">
     <div class="p-6 sm:p-8 border-b flex items-center justify-between">
@@ -81,7 +141,6 @@
         .dre-sub-items{display:none;padding:0.5rem 0 0.75rem 0;}
         .dre-sub-items.expanded{display:block;}
         .dre-sub-item{display:flex;justify-content:space-between;padding:0.25rem 0.25rem 0.25rem 1rem;color:#4b5563;}
-        .dre-total{font-weight:600;border-top:2px solid #374151;padding-top:0.5rem;margin-top:0.5rem;}
       </style>
 
       {% macro render_dre(nos, nivel=0) %}
@@ -181,7 +240,19 @@
     // Initialize summary on load
     updateSummary();
 
-    // DRE collapsible groups
+    // PDF período selector updates hidden dates
+    const sel = document.getElementById('pdf_periodo');
+    const di = document.getElementById('pdf_data_inicio');
+    const df = document.getElementById('pdf_data_fim');
+    if (sel && di && df) {
+      sel.addEventListener('change', function(){
+        const opt = this.options[this.selectedIndex];
+        di.value = opt.getAttribute('data-inicio') || '';
+        df.value = opt.getAttribute('data-fim') || '';
+      });
+    }
+
+    // Collapsible sections for single-period view
     const headers = document.querySelectorAll('.dre-item-header');
     headers.forEach(h => {
       h.addEventListener('click', () => {
