@@ -52,6 +52,24 @@
                 <label for="data_vencimento" class="form-label">Data de Vencimento</label>
                 <input type="date" id="data_vencimento" name="data_vencimento" class="form-input" value="{{ ordem.data_vencimento if ordem and ordem.data_vencimento else '' }}">
             </div>
+            <div>
+                <label for="despesa_id" class="form-label">Despesa</label>
+                <select id="despesa_id" name="despesa_id" class="form-input" required>
+                    <option value="">Selecione</option>
+                    {% for d in despesas %}
+                    <option value="{{ d.id }}" {% if ordem and ordem.despesa_id == d.id %}selected{% endif %}>{{ d.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="origem_id" class="form-label">Origem</label>
+                <select id="origem_id" name="origem_id" class="form-input">
+                    <option value="">Selecione</option>
+                    {% for o in origens %}
+                    <option value="{{ o.id }}" {% if ordem and ordem.origem_id == o.id %}selected{% endif %}>{{ o.descricao }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 
         <!-- 2. Seção de Serviços -->

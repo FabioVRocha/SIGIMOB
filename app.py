@@ -178,6 +178,15 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
     # Campos derivados solicitados para modelos de contrato
     # 1) Mês e ano do início do contrato (ex: "Janeiro de 2025")
     data_inicio_dt = contrato.get("data_inicio")
+    data_fim_dt = contrato.get("data_fim")
+    if data_inicio_dt and data_fim_dt and data_fim_dt >= data_inicio_dt:
+        months_diff = (data_fim_dt.year - data_inicio_dt.year) * 12 + (data_fim_dt.month - data_inicio_dt.month)
+        if data_fim_dt.day > data_inicio_dt.day:
+            months_diff += 1
+        months_diff = max(months_diff, 0)
+        put("DuracaoContratoMeses", months_diff)
+    else:
+        put("DuracaoContratoMeses", "")
     if data_inicio_dt:
         meses_pt = [
             "",
@@ -549,6 +558,28 @@ def ensure_ordens_pagamento_tables():
         )
         """
     )
+    # Garante colunas auxiliares para integração com contas a pagar
+    cur.execute(
+        """
+        SELECT 1 FROM information_schema.columns
+         WHERE table_name='ordens_pagamento' AND column_name='despesa_id'
+        """
+    )
+    if cur.fetchone() is None:
+        cur.execute(
+            "ALTER TABLE ordens_pagamento ADD COLUMN despesa_id INTEGER REFERENCES despesas_cadastro(id)"
+        )
+
+    cur.execute(
+        """
+        SELECT 1 FROM information_schema.columns
+         WHERE table_name='ordens_pagamento' AND column_name='origem_id'
+        """
+    )
+    if cur.fetchone() is None:
+        cur.execute(
+            "ALTER TABLE ordens_pagamento ADD COLUMN origem_id INTEGER REFERENCES origens_cadastro(id)"
+        )
     # Itens de produtos da OP
     cur.execute(
         """
@@ -576,6 +607,21 @@ def ensure_ordens_pagamento_tables():
         )
         """
     )
+    # Relacionamento com contas a pagar para evitar duplicidades
+    cur.execute(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'contas_a_pagar')"
+    )
+    if cur.fetchone()[0]:
+        cur.execute(
+            """
+            SELECT 1 FROM information_schema.columns
+             WHERE table_name='contas_a_pagar' AND column_name='ordem_pagamento_id'
+            """
+        )
+        if cur.fetchone() is None:
+            cur.execute(
+                "ALTER TABLE contas_a_pagar ADD COLUMN ordem_pagamento_id INTEGER REFERENCES ordens_pagamento(id)"
+            )
     conn.commit()
     
 
@@ -3975,6 +4021,11 @@ def ordens_pagamento_add():
             valor_servico = parse_decimal(request.form.get("valor_servico")) or Decimal("0")
             desconto_manual = parse_decimal(request.form.get("desconto_manual")) or Decimal("0")
             observacoes = request.form.get("observacoes")
+            despesa_id = parse_int(request.form.get("despesa_id"))
+            origem_id = parse_int(request.form.get("origem_id"))
+
+            if not despesa_id:
+                raise ValueError("Selecione uma despesa para a ordem de pagamento.")
 
             codigos = request.form.getlist("item_codigo[]")
             descrs = request.form.getlist("item_descricao[]")
@@ -4012,8 +4063,9 @@ def ordens_pagamento_add():
                 INSERT INTO ordens_pagamento (
                     imovel_id, fornecedor_id, forma_pagamento, data_vencimento,
                     descricao_servico, valor_servico, desconto_manual,
-                    subtotal_servicos, subtotal_produtos, desconto_produtos, total, observacoes
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
+                    subtotal_servicos, subtotal_produtos, desconto_produtos, total, observacoes,
+                    despesa_id, origem_id
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
                 """,
                 (
                     imovel_id,
@@ -4028,6 +4080,8 @@ def ordens_pagamento_add():
                     desconto_produtos,
                     total,
                     observacoes,
+                    despesa_id,
+                    origem_id,
                 ),
             )
             ordem_id = cur.fetchone()[0]
@@ -4089,6 +4143,10 @@ def ordens_pagamento_add():
         "SELECT id, razao_social_nome, documento FROM pessoas WHERE tipo IN ('Fornecedor','Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
+    origens = cur.fetchall()
     cur.close()
     conn.close()
     return render_template(
@@ -4097,6 +4155,8 @@ def ordens_pagamento_add():
         itens=[],
         imoveis=imoveis,
         fornecedores=fornecedores,
+        despesas=despesas,
+        origens=origens,
     )
 
 
@@ -4116,6 +4176,11 @@ def ordens_pagamento_edit(id):
             valor_servico = parse_decimal(request.form.get("valor_servico")) or Decimal("0")
             desconto_manual = parse_decimal(request.form.get("desconto_manual")) or Decimal("0")
             observacoes = request.form.get("observacoes")
+            despesa_id = parse_int(request.form.get("despesa_id"))
+            origem_id = parse_int(request.form.get("origem_id"))
+
+            if not despesa_id:
+                raise ValueError("Selecione uma despesa para a ordem de pagamento.")
 
             codigos = request.form.getlist("item_codigo[]")
             descrs = request.form.getlist("item_descricao[]")
@@ -4153,7 +4218,8 @@ def ordens_pagamento_edit(id):
                 UPDATE ordens_pagamento SET
                     imovel_id=%s, fornecedor_id=%s, forma_pagamento=%s, data_vencimento=%s,
                     descricao_servico=%s, valor_servico=%s, desconto_manual=%s,
-                    subtotal_servicos=%s, subtotal_produtos=%s, desconto_produtos=%s, total=%s, observacoes=%s
+                    subtotal_servicos=%s, subtotal_produtos=%s, desconto_produtos=%s, total=%s, observacoes=%s,
+                    despesa_id=%s, origem_id=%s
                 WHERE id=%s
                 """,
                 (
@@ -4169,6 +4235,8 @@ def ordens_pagamento_edit(id):
                     desconto_produtos,
                     total,
                     observacoes,
+                    despesa_id,
+                    origem_id,
                     id,
                 ),
             )
@@ -4228,10 +4296,13 @@ def ordens_pagamento_edit(id):
     cur.execute(
         """
         SELECT op.*, p.razao_social_nome AS fornecedor_nome, p.documento AS fornecedor_documento,
-               i.endereco AS imovel_endereco
+               i.endereco AS imovel_endereco, d.descricao AS despesa_descricao,
+               o.descricao AS origem_descricao
           FROM ordens_pagamento op
           JOIN pessoas p ON p.id = op.fornecedor_id
           LEFT JOIN imoveis i ON i.id = op.imovel_id
+          LEFT JOIN despesas_cadastro d ON d.id = op.despesa_id
+          LEFT JOIN origens_cadastro o ON o.id = op.origem_id
          WHERE op.id = %s
         """,
         (id,),
@@ -4260,6 +4331,10 @@ def ordens_pagamento_edit(id):
         "SELECT id, razao_social_nome, documento FROM pessoas WHERE tipo IN ('Fornecedor','Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
+    despesas = cur.fetchall()
+    cur.execute("SELECT id, descricao FROM origens_cadastro ORDER BY descricao")
+    origens = cur.fetchall()
     cur.close()
     conn.close()
     return render_template(
@@ -4269,6 +4344,8 @@ def ordens_pagamento_edit(id):
         parcelas=parcelas,
         imoveis=imoveis,
         fornecedores=fornecedores,
+        despesas=despesas,
+        origens=origens,
     )
 
 
@@ -4281,10 +4358,13 @@ def ordens_pagamento_view(id):
     cur.execute(
         """
         SELECT op.*, p.razao_social_nome AS fornecedor_nome, p.documento AS fornecedor_documento,
-               i.endereco AS imovel_endereco
+               i.endereco AS imovel_endereco, d.descricao AS despesa_descricao,
+               o.descricao AS origem_descricao
           FROM ordens_pagamento op
           JOIN pessoas p ON p.id = op.fornecedor_id
           LEFT JOIN imoveis i ON i.id = op.imovel_id
+          LEFT JOIN despesas_cadastro d ON d.id = op.despesa_id
+          LEFT JOIN origens_cadastro o ON o.id = op.origem_id
          WHERE op.id = %s
         """,
         (id,),
@@ -4310,6 +4390,134 @@ def ordens_pagamento_view(id):
     return render_template("financeiro/ordens_pagamento/view.html", ordem=ordem, itens=itens, parcelas=parcelas)
 
 
+@app.route("/ordens-pagamento/<int:id>/gerar-contas", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def ordens_pagamento_gerar_contas(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT op.*, p.razao_social_nome AS fornecedor_nome
+              FROM ordens_pagamento op
+              JOIN pessoas p ON p.id = op.fornecedor_id
+             WHERE op.id = %s
+            """,
+            (id,),
+        )
+        ordem = cur.fetchone()
+        if not ordem:
+            flash("Ordem de Pagamento não encontrada.", "danger")
+            return redirect(url_for("ordens_pagamento_list"))
+
+        ordem = dict(ordem)
+
+        if ordem.get("despesa_id") is None:
+            flash("Defina a despesa da ordem antes de gerar contas a pagar.", "warning")
+            return redirect(url_for("ordens_pagamento_edit", id=id))
+
+        cur.execute(
+            "SELECT id FROM contas_a_pagar WHERE ordem_pagamento_id = %s",
+            (id,),
+        )
+        if cur.fetchone():
+            flash("Já existem contas a pagar vinculadas a esta ordem.", "info")
+            return redirect(url_for("ordens_pagamento_view", id=id))
+
+        cur.execute(
+            """
+            SELECT numero, data_vencimento, valor
+              FROM ordem_pagamento_parcelas
+             WHERE ordem_id = %s
+             ORDER BY COALESCE(numero, 999999), data_vencimento, id
+            """,
+            (id,),
+        )
+        parcelas_db = cur.fetchall()
+        parcelas = [dict(p) for p in parcelas_db]
+        if not parcelas:
+            data_venc = ordem["data_vencimento"] or date.today()
+            parcelas = [
+                {
+                    "numero": 1,
+                    "data_vencimento": data_venc,
+                    "valor": ordem.get("total") or Decimal("0"),
+                }
+            ]
+        total_parcelas = len(parcelas)
+
+        observacao_base = (
+            "Gerado automaticamente a partir da Ordem de Pagamento #{}".format(ordem["id"])
+        )
+        if ordem.get("observacoes"):
+            observacao_base += f". Observações: {ordem['observacoes']}"
+
+        titulo_base = (ordem.get("descricao_servico") or "").strip()
+        if not titulo_base:
+            titulo_base = f"Ordem de Pagamento {ordem['id']}"
+
+        for idx, parcela in enumerate(parcelas, start=1):
+            numero = parcela.get("numero") or idx
+            data_vencimento = parcela["data_vencimento"]
+            if isinstance(data_vencimento, str):
+                data_vencimento = datetime.strptime(data_vencimento, "%Y-%m-%d").date()
+            competencia = date(data_vencimento.year, data_vencimento.month, 1)
+            status_conta = calcular_status_conta(
+                data_vencimento.strftime("%Y-%m-%d"), None, None, cur
+            )
+            valor_previsto = parcela.get("valor")
+            if valor_previsto is None:
+                valor_previsto = Decimal("0")
+            else:
+                valor_previsto = Decimal(valor_previsto)
+
+            if total_parcelas > 1:
+                titulo = f"{titulo_base} - Parcela {numero}/{total_parcelas}"
+            else:
+                titulo = titulo_base
+
+            cur.execute(
+                """
+                INSERT INTO contas_a_pagar (
+                    despesa_id, fornecedor_id, titulo, data_vencimento,
+                    competencia, valor_previsto, data_pagamento, valor_pago,
+                    valor_desconto, valor_multa, valor_juros, observacao,
+                    imovel_id, status_conta, origem_id, ordem_pagamento_id
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    ordem["despesa_id"],
+                    ordem["fornecedor_id"],
+                    titulo,
+                    data_vencimento,
+                    competencia,
+                    valor_previsto,
+                    None,
+                    None,
+                    Decimal("0"),
+                    Decimal("0"),
+                    Decimal("0"),
+                    observacao_base,
+                    ordem.get("imovel_id"),
+                    status_conta,
+                    ordem.get("origem_id"),
+                    ordem["id"],
+                ),
+            )
+
+        conn.commit()
+        flash("Contas a pagar geradas com sucesso.", "success")
+        return redirect(url_for("contas_a_pagar_list"))
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao gerar contas a pagar: {e}", "danger")
+        return redirect(url_for("ordens_pagamento_view", id=id))
+    finally:
+        cur.close()
+        conn.close()
+
+
 @app.route("/ordens-pagamento/print/<int:id>")
 @login_required
 @permission_required("Financeiro", "Consultar")
@@ -4319,10 +4527,13 @@ def ordens_pagamento_print(id):
     cur.execute(
         """
         SELECT op.*, p.razao_social_nome AS fornecedor_nome, p.documento AS fornecedor_documento,
-               i.endereco AS imovel_endereco
+               i.endereco AS imovel_endereco, d.descricao AS despesa_descricao,
+               o.descricao AS origem_descricao
           FROM ordens_pagamento op
           JOIN pessoas p ON p.id = op.fornecedor_id
           LEFT JOIN imoveis i ON i.id = op.imovel_id
+          LEFT JOIN despesas_cadastro d ON d.id = op.despesa_id
+          LEFT JOIN origens_cadastro o ON o.id = op.origem_id
          WHERE op.id = %s
         """,
         (id,),

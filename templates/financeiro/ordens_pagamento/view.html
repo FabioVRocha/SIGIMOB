@@ -24,6 +24,8 @@
         <div><span class="font-semibold">Documento:</span> {{ ordem.fornecedor_documento }}</div>
         <div><span class="font-semibold">Forma de Pagamento:</span> {{ ordem.forma_pagamento or '-' }}</div>
         <div><span class="font-semibold">Vencimento:</span> {{ ordem.data_vencimento.strftime('%d/%m/%Y') if ordem.data_vencimento else '-' }}</div>
+        <div><span class="font-semibold">Despesa:</span> {{ ordem.despesa_descricao or '-' }}</div>
+        <div><span class="font-semibold">Origem:</span> {{ ordem.origem_descricao or '-' }}</div>
     </div>
 
     <h3 class="text-lg font-semibold mb-2">Serviço</h3>

@@ -52,6 +52,10 @@
         <div class="col"><strong>Documento:</strong> {{ ordem.fornecedor_documento }}</div>
     </div>
     <div class="row">
+        <div class="col"><strong>Despesa:</strong> {{ ordem.despesa_descricao or '-' }}</div>
+        <div class="col"><strong>Origem:</strong> {{ ordem.origem_descricao or '-' }}</div>
+    </div>
+    <div class="row">
         <div class="col"><strong>Imóvel:</strong> {{ ordem.imovel_endereco or '-' }}</div>
     </div>
 

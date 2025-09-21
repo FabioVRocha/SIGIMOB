@@ -46,6 +46,11 @@
                         <a href="{{ url_for('ordens_pagamento_edit', id=op.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
+                        <form action="{{ url_for('ordens_pagamento_gerar_contas', id=op.id) }}" method="POST" class="inline-block mr-3" onsubmit="return confirm('Gerar contas a pagar para esta ordem?');">
+                            <button type="submit" class="text-indigo-600 hover:text-indigo-800" title="Gerar Contas a Pagar">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </button>
+                        </form>
                         <a href="{{ url_for('ordens_pagamento_print', id=op.id) }}" class="text-purple-600 hover:text-purple-800" title="Imprimir" target="_blank">
                             <i class="fas fa-print"></i>
                         </a>
