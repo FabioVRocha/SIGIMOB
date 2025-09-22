@@ -1,4 +1,4 @@
-<!-- templates/contratos/list.html -->
+﻿<!-- templates/contratos/list.html -->
 {% extends "base.html" %}
 
 {% block title %}Contratos de Aluguel{% endblock %}
@@ -13,20 +13,20 @@
             <i class="fas fa-plus mr-2"></i> Novo Contrato
         </a>
     </div>
-    {# Campo de busca geral removido. Usaremos busca por coluna no cabeçalho. #}
+    {# Campo de busca geral removido. Usaremos busca por coluna no cabeÃ§alho. #}
     {% if contratos %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
             <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
                 <tr>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ImÃ³vel</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Inquilino</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Finalidade</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Período</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">PerÃ­odo</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Parcela</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">AÃ§Ãµes</th>
                 </tr>
                 <tr>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
@@ -53,9 +53,9 @@
                         <a href="#" onclick="openModeloModal({{ contrato.id }}); return false;" class="text-green-600 hover:text-green-800 mr-3" title="Gerar Contrato"><i class="fas fa-file-signature"></i></a>
                         <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
                         {% if contrato.status_contrato != 'Encerrado' %}
-                        <form action="{{ url_for('contratos_encerrar', id=contrato.id) }}" method="POST" class="inline-block mr-3" onsubmit="return confirm('Tem certeza que deseja encerrar este contrato?');">
-                            <button type="submit" class="text-yellow-600 hover:text-yellow-800" title="Encerrar"><i class="fas fa-ban"></i></button>
-                        </form>
+                        <button type="button" class="text-yellow-600 hover:text-yellow-800 mr-3 inline-flex items-center" title="Encerrar" data-contrato-id="{{ contrato.id }}" data-data-fim='{{ contrato.data_fim.strftime("%Y-%m-%d") if contrato.data_fim else "" }}' onclick="openEncerrarModal(this)">
+                            <i class="fas fa-ban"></i>
+                        </button>
                         {% endif %}
                         <form action="{{ url_for('contratos_delete', id=contrato.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este contrato e todos os seus anexos?');">
                             <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 <script>
-// Modal de seleção de modelo de contrato
+// Modal de seleÃ§Ã£o de modelo de contrato
 let selectedContratoId = null;
 function openModeloModal(contratoId){
     selectedContratoId = contratoId;
@@ -116,6 +116,49 @@ function confirmarModelo(){
     const previewUrl = base.replace(/\/?0$/, '') + '/' + selectedContratoId + '?modelo_id=' + modeloId;
     window.location.href = previewUrl;
 }
+
+function openEncerrarModal(trigger){
+    if(!trigger || !trigger.dataset){
+        return;
+    }
+    const modal = document.getElementById('modal-encerrar');
+    const form = document.getElementById('encerrar-form');
+    const dateInput = document.getElementById('data_encerramento_input');
+    const contratoSpan = document.getElementById('encerrar-contrato-id');
+
+    if(!modal || !form || !dateInput){
+        return;
+    }
+
+    const contratoId = trigger.dataset.contratoId;
+    if(!contratoId){
+        return;
+    }
+
+    const baseAction = form.dataset.baseAction || '';
+    if(baseAction){
+        form.action = baseAction.replace(/0$/, contratoId);
+    }
+    if(contratoSpan){
+        contratoSpan.textContent = contratoId;
+    }
+
+    const dataFimAtual = trigger.dataset.dataFim || '';
+    const hoje = new Date().toISOString().split('T')[0];
+    dateInput.value = dataFimAtual || hoje;
+    dateInput.max = hoje;
+
+    modal.classList.remove('hidden');
+    dateInput.focus();
+}
+
+function closeEncerrarModal(){
+    const modal = document.getElementById('modal-encerrar');
+    if(modal){
+        modal.classList.add('hidden');
+    }
+}
+
 </script>
 
 <style>
@@ -128,7 +171,33 @@ function confirmarModelo(){
 .hidden { display: none; }
 </style>
 
-<!-- Modal: Seleção de Modelo de Contrato -->
+<!-- Modal: Encerrar Contrato -->
+<div id="modal-encerrar" class="modal-overlay hidden">
+  <div class="modal-content">
+    <form id="encerrar-form" method="POST" data-base-action="{{ url_for('contratos_encerrar', id=0) }}">
+      <div class="modal-header">
+        <h3 class="text-lg font-semibold">Encerrar Contrato</h3>
+        <button type="button" onclick="closeEncerrarModal()" title="Fechar" class="text-white">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-sm text-gray-700 mb-4">Informe a data de encerramento para o contrato <span id="encerrar-contrato-id" class="font-semibold"></span>.</p>
+        <label for="data_encerramento_input" class="form-label">Data de Encerramento:</label>
+        <input type="date" id="data_encerramento_input" name="data_encerramento" class="form-input w-full" required>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="closeEncerrarModal()">Cancelar</button>
+        <button type="submit" class="btn-primary text-white">Encerrar</button>
+      </div>
+    </form>
+  </div>
+  <script>
+    document.getElementById('modal-encerrar').addEventListener('click', function(e){
+        if(e.target === this){ closeEncerrarModal(); }
+    });
+  </script>
+</div>
+
+<!-- Modal: SeleÃ§Ã£o de Modelo de Contrato -->
 <div id="modal-modelos" class="modal-overlay hidden">
   <div class="modal-content">
     <div class="modal-header">
@@ -151,7 +220,7 @@ function confirmarModelo(){
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModeloModal()">Cancelar</button>
-      <button class="btn-primary text-white" onclick="confirmarModelo()">Pré-visualizar</button>
+      <button class="btn-primary text-white" onclick="confirmarModelo()">PrÃ©-visualizar</button>
     </div>
   </div>
   <!-- Fecha modal ao clicar fora -->

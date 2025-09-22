@@ -2627,20 +2627,41 @@ def contratos_edit(id):
 @login_required
 @permission_required("Gestao Contratos", "Editar")
 def contratos_encerrar(id):
+    data_encerramento_str = request.form.get("data_encerramento")
+    if not data_encerramento_str:
+        flash("Informe a data de encerramento.", "warning")
+        return redirect(url_for("contratos_list"))
+
+    try:
+        data_encerramento = datetime.strptime(data_encerramento_str, "%Y-%m-%d").date()
+    except ValueError:
+        flash("Data de encerramento invalida.", "danger")
+        return redirect(url_for("contratos_list"))
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
         cur.execute(
-            "UPDATE contratos_aluguel SET status_contrato = %s WHERE id = %s",
-            ("Encerrado", id),
+            """
+            UPDATE contratos_aluguel
+            SET status_contrato = %s, data_fim = %s
+            WHERE id = %s
+            """,
+            ("Encerrado", data_encerramento, id),
         )
+        if cur.rowcount == 0:
+            raise ValueError("Contrato nao encontrado.")
+
         cur.execute(
             """
             UPDATE contas_a_receber
-            SET status_conta = 'Cancelada'
+            SET status_conta = CASE
+                WHEN data_vencimento <= %s THEN 'Vencida'
+                ELSE 'Cancelada'
+            END
             WHERE contrato_id = %s AND status_conta = 'Aberta'
             """,
-            (id,),
+            (data_encerramento, id),
         )
         conn.commit()
         flash("Contrato encerrado com sucesso!", "success")
@@ -2651,6 +2672,7 @@ def contratos_encerrar(id):
         cur.close()
         conn.close()
     return redirect(url_for("contratos_list"))
+
 
 
 # ------------------ Modelos de Contrato (CRUD + Geração) ------------------
