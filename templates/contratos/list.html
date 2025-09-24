@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 <script>
-// Modal de seleção de modelo de contrato
+// Modal de selecao de modelo de contrato
 let selectedContratoId = null;
 function openModeloModal(contratoId){
     selectedContratoId = contratoId;
@@ -112,59 +112,360 @@ function confirmarModelo(){
         return;
     }
     const modeloId = selected.value;
-    const base = "{{ url_for('contrato_preview', contrato_id=0) }}"; // '/contratos/preview/0'
+    const base = "{{ url_for('contrato_preview', contrato_id=0) }}";
     const previewUrl = base.replace(/\/?0$/, '') + '/' + selectedContratoId + '?modelo_id=' + modeloId;
     window.location.href = previewUrl;
 }
 
-function openEncerrarModal(trigger){
-    if(!trigger || !trigger.dataset){
-        return;
-    }
-    const modal = document.getElementById('modal-encerrar');
-    const form = document.getElementById('encerrar-form');
+document.addEventListener('DOMContentLoaded', function(){
+    const encerrarModal = document.getElementById('modal-encerrar');
+    const encerrarForm = document.getElementById('encerrar-form');
     const dateInput = document.getElementById('data_encerramento_input');
     const contratoSpan = document.getElementById('encerrar-contrato-id');
+    const cancelamentosInput = document.getElementById('cancelamentos-input');
+    const titulosModal = document.getElementById('modal-encerrar-titulos');
+    const titulosContainer = document.getElementById('encerrar-titulos-lista');
+    const titulosMensagem = document.getElementById('encerrar-titulos-feedback');
+    const titulosErro = document.getElementById('encerrar-titulos-erro');
+    const titulosContratoSpan = document.getElementById('encerrar-titulos-contrato');
+    const confirmarBtn = document.getElementById('confirmar-encerramento');
+    const voltarBtn = document.getElementById('voltar-encerramento');
+    const fecharTitulosBtn = document.getElementById('fechar-encerrar-titulos');
 
-    if(!modal || !form || !dateInput){
-        return;
+    const state = {
+        contratoId: null,
+        titulos: [],
+        dataEncerramento: null,
+    };
+
+    const titulosUrlTemplate = encerrarForm ? encerrarForm.dataset.titulosUrl : '';
+    const baseAction = encerrarForm ? encerrarForm.dataset.baseAction : '';
+
+    function formatCurrency(value){
+        const numero = Number(value);
+        if(!Number.isFinite(numero)){
+            return 'R$ 0,00';
+        }
+        return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    const contratoId = trigger.dataset.contratoId;
-    if(!contratoId){
-        return;
+    function formatNumberInput(value){
+        const numero = Number(value);
+        if(!Number.isFinite(numero)){
+            return '0,00';
+        }
+        return numero.toFixed(2).replace('.', ',');
     }
 
-    const baseAction = form.dataset.baseAction || '';
-    if(baseAction){
-        form.action = baseAction.replace(/0$/, contratoId);
+    function parseInputValue(value){
+        if(typeof value !== 'string'){
+            return Number(value);
+        }
+        const sanitized = value.trim().replace(/\./g, '').replace(',', '.');
+        if(sanitized === ''){
+            return NaN;
+        }
+        const parsed = parseFloat(sanitized);
+        return Number.isNaN(parsed) ? NaN : parsed;
     }
-    if(contratoSpan){
-        contratoSpan.textContent = contratoId;
+
+    function openTitulosModal(){
+        if(titulosModal){
+            titulosModal.classList.remove('hidden');
+        }
     }
 
-    const dataFimAtual = trigger.dataset.dataFim || '';
-    const hoje = new Date().toISOString().split('T')[0];
-    dateInput.value = dataFimAtual || hoje;
-    dateInput.max = hoje;
-
-    modal.classList.remove('hidden');
-    dateInput.focus();
-}
-
-function closeEncerrarModal(){
-    const modal = document.getElementById('modal-encerrar');
-    if(modal){
-        modal.classList.add('hidden');
+    function closeTitulosModal(){
+        if(titulosModal){
+            titulosModal.classList.add('hidden');
+        }
     }
-}
 
+    function limparTitulos(){
+        if(titulosContainer){
+            titulosContainer.innerHTML = '';
+        }
+        if(titulosErro){
+            titulosErro.classList.add('hidden');
+            titulosErro.textContent = '';
+        }
+        if(titulosMensagem){
+            titulosMensagem.classList.add('hidden');
+            titulosMensagem.textContent = '';
+        }
+    }
+
+    function criarItemTitulo(titulo){
+        const item = document.createElement('div');
+        item.className = 'titulo-item border border-gray-200 rounded-lg p-3 bg-white';
+        item.dataset.contaId = titulo.id;
+        const valorPrevisto = titulo && titulo.valor_previsto !== undefined && titulo.valor_previsto !== null ? Number(titulo.valor_previsto) : 0;
+        const valorPendente = titulo && titulo.valor_pendente !== undefined && titulo.valor_pendente !== null ? Number(titulo.valor_pendente) : 0;
+        item.dataset.maxPendente = valorPendente;
+        const dataVenc = titulo && titulo.data_vencimento_formatada ? titulo.data_vencimento_formatada : '-';
+        const status = titulo && titulo.status ? titulo.status : '';
+        const descricao = titulo && titulo.titulo ? titulo.titulo : 'Titulo';
+
+        const htmlParts = [
+            '<label class="flex items-start gap-3 cursor-pointer">',
+                '<input type="checkbox" class="titulo-checkbox mt-1">',
+                '<div class="flex-1">',
+                    '<div class="flex flex-wrap justify-between text-sm text-gray-800">',
+                        '<span class="font-semibold">' + descricao + '</span>',
+                        '<span class="text-gray-600">Status: ' + status + '</span>',
+                    '</div>',
+                    '<div class="text-xs text-gray-600 mt-2 flex flex-wrap gap-3">',
+                        '<span>Vencimento: ' + dataVenc + '</span>',
+                        '<span>Valor: ' + formatCurrency(valorPrevisto) + '</span>',
+                        '<span>Pendente: ' + formatCurrency(valorPendente) + '</span>',
+                    '</div>',
+                '</div>',
+            '</label>',
+            '<div class="mt-3 pl-7 titulo-opcoes hidden">',
+                '<div class="flex flex-wrap gap-4 text-sm text-gray-700 items-center">',
+                    '<label class="flex items-center gap-2"><input type="radio" name="cancelamento-tipo-' + titulo.id + '" value="total" class="titulo-tipo" checked>Cancelar total</label>',
+                    '<label class="flex items-center gap-2"><input type="radio" name="cancelamento-tipo-' + titulo.id + '" value="parcial" class="titulo-tipo">Cancelar parcial</label>',
+                    '<div class="flex items-center gap-2 titulo-parcial-wrapper hidden">',
+                        '<span>Valor pendente:</span>',
+                        '<input type="text" class="form-input w-28 titulo-valor-parcial" value="' + formatNumberInput(valorPendente) + '" inputmode="decimal">',
+                    '</div>',
+                '</div>',
+            '</div>',
+        ];
+        item.innerHTML = htmlParts.join('');
+
+        const checkbox = item.querySelector('.titulo-checkbox');
+        const opcoes = item.querySelector('.titulo-opcoes');
+        const radios = item.querySelectorAll('.titulo-tipo');
+        const parcialWrapper = item.querySelector('.titulo-parcial-wrapper');
+        const parcialInput = item.querySelector('.titulo-valor-parcial');
+
+        if(checkbox && opcoes){
+            checkbox.addEventListener('change', function(){
+                if(checkbox.checked){
+                    opcoes.classList.remove('hidden');
+                } else {
+                    opcoes.classList.add('hidden');
+                }
+            });
+        }
+
+        if(radios && parcialWrapper){
+            radios.forEach(function(radio){
+                radio.addEventListener('change', function(){
+                    if(radio.value === 'parcial' && radio.checked){
+                        parcialWrapper.classList.remove('hidden');
+                        if(parcialInput){
+                            parcialInput.focus();
+                            parcialInput.select();
+                        }
+                    } else if(radio.value === 'total' && radio.checked){
+                        parcialWrapper.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
+        return item;
+    }
+
+    window.openEncerrarModal = function(trigger){
+        if(!trigger || !trigger.dataset){
+            return;
+        }
+        if(!encerrarModal || !encerrarForm || !dateInput){
+            return;
+        }
+        const contratoId = trigger.dataset.contratoId;
+        if(!contratoId){
+            return;
+        }
+        state.contratoId = contratoId;
+        state.titulos = [];
+        state.dataEncerramento = null;
+        if(baseAction){
+            encerrarForm.action = baseAction.replace(/0$/, contratoId);
+        }
+        encerrarForm.dataset.confirmed = '';
+        if(cancelamentosInput){
+            cancelamentosInput.value = '';
+        }
+        if(contratoSpan){
+            contratoSpan.textContent = contratoId;
+        }
+        if(titulosContratoSpan){
+            titulosContratoSpan.textContent = contratoId;
+        }
+        const dataFimAtual = trigger.dataset.dataFim || '';
+        const hoje = new Date().toISOString().split('T')[0];
+        dateInput.value = dataFimAtual || hoje;
+        dateInput.max = hoje;
+
+        encerrarModal.classList.remove('hidden');
+        dateInput.focus();
+    };
+
+    window.closeEncerrarModal = function(){
+        if(encerrarModal){
+            encerrarModal.classList.add('hidden');
+        }
+    };
+
+    if(encerrarForm){
+        encerrarForm.addEventListener('submit', async function(event){
+            if(encerrarForm.dataset.confirmed === 'true'){
+                encerrarForm.dataset.confirmed = '';
+                return;
+            }
+            event.preventDefault();
+            if(!dateInput || !dateInput.checkValidity()){
+                if(dateInput){
+                    dateInput.reportValidity();
+                }
+                return;
+            }
+            if(!state.contratoId){
+                return;
+            }
+            state.dataEncerramento = dateInput.value;
+            try{
+                const endpoint = titulosUrlTemplate ? titulosUrlTemplate.replace(/0$/, state.contratoId) : '';
+                if(!endpoint){
+                    throw new Error('Endpoint de titulos nao configurado.');
+                }
+                const response = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+                if(!response.ok){
+                    throw new Error('Nao foi possivel carregar os titulos.');
+                }
+                const data = await response.json();
+                state.titulos = Array.isArray(data.titulos) ? data.titulos : [];
+                limparTitulos();
+                if(state.titulos.length === 0){
+                    if(titulosMensagem){
+                        titulosMensagem.classList.remove('hidden');
+                        titulosMensagem.textContent = 'Nenhum titulo em aberto ou vencido para este contrato.';
+                    }
+                } else if(titulosContainer){
+                    state.titulos.forEach(function(titulo){
+                        titulosContainer.appendChild(criarItemTitulo(titulo));
+                    });
+                }
+                closeEncerrarModal();
+                openTitulosModal();
+            }catch(error){
+                closeEncerrarModal();
+                alert(error.message || 'Nao foi possivel carregar os titulos do contrato.');
+            }
+        });
+    }
+
+    function coletarSelecoes(){
+        const itens = titulosContainer ? Array.from(titulosContainer.querySelectorAll('.titulo-item')) : [];
+        const selecoes = [];
+        let erro = null;
+
+        itens.forEach(function(item){
+            const checkbox = item.querySelector('.titulo-checkbox');
+            if(!checkbox || !checkbox.checked){
+                return;
+            }
+            const contaId = item.dataset.contaId;
+            const tipoInput = item.querySelector('.titulo-tipo:checked');
+            if(!contaId || !tipoInput){
+                erro = 'Selecione o tipo de cancelamento para os titulos escolhidos.';
+                return;
+            }
+            const tipo = tipoInput.value;
+            if(tipo === 'parcial'){
+                const parcialInput = item.querySelector('.titulo-valor-parcial');
+                const max = Number(item.dataset.maxPendente || '0');
+                const valor = parseInputValue(parcialInput ? parcialInput.value : '');
+                if(!Number.isFinite(valor) || valor <= 0){
+                    erro = 'Informe um valor pendente valido para cancelamentos parciais.';
+                    return;
+                }
+                if(valor > max + 0.001){
+                    erro = 'O valor pendente informado nao pode ser maior que o saldo atual do titulo.';
+                    return;
+                }
+                selecoes.push({
+                    id: Number(contaId),
+                    tipo: 'parcial',
+                    valor_pendente: (Math.round(valor * 100) / 100).toFixed(2),
+                });
+            } else {
+                selecoes.push({ id: Number(contaId), tipo: 'total' });
+            }
+        });
+
+        return { selecoes, erro };
+    }
+
+    if(confirmarBtn){
+        confirmarBtn.addEventListener('click', function(){
+            const avaliacao = coletarSelecoes();
+            if(avaliacao.erro){
+                if(titulosErro){
+                    titulosErro.textContent = avaliacao.erro;
+                    titulosErro.classList.remove('hidden');
+                }
+                return;
+            }
+            if(titulosErro){
+                titulosErro.classList.add('hidden');
+                titulosErro.textContent = '';
+            }
+            if(cancelamentosInput){
+                cancelamentosInput.value = avaliacao.selecoes.length > 0 ? JSON.stringify(avaliacao.selecoes) : '';
+            }
+            encerrarForm.dataset.confirmed = 'true';
+            closeTitulosModal();
+            encerrarForm.submit();
+        });
+    }
+
+    if(voltarBtn){
+        voltarBtn.addEventListener('click', function(){
+            closeTitulosModal();
+            if(encerrarModal){
+                encerrarModal.classList.remove('hidden');
+                if(dateInput){
+                    dateInput.focus();
+                }
+            }
+        });
+    }
+
+    if(fecharTitulosBtn){
+        fecharTitulosBtn.addEventListener('click', function(){
+            closeTitulosModal();
+            if(encerrarModal){
+                encerrarModal.classList.remove('hidden');
+            }
+        });
+    }
+
+    if(titulosModal){
+        titulosModal.addEventListener('click', function(event){
+            if(event.target === titulosModal){
+                closeTitulosModal();
+                if(encerrarModal){
+                    encerrarModal.classList.remove('hidden');
+                }
+            }
+        });
+    }
+});
 </script>
 
 <style>
 /* Estilo simples de modal; segue paleta existente */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .modal-content { background: #fff; border-radius: 0.5rem; width: 100%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.modal-content-wide { max-width: 760px; }
+.titulo-item { transition: background-color 0.2s ease; }
+.titulo-item:hover { background-color: #f9fafb; }
+.titulo-parcial-wrapper .form-input { padding-top: 0.25rem; padding-bottom: 0.25rem; }
 .modal-header { padding: 1rem 1.25rem; background-color: var(--clr-sidebar-bg); color: #fff; border-top-left-radius: 0.5rem; border-top-right-radius: 0.5rem; display: flex; align-items: center; justify-content: space-between; }
 .modal-body { padding: 1rem 1.25rem; max-height: 60vh; overflow-y: auto; }
 .modal-footer { padding: 0.75rem 1.25rem; display: flex; justify-content: flex-end; gap: 0.5rem; }
@@ -174,7 +475,7 @@ function closeEncerrarModal(){
 <!-- Modal: Encerrar Contrato -->
 <div id="modal-encerrar" class="modal-overlay hidden">
   <div class="modal-content">
-    <form id="encerrar-form" method="POST" data-base-action="{{ url_for('contratos_encerrar', id=0) }}">
+    <form id="encerrar-form" method="POST" data-base-action="{{ url_for('contratos_encerrar', id=0) }}" data-titulos-url="{{ url_for('contratos_titulos', id=0) }}">
       <div class="modal-header">
         <h3 class="text-lg font-semibold">Encerrar Contrato</h3>
         <button type="button" onclick="closeEncerrarModal()" title="Fechar" class="text-white">&times;</button>
@@ -183,6 +484,7 @@ function closeEncerrarModal(){
         <p class="text-sm text-gray-700 mb-4">Informe a data de encerramento para o contrato <span id="encerrar-contrato-id" class="font-semibold"></span>.</p>
         <label for="data_encerramento_input" class="form-label">Data de Encerramento:</label>
         <input type="date" id="data_encerramento_input" name="data_encerramento" class="form-input w-full" required>
+        <input type="hidden" id="cancelamentos-input" name="cancelamentos">
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" onclick="closeEncerrarModal()">Cancelar</button>
@@ -197,6 +499,26 @@ function closeEncerrarModal(){
   </script>
 </div>
 
+<!-- Modal: Cancelar Titulos -->
+<div id="modal-encerrar-titulos" class="modal-overlay hidden">
+  <div class="modal-content modal-content-wide">
+    <div class="modal-header">
+      <h3 class="text-lg font-semibold">Cancelar titulos do contrato</h3>
+      <button type="button" class="text-white" title="Fechar" id="fechar-encerrar-titulos">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm text-gray-700 mb-2">Selecione os titulos em aberto ou vencidos que deseja cancelar para o contrato <span id="encerrar-titulos-contrato" class="font-semibold"></span>.</p>
+      <p class="text-xs text-gray-500 mb-3">Deixe desmarcados os titulos que devem permanecer pendentes. Em cancelamentos parciais informe o valor que continuara pendente.</p>
+      <div id="encerrar-titulos-erro" class="text-sm text-red-600 mb-2 hidden"></div>
+      <p id="encerrar-titulos-feedback" class="text-sm text-gray-600 hidden"></p>
+      <div id="encerrar-titulos-lista" class="space-y-3"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-secondary" id="voltar-encerramento">Voltar</button>
+      <button type="button" class="btn-primary text-white" id="confirmar-encerramento">Confirmar</button>
+    </div>
+  </div>
+</div>
 <!-- Modal: Seleção de Modelo de Contrato -->
 <div id="modal-modelos" class="modal-overlay hidden">
   <div class="modal-content">

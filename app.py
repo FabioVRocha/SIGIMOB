@@ -1,4 +1,4 @@
-# app.py
+﻿# app.py
 # Este é o arquivo principal da sua aplicação Flask.
 
 from flask import (
@@ -399,17 +399,16 @@ def atualizar_status_contas_a_receber(cur):
         """
         UPDATE contas_a_receber cr
            SET status_conta = CASE
+                WHEN cr.status_conta = 'Cancelada'::status_conta_enum THEN 'Cancelada'::status_conta_enum
                 WHEN cr.valor_pago >= cr.valor_previsto AND cr.valor_pago IS NOT NULL THEN 'Paga'::status_conta_enum
                 WHEN cr.valor_pago > 0 THEN 'Parcial'::status_conta_enum
-                WHEN cr.contrato_id IS NOT NULL AND EXISTS (
-                    SELECT 1 FROM contratos_aluguel ca
-                     WHERE ca.id = cr.contrato_id
-                       AND ca.status_contrato = 'Encerrado'::status_contrato_enum
-                ) AND cr.data_vencimento >= CURRENT_DATE THEN 'Cancelada'::status_conta_enum
                 WHEN cr.data_vencimento < CURRENT_DATE THEN 'Vencida'::status_conta_enum
                 ELSE 'Aberta'::status_conta_enum
            END,
-               valor_pendente = cr.valor_previsto - COALESCE(cr.valor_pago,0)
+               valor_pendente = CASE
+                   WHEN cr.status_conta = 'Cancelada'::status_conta_enum THEN 0
+                   ELSE cr.valor_previsto - COALESCE(cr.valor_pago,0)
+               END
         """
     )
 
@@ -2623,6 +2622,66 @@ def contratos_edit(id):
     )
 
 
+@app.route("/contratos/<int:id>/titulos", methods=["GET"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_titulos(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute("SELECT id FROM contratos_aluguel WHERE id = %s", (id,))
+        if cur.fetchone() is None:
+            return jsonify({"error": "Contrato nao encontrado."}), 404
+
+        atualizar_status_contas_a_receber(cur)
+        conn.commit()
+
+        cur.execute(
+            """
+            SELECT id, titulo, data_vencimento, valor_previsto, valor_pago, valor_pendente, status_conta
+            FROM contas_a_receber
+            WHERE contrato_id = %s AND status_conta IN ('Aberta','Vencida')
+            ORDER BY data_vencimento, id
+            """,
+            (id,),
+        )
+        titulos = cur.fetchall()
+        response = []
+        for titulo in titulos:
+            valor_previsto = Decimal(titulo["valor_previsto"])
+            valor_pago = (
+                Decimal(titulo["valor_pago"])
+                if titulo["valor_pago"] is not None
+                else Decimal("0")
+            )
+            valor_pendente = (
+                Decimal(titulo["valor_pendente"])
+                if titulo["valor_pendente"] is not None
+                else valor_previsto - valor_pago
+            )
+            data_vencimento = titulo["data_vencimento"]
+            response.append(
+                {
+                    "id": titulo["id"],
+                    "titulo": titulo["titulo"],
+                    "status": titulo["status_conta"],
+                    "data_vencimento": data_vencimento.isoformat() if data_vencimento else None,
+                    "data_vencimento_formatada": data_vencimento.strftime("%d/%m/%Y")
+                    if data_vencimento
+                    else None,
+                    "valor_previsto": format(valor_previsto, ".2f"),
+                    "valor_pago": format(valor_pago, ".2f"),
+                    "valor_pendente": format(valor_pendente, ".2f"),
+                }
+            )
+        return jsonify({"titulos": response})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        cur.close()
+        conn.close()
+
 @app.route("/contratos/encerrar/<int:id>", methods=["POST"])
 @login_required
 @permission_required("Gestao Contratos", "Editar")
@@ -2638,6 +2697,16 @@ def contratos_encerrar(id):
         flash("Data de encerramento invalida.", "danger")
         return redirect(url_for("contratos_list"))
 
+    cancelamentos_raw = request.form.get("cancelamentos")
+    if cancelamentos_raw:
+        try:
+            cancelamentos = json.loads(cancelamentos_raw)
+        except json.JSONDecodeError:
+            flash("Selecao de cancelamento invalida.", "danger")
+            return redirect(url_for("contratos_list"))
+    else:
+        cancelamentos = []
+
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
@@ -2652,19 +2721,95 @@ def contratos_encerrar(id):
         if cur.rowcount == 0:
             raise ValueError("Contrato nao encontrado.")
 
-        cur.execute(
-            """
-            UPDATE contas_a_receber
-            SET status_conta = CASE
-                WHEN data_vencimento <= %s THEN 'Vencida'::status_conta_enum
-                ELSE 'Cancelada'::status_conta_enum
-            END
-            WHERE contrato_id = %s AND status_conta = 'Aberta'
-            """,
-            (data_encerramento, id),
-        )
+        if cancelamentos:
+            cur.execute(
+                """
+                SELECT id, valor_previsto, valor_pago, valor_pendente, status_conta, data_vencimento, observacao
+                FROM contas_a_receber
+                WHERE contrato_id = %s
+                """,
+                (id,),
+            )
+            titulos_map = {row["id"]: row for row in cur.fetchall()}
+            processados = set()
+            for item in cancelamentos:
+                if not isinstance(item, dict):
+                    raise ValueError("Selecao de cancelamento invalida.")
+                conta_id = item.get("id")
+                tipo = item.get("tipo")
+                if conta_id is None or tipo not in {"total", "parcial"}:
+                    raise ValueError("Selecao de cancelamento invalida.")
+                conta_id = int(conta_id)
+                if conta_id in processados:
+                    continue
+                titulo = titulos_map.get(conta_id)
+                if not titulo or titulo["status_conta"] not in ("Aberta", "Vencida", "Parcial"):
+                    raise ValueError("Titulo selecionado nao pode ser cancelado.")
+                processados.add(conta_id)
+
+                valor_previsto = Decimal(titulo["valor_previsto"])
+                valor_pago = (
+                    Decimal(titulo["valor_pago"])
+                    if titulo["valor_pago"] is not None
+                    else Decimal("0")
+                )
+                valor_pendente_atual = (
+                    Decimal(titulo["valor_pendente"])
+                    if titulo["valor_pendente"] is not None
+                    else valor_previsto - valor_pago
+                )
+                observacao_atual = titulo["observacao"] or ""
+
+                if tipo == "total":
+                    anotacao = f"[Encerramento {data_encerramento.strftime('%d/%m/%Y')}] Cancelamento total do titulo."
+                    observacao = f"{observacao_atual}\n{anotacao}" if observacao_atual else anotacao
+                    cur.execute(
+                        """
+                        UPDATE contas_a_receber
+                        SET status_conta = 'Cancelada'::status_conta_enum,
+                            valor_pendente = 0,
+                            observacao = %s
+                        WHERE id = %s
+                        """,
+                        (observacao, conta_id),
+                    )
+                else:
+                    valor_restante = parse_decimal(item.get("valor_pendente"))
+                    if valor_restante is None:
+                        raise ValueError("Informe o valor pendente para cancelamento parcial.")
+                    try:
+                        valor_restante = valor_restante.quantize(Decimal("0.01"))
+                    except InvalidOperation:
+                        raise ValueError("Valor pendente invalido.")
+                    if valor_restante <= 0:
+                        raise ValueError("Valor pendente deve ser maior que zero.")
+                    if valor_restante > valor_pendente_atual:
+                        raise ValueError("Valor pendente nao pode ser maior que o valor atual do titulo.")
+
+                    novo_valor_previsto = valor_pago + valor_restante
+                    anotacao = (
+                        f"[Encerramento {data_encerramento.strftime('%d/%m/%Y')}] "
+                        f"Cancelamento parcial. Valor pendente ajustado de "
+                        f"R$ {valor_pendente_atual:.2f} para R$ {valor_restante:.2f}."
+                    )
+                    observacao = f"{observacao_atual}\n{anotacao}" if observacao_atual else anotacao
+                    cur.execute(
+                        """
+                        UPDATE contas_a_receber
+                        SET valor_previsto = %s,
+                            valor_pendente = %s,
+                            observacao = %s
+                        WHERE id = %s
+                        """,
+                        (novo_valor_previsto, valor_restante, observacao, conta_id),
+                    )
+
+        atualizar_status_contas_a_receber(cur)
         conn.commit()
         flash("Contrato encerrado com sucesso!", "success")
+    except ValueError as e:
+        conn.rollback()
+        flash(str(e), "danger")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao encerrar contrato: {e}", "danger")
@@ -2672,8 +2817,6 @@ def contratos_encerrar(id):
         cur.close()
         conn.close()
     return redirect(url_for("contratos_list"))
-
-
 
 # ------------------ Modelos de Contrato (CRUD + Geração) ------------------
 
