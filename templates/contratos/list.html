@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function(){
             }
             state.dataEncerramento = dateInput.value;
             try{
-                const endpoint = titulosUrlTemplate ? titulosUrlTemplate.replace(/0$/, state.contratoId) : '';
+                const endpoint = titulosUrlTemplate ? titulosUrlTemplate.replace(/\/0(\/|$)/, '/' + state.contratoId + '$1') : '';
                 if(!endpoint){
                     throw new Error('Endpoint de titulos nao configurado.');
                 }

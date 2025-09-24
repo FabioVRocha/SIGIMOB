@@ -108,7 +108,8 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
         """
         SELECT c.*, i.endereco AS imovel_endereco, i.bairro AS imovel_bairro,
                i.cidade AS imovel_cidade, i.estado AS imovel_estado,
-               i.cep AS imovel_cep, i.matricula, i.inscricao_iptu
+               i.cep AS imovel_cep, i.matricula, i.inscricao_iptu,
+               i.tipo_imovel AS imovel_tipo_imovel
         FROM contratos_aluguel c
         JOIN imoveis i ON c.imovel_id = i.id
         WHERE c.id = %s
@@ -174,6 +175,7 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
     put("CEPImovel", contrato.get("imovel_cep"))
     put("MatriculaImovel", contrato.get("matricula"))
     put("InscricaoIPTU", contrato.get("inscricao_iptu"))
+    put("TipoImovel", contrato.get("imovel_tipo_imovel"))
 
     # Campos derivados solicitados para modelos de contrato
     # 1) Mês e ano do início do contrato (ex: "Janeiro de 2025")
