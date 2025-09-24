@@ -13,20 +13,20 @@
             <i class="fas fa-plus mr-2"></i> Novo Contrato
         </a>
     </div>
-    {# Campo de busca geral removido. Usaremos busca por coluna no cabeÃ§alho. #}
+    {# Campo de busca geral removido. Usaremos busca por coluna no cabeçalho. #}
     {% if contratos %}
     <div class="overflow-x-auto">
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
             <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
                 <tr>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ImÃ³vel</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Inquilino</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Finalidade</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">PerÃ­odo</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Período</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Parcela</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">AÃ§Ãµes</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
                 <tr>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 <script>
-// Modal de seleÃ§Ã£o de modelo de contrato
+// Modal de seleção de modelo de contrato
 let selectedContratoId = null;
 function openModeloModal(contratoId){
     selectedContratoId = contratoId;
@@ -197,7 +197,7 @@ function closeEncerrarModal(){
   </script>
 </div>
 
-<!-- Modal: SeleÃ§Ã£o de Modelo de Contrato -->
+<!-- Modal: Seleção de Modelo de Contrato -->
 <div id="modal-modelos" class="modal-overlay hidden">
   <div class="modal-content">
     <div class="modal-header">
@@ -220,7 +220,7 @@ function closeEncerrarModal(){
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeModeloModal()">Cancelar</button>
-      <button class="btn-primary text-white" onclick="confirmarModelo()">PrÃ©-visualizar</button>
+      <button class="btn-primary text-white" onclick="confirmarModelo()">Pré-visualizar</button>
     </div>
   </div>
   <!-- Fecha modal ao clicar fora -->
