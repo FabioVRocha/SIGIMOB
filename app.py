@@ -2656,8 +2656,8 @@ def contratos_encerrar(id):
             """
             UPDATE contas_a_receber
             SET status_conta = CASE
-                WHEN data_vencimento <= %s THEN 'Vencida'
-                ELSE 'Cancelada'
+                WHEN data_vencimento <= %s THEN 'Vencida'::status_conta_enum
+                ELSE 'Cancelada'::status_conta_enum
             END
             WHERE contrato_id = %s AND status_conta = 'Aberta'
             """,
