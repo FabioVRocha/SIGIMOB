@@ -29,6 +29,8 @@
             --clr-pink: #FF69B4;
             --clr-dashboard-bg: #F0F2F5; /* Cor de fundo do painel principal, similar à imagem */
             --clr-sidebar-bg: #1F3A5F; /* Cor de fundo da sidebar, azul escuro */
+            --sidebar-width: 280px; /* Largura padrão da sidebar */
+            --sidebar-collapsed-width: 88px; /* Largura da sidebar quando recolhida */
             --clr-card-bg: #FFFFFF; /* Cor de fundo dos cards */
             --clr-text-main: #333333; /* Cor principal do texto */
             --clr-text-secondary: #666666; /* Cor secundária do texto */
@@ -51,12 +53,13 @@
         .sidebar {
             background-color: var(--clr-sidebar-bg);
             color: var(--clr-white);
-            width: 280px; /* Largura da sidebar */
+            width: var(--sidebar-width); /* Largura da sidebar */
             padding: 1.5rem;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
             position: fixed; /* Fixa a sidebar na tela */
             height: 100vh; /* Altura total da viewport */
             overflow-y: auto; /* Adiciona scroll se o conteúdo for maior que a tela */
+            transition: width 0.2s ease-in-out, padding 0.2s ease-in-out;
         }
 
         .sidebar-header {
@@ -65,11 +68,14 @@
             margin-bottom: 2rem;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
         }
 
         .sidebar-nav-item {
             display: flex;
             align-items: center;
+            gap: 0.75rem;
             padding: 0.75rem 1rem;
             margin-bottom: 0.5rem;
             border-radius: 0.5rem;
@@ -83,16 +89,111 @@
         }
 
         .sidebar-nav-item i {
-            margin-right: 1rem;
             font-size: 1.25rem;
+        }
+
+        .sidebar-header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-header-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .collapse-btn {
+            background: transparent;
+            border: none;
+            color: var(--clr-white);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .collapse-btn:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .collapse-btn:focus-visible {
+            outline: 2px solid rgba(59,130,246,0.75);
+            outline-offset: 2px;
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .sidebar-item-label {
+            white-space: nowrap;
+        }
+
+        .arrow-icon {
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+
+        .sidebar.collapsed .sidebar-header {
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .sidebar-header-brand {
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .sidebar-header-title {
+            display: none;
+        }
+
+        .sidebar.collapsed .collapse-btn {
+            background: transparent;
+        }
+
+        .sidebar.collapsed .sidebar-nav-item {
+            justify-content: center;
+            gap: 0;
+        }
+
+        .sidebar.collapsed .sidebar-nav-item i {
+            margin-right: 0;
+        }
+
+        .sidebar.collapsed .sidebar-item-label {
+            display: none;
+        }
+
+        .sidebar.collapsed .arrow-icon {
+            display: none;
+        }
+
+        .sidebar.collapsed nav ul ul {
+            display: none !important;
+        }
+
+        body.sidebar-collapsed .main-content {
+            margin-left: var(--sidebar-collapsed-width);
+        }
+
+        @media (max-width: 767px) {
+            body.sidebar-collapsed .main-content {
+                margin-left: 0;
+            }
         }
 
         /* Estilos do Conteúdo Principal */
         .main-content {
-            margin-left: 280px; /* Margem para acomodar a sidebar */
+            margin-left: var(--sidebar-width); /* Margem para acomodar a sidebar */
             padding: 2rem;
             flex-grow: 1;
             background-color: var(--clr-dashboard-bg);
+            transition: margin-left 0.2s ease-in-out;
         }
         
         /* Responsividade: comportamento da sidebar em telas menores (mobile <768px) */
@@ -103,7 +204,7 @@
                 left: 0;
                 top: 0;
                 z-index: 1000;
-                width: 280px;
+                width: var(--sidebar-width);
             }
             .sidebar.open {
                 transform: translateX(0);
@@ -120,7 +221,6 @@
             }
             .main-header h1 { text-align: center; }
         }
-
         /* Botão hamburguer: estilo melhorado */
         .hamburger-btn {
             background-color: var(--clr-light-blue);
@@ -468,90 +568,233 @@
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <i class="fas fa-building mr-3 text-2xl"></i> SIGIMOB
+            <div class="sidebar-header-brand">
+                <i class="fas fa-building text-2xl"></i>
+                <span class="sidebar-header-title">SIGIMOB</span>
+            </div>
+            <button id="sidebarCollapseToggle" class="collapse-btn" type="button" aria-label="Recolher menu lateral" aria-expanded="true">
+                <i class="fas fa-angle-double-left"></i>
+            </button>
         </div>
         <nav>
             <ul>
                 <li>
                     <a href="{{ url_for('dashboard') }}" class="sidebar-nav-item">
-                        <i class="fas fa-home"></i> Visão Geral
+                        <i class="fas fa-home"></i>
+                        <span class="sidebar-item-label">Visão Geral</span>
                     </a>
                 </li>
                 <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="cadastros-essenciais-toggle">
-                        <span><i class="fas fa-users"></i> Cadastros</span>
+                        <span class="flex items-center gap-3">
+                            <i class="fas fa-users"></i>
+                            <span class="sidebar-item-label">Cadastros</span>
+                        </span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
                     </div>
                     <ul id="cadastros-essenciais-submenu" class="ml-6 mt-1 hidden">
-                        <li><a href="{{ url_for('pessoas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-user-friends"></i> Pessoas</a></li>
-                        <li><a href="{{ url_for('despesas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-money-bill-alt"></i> Despesas</a></li>
-                        <li><a href="{{ url_for('origens_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-tags"></i> Origens</a></li>
-                        <li><a href="{{ url_for('receitas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-dollar-sign"></i> Receitas</a></li>
+                        <li>
+                            <a href="{{ url_for('pessoas_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-user-friends"></i>
+                                <span class="sidebar-item-label">Pessoas</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('despesas_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-money-bill-alt"></i>
+                                <span class="sidebar-item-label">Despesas</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('origens_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-tags"></i>
+                                <span class="sidebar-item-label">Origens</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('receitas_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-dollar-sign"></i>
+                                <span class="sidebar-item-label">Receitas</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="imoveis-toggle">
-                        <span><i class="fas fa-house-user"></i> Imóveis</span>
+                        <span class="flex items-center gap-3">
+                            <i class="fas fa-house-user"></i>
+                            <span class="sidebar-item-label">Imóveis</span>
+                        </span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
                     </div>
                     <ul id="imoveis-submenu" class="ml-6 mt-1 hidden">
-                        <li><a href="{{ url_for('imoveis_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-house-user"></i> Imóveis</a></li>
-                        <li><a href="{{ url_for('contratos_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-contract"></i> Contratos de Aluguel</a></li>
-                        
-                        <li><a href="{{ url_for('reajustes_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-percent"></i> Reajustes de Contrato</a></li>
-                        <li><a href="{{ url_for('avaliacoes_imovel_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-balance-scale"></i> Avaliações de Imóveis</a></li>
+                        <li>
+                            <a href="{{ url_for('imoveis_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-house-user"></i>
+                                <span class="sidebar-item-label">Imóveis</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('contratos_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-file-contract"></i>
+                                <span class="sidebar-item-label">Contratos de Aluguel</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('reajustes_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-percent"></i>
+                                <span class="sidebar-item-label">Reajustes de Contrato</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('avaliacoes_imovel_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-balance-scale"></i>
+                                <span class="sidebar-item-label">Avaliações de Imóveis</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="financeiro-toggle">
-                        <span><i class="fas fa-wallet"></i> Financeiro</span>
+                        <span class="flex items-center gap-3">
+                            <i class="fas fa-wallet"></i>
+                            <span class="sidebar-item-label">Financeiro</span>
+                        </span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
                     </div>
                     <ul id="financeiro-submenu" class="ml-6 mt-1 hidden">
-                        <li><a href="{{ url_for('contas_a_receber_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-hand-holding-usd"></i> Contas a Receber</a></li>
-                        <li><a href="{{ url_for('contas_a_pagar_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-money-bill-wave"></i> Contas a Pagar</a></li>
-                        <li><a href="{{ url_for('ordens_pagamento_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-invoice-dollar"></i> Ordens de Pagamento</a></li>
                         <li>
-                    <a href="{{ url_for('lancamentos_list') }}" class="sidebar-nav-item">
-                        <i class="fas fa-exchange-alt"></i> Lançamentos
-                    </a>
-                </li>
-                        <li><a href="{{ url_for('caixas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-cash-register"></i> Caixa</a></li>
-                        <li><a href="{{ url_for('bancos_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-university"></i> Banco</a></li>
-                        <li><a href="{{ url_for('cobrancas_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-phone"></i> Cobrança</a></li>
-                        <li><a href="{{ url_for('posicoes_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-calendar-check"></i> Posições</a></li>
+                            <a href="{{ url_for('contas_a_receber_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-hand-holding-usd"></i>
+                                <span class="sidebar-item-label">Contas a Receber</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('contas_a_pagar_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-money-bill-wave"></i>
+                                <span class="sidebar-item-label">Contas a Pagar</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('ordens_pagamento_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                                <span class="sidebar-item-label">Ordens de Pagamento</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('lancamentos_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-exchange-alt"></i>
+                                <span class="sidebar-item-label">Lançamentos</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('caixas_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-cash-register"></i>
+                                <span class="sidebar-item-label">Caixa</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('bancos_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-university"></i>
+                                <span class="sidebar-item-label">Banco</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('cobrancas_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-phone"></i>
+                                <span class="sidebar-item-label">Cobrança</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('posicoes_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-calendar-check"></i>
+                                <span class="sidebar-item-label">Posições</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="relatorios-toggle">
-                        <span><i class="fas fa-chart-bar"></i> Relatórios</span>
+                        <span class="flex items-center gap-3">
+                            <i class="fas fa-chart-bar"></i>
+                            <span class="sidebar-item-label">Relatórios</span>
+                        </span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
                     </div>
                     <ul id="relatorios-submenu" class="ml-6 mt-1 hidden">
-                        <li><a href="{{ url_for('relatorios_contas_a_pagar') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-invoice-dollar"></i> Contas a Pagar</a></li>
-                        <li><a href="{{ url_for('relatorios_contas_a_receber') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-invoice"></i> Contas a Receber</a></li>
-                        <li><a href="{{ url_for('relatorios_financeiro') }}" class="sidebar-nav-item text-sm"><i class="fas fa-wallet"></i> Financeiro</a></li>
-                        <li><a href="{{ url_for('relatorios_gerencial') }}" class="sidebar-nav-item text-sm"><i class="fas fa-briefcase"></i> Gerencial</a></li>
+                        <li>
+                            <a href="{{ url_for('relatorios_contas_a_pagar') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                                <span class="sidebar-item-label">Contas a Pagar</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('relatorios_contas_a_receber') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-file-invoice"></i>
+                                <span class="sidebar-item-label">Contas a Receber</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('relatorios_financeiro') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-wallet"></i>
+                                <span class="sidebar-item-label">Financeiro</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('relatorios_gerencial') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-briefcase"></i>
+                                <span class="sidebar-item-label">Gerencial</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
                 <li>
                     <div class="sidebar-nav-item flex justify-between items-center cursor-pointer" id="gerencial-toggle">
-                        <span><i class="fas fa-cogs"></i> Gerencial</span>
+                        <span class="flex items-center gap-3">
+                            <i class="fas fa-cogs"></i>
+                            <span class="sidebar-item-label">Gerencial</span>
+                        </span>
                         <i class="fas fa-chevron-right arrow-icon"></i>
                     </div>
                     <ul id="gerencial-submenu" class="ml-6 mt-1 hidden">
-                        <li><a href="{{ url_for('backup_db') }}" class="sidebar-nav-item text-sm"><i class="fas fa-database"></i> Backup</a></li>
-                        <li><a href="{{ url_for('usuarios_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-user-shield"></i> Usuários</a></li>
-                        <li><a href="{{ url_for('empresa_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-building"></i> Empresa</a></li>
-                        <li><a href="{{ url_for('contrato_modelos_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-file-alt"></i> Modelos de Contrato</a></li>
-                        <li><a href="{{ url_for('dre_mascaras_list') }}" class="sidebar-nav-item text-sm"><i class="fas fa-sitemap"></i> DRE (Máscara)</a></li>
+                        <li>
+                            <a href="{{ url_for('backup_db') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-database"></i>
+                                <span class="sidebar-item-label">Backup</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('usuarios_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-user-shield"></i>
+                                <span class="sidebar-item-label">Usuários</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('empresa_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-building"></i>
+                                <span class="sidebar-item-label">Empresa</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('contrato_modelos_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-file-alt"></i>
+                                <span class="sidebar-item-label">Modelos de Contrato</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('dre_mascaras_list') }}" class="sidebar-nav-item text-sm">
+                                <i class="fas fa-sitemap"></i>
+                                <span class="sidebar-item-label">DRE (Máscara)</span>
+                            </a>
+                        </li>
                     </ul>
                 </li>
             </ul>
         </nav>
         <div class="flex justify-end mt-8">
-            <a href="{{ url_for('logout') }}" class="sidebar-btn text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
-                <i class="fas fa-sign-out-alt mr-2"></i> Sair
+            <a href="{{ url_for('logout') }}" class="sidebar-btn text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center gap-2">
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="sidebar-item-label">Sair</span>
             </a>
         </div>
         <div class="mt-4 text-xs text-center text-white">Versão {{ system_version }} / Usuário: {{ usuario_logado }}</div>
@@ -611,6 +854,65 @@
             const sidebarEl = document.querySelector('.sidebar');
             const sidebarToggleBtn = document.getElementById('sidebarToggle');
             const sidebarOverlay = document.getElementById('sidebar-overlay');
+            const bodyEl = document.body;
+            const collapseToggleBtn = document.getElementById('sidebarCollapseToggle');
+            const collapseIcon = collapseToggleBtn ? collapseToggleBtn.querySelector('i') : null;
+            const COLLAPSE_STORAGE_KEY = 'sidebarCollapsed';
+            let preferredCollapsed = false;
+            try {
+                preferredCollapsed = localStorage.getItem(COLLAPSE_STORAGE_KEY) === '1';
+            } catch (error) {
+                preferredCollapsed = false;
+            }
+
+            const updateCollapseControls = (isCollapsed) => {
+                if (!collapseToggleBtn) return;
+                collapseToggleBtn.setAttribute('aria-expanded', (!isCollapsed).toString());
+                collapseToggleBtn.setAttribute('aria-label', isCollapsed ? 'Expandir menu lateral' : 'Recolher menu lateral');
+                if (collapseIcon) {
+                    collapseIcon.classList.toggle('fa-angle-double-right', isCollapsed);
+                    collapseIcon.classList.toggle('fa-angle-double-left', !isCollapsed);
+                }
+            };
+
+            const applyCollapsedState = () => {
+                const shouldCollapse = preferredCollapsed && window.innerWidth >= 768;
+                if (sidebarEl) {
+                    sidebarEl.classList.toggle('collapsed', shouldCollapse);
+                }
+                bodyEl.classList.toggle('sidebar-collapsed', shouldCollapse);
+                updateCollapseControls(shouldCollapse);
+            };
+
+            const ensureExpandedForInteraction = () => {
+                if (!sidebarEl || !sidebarEl.classList.contains('collapsed')) {
+                    return;
+                }
+                preferredCollapsed = false;
+                try {
+                    localStorage.setItem(COLLAPSE_STORAGE_KEY, '0');
+                } catch (error) {
+                    /* ignore */
+                }
+                applyCollapsedState();
+            };
+
+            collapseToggleBtn && collapseToggleBtn.addEventListener('click', () => {
+                const isCurrentlyCollapsed = sidebarEl ? sidebarEl.classList.contains('collapsed') : false;
+                if (window.innerWidth < 768) {
+                    preferredCollapsed = !preferredCollapsed;
+                } else {
+                    preferredCollapsed = !isCurrentlyCollapsed;
+                }
+                try {
+                    localStorage.setItem(COLLAPSE_STORAGE_KEY, preferredCollapsed ? '1' : '0');
+                } catch (error) {
+                    /* ignore */
+                }
+                applyCollapsedState();
+            });
+
+            applyCollapsedState();
 
             const openSidebar = () => {
                 sidebarEl.classList.add('open');
@@ -645,6 +947,7 @@
                     const mobileSearch = document.getElementById('mobile-search-container');
                     mobileSearch && mobileSearch.classList.remove('open');
                 }
+                applyCollapsedState();
             });
 
             // Tecla ESC fecha sidebar e busca mobile
@@ -656,6 +959,12 @@
             });
 
             const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
+            sidebarItems.forEach(item => {
+                const labelElement = item.querySelector('.sidebar-item-label');
+                if (labelElement && !item.getAttribute('title')) {
+                    item.setAttribute('title', labelElement.textContent.trim());
+                }
+            });
             const currentPath = window.location.pathname;
 
             // Toggle da busca mobile
@@ -831,6 +1140,7 @@
             const cadastrosToggle = document.getElementById('cadastros-essenciais-toggle');
             if (cadastrosToggle) {
                 cadastrosToggle.addEventListener('click', () => {
+                    ensureExpandedForInteraction();
                     const submenu = document.getElementById('cadastros-essenciais-submenu');
                     const arrowIcon = cadastrosToggle.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
@@ -842,6 +1152,7 @@
             const imoveisToggleElement = document.getElementById('imoveis-toggle');
             if (imoveisToggleElement) {
                 imoveisToggleElement.addEventListener('click', () => {
+                    ensureExpandedForInteraction();
                     const submenu = document.getElementById('imoveis-submenu');
                     const arrowIcon = imoveisToggleElement.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
@@ -853,6 +1164,7 @@
             const finToggleElement = document.getElementById('financeiro-toggle');
             if (finToggleElement) {
                 finToggleElement.addEventListener('click', () => {
+                    ensureExpandedForInteraction();
                     const submenu = document.getElementById('financeiro-submenu');
                     const arrowIcon = finToggleElement.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
@@ -864,6 +1176,7 @@
             const relatoriosToggleElement = document.getElementById('relatorios-toggle');
             if (relatoriosToggleElement) {
                 relatoriosToggleElement.addEventListener('click', () => {
+                    ensureExpandedForInteraction();
                     const submenu = document.getElementById('relatorios-submenu');
                     const arrowIcon = relatoriosToggleElement.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
@@ -875,6 +1188,7 @@
             const gerencialToggleElement = document.getElementById('gerencial-toggle');
             if (gerencialToggleElement) {
                 gerencialToggleElement.addEventListener('click', () => {
+                    ensureExpandedForInteraction();
                     const submenu = document.getElementById('gerencial-submenu');
                     const arrowIcon = gerencialToggleElement.querySelector('.arrow-icon');
                     submenu.classList.toggle('hidden');
