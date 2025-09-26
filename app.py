@@ -1194,6 +1194,16 @@ def pessoas_add():
             else:
                 responsavel_uf = None
             responsavel_estado_civil = request.form.get("responsavel_estado_civil")
+            is_cnpj = len(documento) == 14
+            if not is_cnpj:
+                responsavel_nome = None
+                responsavel_cpf = None
+                responsavel_endereco = None
+                responsavel_bairro = None
+                responsavel_cidade = None
+                responsavel_estado = None
+                responsavel_uf = None
+                responsavel_estado_civil = None
             tipo = request.form["tipo"]
             status = request.form["status"]
 
@@ -1316,6 +1326,16 @@ def pessoas_edit(id):
             else:
                 responsavel_uf = None
             responsavel_estado_civil = request.form.get("responsavel_estado_civil")
+            is_cnpj = len(documento) == 14
+            if not is_cnpj:
+                responsavel_nome = None
+                responsavel_cpf = None
+                responsavel_endereco = None
+                responsavel_bairro = None
+                responsavel_cidade = None
+                responsavel_estado = None
+                responsavel_uf = None
+                responsavel_estado_civil = None
             tipo = request.form["tipo"]
             status = request.form["status"]
 
@@ -1336,7 +1356,7 @@ def pessoas_edit(id):
             cur.execute(
                 """
                 UPDATE pessoas
-                SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, contato = %s, nacionalidade = %s, estado_civil = %s, profissao = %s, rg = %s, observacao = %s, tipo = %s, status = %s
+                SET documento = %s, razao_social_nome = %s, nome_fantasia = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s, telefone = %s, contato = %s, nacionalidade = %s, estado_civil = %s, profissao = %s, rg = %s, observacao = %s, responsavel_nome = %s, responsavel_cpf = %s, responsavel_endereco = %s, responsavel_bairro = %s, responsavel_cidade = %s, responsavel_estado = %s, responsavel_uf = %s, responsavel_estado_civil = %s, tipo = %s, status = %s
                 WHERE id = %s
                 """,
                 (
@@ -1355,6 +1375,14 @@ def pessoas_edit(id):
                     profissao,
                     rg,
                     observacao,
+                    responsavel_nome,
+                    responsavel_cpf,
+                    responsavel_endereco,
+                    responsavel_bairro,
+                    responsavel_cidade,
+                    responsavel_estado,
+                    responsavel_uf,
+                    responsavel_estado_civil,
                     tipo,
                     status,
                     id,
@@ -8045,6 +8073,8 @@ if __name__ == "__main__":
     # rede, permitindo acesso por outras máquinas da rede local.
     # Altere debug para False em produção.
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
 
 
 
