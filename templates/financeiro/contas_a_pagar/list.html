@@ -210,6 +210,17 @@
                         {% endif %}
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="imovel_id" class="form-label">Imovel:</label>
+                    <select id="imovel_id" name="imovel_id" class="form-input">
+                        <option value="">Todos</option>
+                        {% if imoveis %}
+                        {% for im in imoveis %}
+                        <option value="{{ im.id }}" {% if filtros.imovel_id|string == im.id|string %}selected{% endif %}>{{ im.endereco }}{% if im.bairro %} - {{ im.bairro }}{% endif %}</option>
+                        {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
                 <div class="form-group md:col-span-2">
                     <label for="status_conta" class="form-label">Status:</label>
                     <select id="status_conta" name="status_conta" class="form-input">

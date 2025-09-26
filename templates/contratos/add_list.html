@@ -109,6 +109,7 @@
                 <select id="status_contrato" name="status_contrato" class="form-select" required>
                     <option value="Ativo" {% if contrato.status_contrato == 'Ativo' %}selected{% endif %}>Ativo</option>
                     <option value="Encerrado" {% if contrato.status_contrato == 'Encerrado' %}selected{% endif %}>Encerrado</option>
+                    <option value="Finalizado" {% if contrato.status_contrato == 'Finalizado' %}selected{% endif %}>Finalizado</option>
                     <option value="Pendente" {% if contrato.status_contrato == 'Pendente' %}selected{% endif %}>Pendente</option>
                 </select>
             </div>
@@ -257,7 +258,23 @@ function openImovelModal(){
 function closeImovelModal(){
     document.getElementById('imovel-modal').style.display = 'none';
 }
-function selectImovel(id, texto){
+async function selectImovel(id, texto){
+    try {
+        const response = await fetch(`/contratos/imovel/${id}/disponibilidade`);
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.disponivel) {
+                alert(`Imovel selecionado ja possui contrato ativo (#${data.contrato_id}).`);
+                return;
+            }
+        } else {
+            throw new Error('Falha na validacao do imovel');
+        }
+    } catch (error) {
+        console.error('Erro ao validar imovel selecionado', error);
+        alert('Nao foi possivel validar a disponibilidade do imovel. Tente novamente.');
+        return;
+    }
     document.getElementById('imovel_id').value = id;
     document.getElementById('imovel_display').value = texto;
     closeImovelModal();

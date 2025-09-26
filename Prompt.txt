@@ -208,7 +208,7 @@ quantidade_parcelas (INTEGER, not null)
 
 valor_parcela (NUMERIC(10,2), not null)
 
-status_contrato (ENUM: 'Ativo', 'Encerrado', 'Pendente', not null, padrão 'Ativo')
+status_contrato (ENUM: 'Ativo', 'Encerrado', 'Pendente', 'Finalizado', not null, padrão 'Ativo')
 
 observacao (TEXT)
 

@@ -27,13 +27,26 @@
             <div class="dashboard-card-header">
                 <i class="fas fa-info-circle"></i> Avisos
             </div>
-            <ul class="text-sm text-gray-700 space-y-2">
-                <li class="flex items-center">
-                    <span class="w-2 h-2 bg-gray-500 rounded-full mr-2"></span> Há 10 minutos: Atualização da política de férias
+            <ul class="text-sm text-gray-700 space-y-3">
+                {% if avisos_contratos %}
+                {% for aviso in avisos_contratos %}
+                <li class="flex items-start">
+                    <span class="w-2 h-2 rounded-full mr-2 mt-1 {{ 'bg-red-500' if aviso.dias_restantes is not none and aviso.dias_restantes <= 5 else 'bg-yellow-500' }}"></span>
+                    <div>
+                        <p class="font-semibold text-gray-800">Contrato #{{ aviso.id }}{% if aviso.nome_inquilino %} - {{ aviso.nome_inquilino }}{% endif %}</p>
+                        <p class="text-gray-600">Termina em {{ aviso.data_fim }}{% if aviso.dias_restantes is not none %} ({{ aviso.dias_restantes }} dia{% if aviso.dias_restantes != 1 %}s{% endif %}){% endif %}</p>
+                        {% if aviso.localizacao %}
+                        <p class="text-xs text-gray-500">{{ aviso.localizacao }}</p>
+                        {% endif %}
+                    </div>
                 </li>
-                <li class="flex items-center">
-                    <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span> Há 2 horas: Relatório de desempenho disponível
+                {% endfor %}
+                {% else %}
+                <li class="flex items-center text-gray-500">
+                    <span class="w-2 h-2 bg-gray-400 rounded-full mr-2"></span>
+                    Nenhum contrato com termino nos proximos 15 dias.
                 </li>
+                {% endif %}
             </ul>
         </div>
 

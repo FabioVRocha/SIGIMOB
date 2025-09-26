@@ -1,5 +1,5 @@
-Ôªø# app.py
-# Este √© o arquivo principal da sua aplica√ß√£o Flask.
+# app.py
+# Este È o arquivo principal da sua aplicaÁ„o Flask.
 
 from flask import (
     Flask,
@@ -29,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 import io
 from fpdf import FPDF
 
-# Importa a configura√ß√£o do banco de dados e outras vari√°veis
+# Importa a configuraÁ„o do banco de dados e outras vari·veis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
 from caixa_banco import init_app as init_caixa_banco, db
 from contas_receber import init_app as init_contas_receber
@@ -59,15 +59,15 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# Cria as pastas de uploads se elas n√£o existirem
+# Cria as pastas de uploads se elas n„o existirem
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-# Pastas de uploads utilizadas pelos m√≥dulos
+# Pastas de uploads utilizadas pelos mÛdulos
 os.makedirs(os.path.join(UPLOAD_FOLDER, "backups"), exist_ok=True)
 os.makedirs(
     os.path.join(UPLOAD_FOLDER, "imoveis_anexos"), exist_ok=True
-)  # Pasta para anexos de im√≥veis
+)  # Pasta para anexos de imÛveis
 os.makedirs(
     os.path.join(UPLOAD_FOLDER, "contratos_anexos"), exist_ok=True
 )  # Pasta para anexos de contratos
@@ -81,8 +81,8 @@ def _normalize_key(key: str) -> str:
 
 
 def format_currency(value):
-    """Formata valores monet√°rios no padr√£o brasileiro: R$ 1.234,56.
-    Aceita Decimal, float, int ou string num√©rica.
+    """Formata valores monet·rios no padr„o brasileiro: R$ 1.234,56.
+    Aceita Decimal, float, int ou string numÈrica.
     """
     try:
         if isinstance(value, Decimal):
@@ -98,12 +98,12 @@ def format_currency(value):
 
 
 def build_contrato_context(cur, contrato_id: int) -> dict:
-    """Monta um dicion√°rio com dados do contrato, inquilino, im√≥vel e empresa.
-    As chaves s√£o normalizadas para facilitar matching de placeholders.
+    """Monta um dicion·rio com dados do contrato, inquilino, imÛvel e empresa.
+    As chaves s„o normalizadas para facilitar matching de placeholders.
     """
     ctx = {}
 
-    # Contrato + Im√≥vel
+    # Contrato + ImÛvel
     cur.execute(
         """
         SELECT c.*, i.endereco AS imovel_endereco, i.bairro AS imovel_bairro,
@@ -167,7 +167,7 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
         put("ProfissaoCliente", pessoa.get("profissao"))
         put("RGCliente", pessoa.get("rg"))
 
-    # Im√≥vel
+    # ImÛvel
     put("EnderecoImovel", contrato.get("imovel_endereco"))
     put("BairroImovel", contrato.get("imovel_bairro"))
     put("CidadeImovel", contrato.get("imovel_cidade"))
@@ -178,7 +178,7 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
     put("TipoImovel", contrato.get("imovel_tipo_imovel"))
 
     # Campos derivados solicitados para modelos de contrato
-    # 1) M√™s e ano do in√≠cio do contrato (ex: "Janeiro de 2025")
+    # 1) MÍs e ano do inÌcio do contrato (ex: "Janeiro de 2025")
     data_inicio_dt = contrato.get("data_inicio")
     data_fim_dt = contrato.get("data_fim")
     if data_inicio_dt and data_fim_dt and data_fim_dt >= data_inicio_dt:
@@ -194,7 +194,7 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
             "",
             "Janeiro",
             "Fevereiro",
-            "Mar√ßo",
+            "MarÁo",
             "Abril",
             "Maio",
             "Junho",
@@ -206,12 +206,12 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
             "Dezembro",
         ]
         put("MesEAnoInicioContrato", f"{meses_pt[data_inicio_dt.month]} de {data_inicio_dt.year}")
-        # Data de in√≠cio por extenso, com m√™s em min√∫sculas (ex: "10 de janeiro de 2025")
+        # Data de inÌcio por extenso, com mÍs em min˙sculas (ex: "10 de janeiro de 2025")
         meses_pt_lower = [
             "",
             "janeiro",
             "fevereiro",
-            "mar√ßo",
+            "marÁo",
             "abril",
             "maio",
             "junho",
@@ -231,7 +231,7 @@ def build_contrato_context(cur, contrato_id: int) -> dict:
         put("DataInicioExtenso", "")
 
     # 2) Dia do vencimento e 3) Data do Primeiro Vencimento
-    # Considera apenas parcelas de aluguel (ignora t√≠tulos de cal√ß√£o que come√ßam com 'C')
+    # Considera apenas parcelas de aluguel (ignora tÌtulos de calÁ„o que comeÁam com 'C')
     cur.execute(
         """
         SELECT MIN(data_vencimento) AS primeiro
@@ -277,15 +277,15 @@ def render_placeholders(html: str, ctx: dict) -> str:
 
     return PLACEHOLDER_PATTERN.sub(repl, html)
 
-# Inicializa o m√≥dulo de Caixa e Banco (SQLAlchemy e rotas REST)
+# Inicializa o mÛdulo de Caixa e Banco (SQLAlchemy e rotas REST)
 init_caixa_banco(app)
 init_contas_receber(app)
 init_cobrancas(app)
 
-# Vari√°veis globais para o sistema (exemplo)
+# Vari·veis globais para o sistema (exemplo)
 SYSTEM_VERSION = "1.0"
 
-# M√≥dulos dispon√≠veis no sistema para configura√ß√£o de permiss√µes
+# MÛdulos disponÌveis no sistema para configuraÁ„o de permissıes
 MODULES = [
     "Cadastro Fornecedores/Clientes",
     "Cadastro Imoveis",
@@ -297,23 +297,42 @@ MODULES = [
     "Administracao Sistema",
 ]
 
-# A√ß√µes poss√≠veis
+# AÁıes possÌveis
 ACTIONS = ["Incluir", "Editar", "Consultar", "Excluir", "Bloquear"]
 
 
-# Fun√ß√£o para conectar ao banco de dados
+# FunÁ„o para conectar ao banco de dados
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
 
 
-# Fun√ß√£o auxiliar para verificar extens√µes de arquivo permitidas
+def ensure_status_contrato_enum_finalizado():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        conn.autocommit = True
+        cur = conn.cursor()
+        cur.execute("ALTER TYPE status_contrato_enum ADD VALUE IF NOT EXISTS 'Finalizado'")
+    except Exception:
+        pass
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+ensure_status_contrato_enum_finalizado()
+
+# FunÁ„o auxiliar para verificar extensıes de arquivo permitidas
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# Converte valores decimais enviados pelo formul√°rio, aceitando v√≠rgulas ou
+# Converte valores decimais enviados pelo formul·rio, aceitando vÌrgulas ou
 # pontos como separadores de milhares e decimais. Retorna None se o valor
-# estiver vazio ou n√£o puder ser convertido em n√∫mero.
+# estiver vazio ou n„o puder ser convertido em n˙mero.
 def parse_decimal(value):
     if value is None:
         return None
@@ -321,12 +340,12 @@ def parse_decimal(value):
     if value == "":
         return None
 
-    # Remove quaisquer s√≠mbolos de moeda e caracteres n√£o num√©ricos,
-    # preservando apenas d√≠gitos, v√≠rgula, ponto e sinal de menos
+    # Remove quaisquer sÌmbolos de moeda e caracteres n„o numÈricos,
+    # preservando apenas dÌgitos, vÌrgula, ponto e sinal de menos
     value = re.sub(r"[^0-9,\.\-]", "", value)
 
-    # Se contiver tanto "," quanto ".", assume que o separador decimal √© o
-    # √∫ltimo caracter dentre eles e remove os demais como separadores de
+    # Se contiver tanto "," quanto ".", assume que o separador decimal È o
+    # ˙ltimo caracter dentre eles e remove os demais como separadores de
     # milhares.
     if "," in value and "." in value:
         if value.rfind(",") > value.rfind("."):
@@ -368,7 +387,7 @@ app.jinja_env.filters["currency"] = format_currency
 
 
 def add_months(date_obj, months):
-    """Retorna a data acrescida do n√∫mero de meses informado."""
+    """Retorna a data acrescida do n˙mero de meses informado."""
     month = date_obj.month - 1 + months
     year = date_obj.year + month // 12
     month = month % 12 + 1
@@ -389,7 +408,7 @@ def calcular_status_conta(data_vencimento, data_pagamento, contrato_id, cur):
         contrato = cur.fetchone()
         if (
             contrato
-            and contrato.get("status_contrato") == "Encerrado"
+            and contrato.get("status_contrato") in {"Encerrado", "Finalizado"}
             and status == "Aberta"
         ):
             status = "Cancelada"
@@ -426,6 +445,37 @@ def atualizar_status_contas_a_pagar(cur):
            END
         """
     )
+
+def atualizar_status_contratos(cur):
+    cur.execute(
+        """
+        UPDATE contratos_aluguel
+           SET status_contrato = 'Finalizado'::status_contrato_enum
+         WHERE data_fim < CURRENT_DATE
+           AND status_contrato IN ('Ativo', 'Pendente')
+        """
+    )
+
+@app.before_request
+def atualizar_contratos_expirados():
+    endpoint = request.endpoint or ''
+    if endpoint == 'static':
+        return
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        atualizar_status_contratos(cur)
+        conn.commit()
+    except Exception:
+        if conn:
+            conn.rollback()
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 # Garante que a coluna max_contratos exista na tabela imoveis
 def ensure_max_contratos_column():
@@ -484,7 +534,7 @@ def ensure_finalidade_column():
 
 
 def ensure_calcao_columns():
-    """Garante que as colunas de cal√ß√£o existam em contratos_aluguel."""
+    """Garante que as colunas de calÁ„o existam em contratos_aluguel."""
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute(
@@ -527,7 +577,7 @@ def ensure_tipo_pessoa_enum():
     conn.close()
 
 
-# Assegura colunas necess√°rias no banco de dados
+# Assegura colunas necess·rias no banco de dados
 ensure_max_contratos_column()
 ensure_calcao_columns()
 ensure_tipo_pessoa_enum()
@@ -535,7 +585,7 @@ ensure_tipo_pessoa_enum()
 
 
 def ensure_ordens_pagamento_tables():
-    """Cria as tabelas de Ordens de Pagamento (cabecalho e itens) caso n√£o existam."""
+    """Cria as tabelas de Ordens de Pagamento (cabecalho e itens) caso n„o existam."""
     conn = get_db_connection()
     cur = conn.cursor()
     # Tabela principal de ordens de pagamento
@@ -559,7 +609,7 @@ def ensure_ordens_pagamento_tables():
         )
         """
     )
-    # Garante colunas auxiliares para integra√ß√£o com contas a pagar
+    # Garante colunas auxiliares para integraÁ„o com contas a pagar
     cur.execute(
         """
         SELECT 1 FROM information_schema.columns
@@ -596,7 +646,7 @@ def ensure_ordens_pagamento_tables():
         )
         """
     )
-    # Parcelas (t√≠tulos) da OP
+    # Parcelas (tÌtulos) da OP
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS ordem_pagamento_parcelas (
@@ -628,7 +678,7 @@ def ensure_ordens_pagamento_tables():
 
 
 def ensure_dre_tables():
-    """Cria as tabelas de DRE caso n√£o existam."""
+    """Cria as tabelas de DRE caso n„o existam."""
     conn = get_db_connection()
     cur = conn.cursor()
     # Mascaras
@@ -646,9 +696,9 @@ def ensure_dre_tables():
         )
         """
     )
-    # Commit imediato para garantir exist√™ncia da tabela antes de tentar alterar
+    # Commit imediato para garantir existÍncia da tabela antes de tentar alterar
     conn.commit()
-    # Garante coluna 'ordem' para bases j√° existentes (sem usar IF NOT EXISTS para compatibilidade)
+    # Garante coluna 'ordem' para bases j· existentes (sem usar IF NOT EXISTS para compatibilidade)
     try:
         cur.execute(
             "SELECT 1 FROM information_schema.columns WHERE table_name='dre_mascaras' AND column_name='ordem'"
@@ -657,10 +707,10 @@ def ensure_dre_tables():
         if not tem_ordem:
             cur.execute("ALTER TABLE dre_mascaras ADD COLUMN ordem INTEGER NOT NULL DEFAULT 0")
     except Exception:
-        # Evita transa√ß√£o abortada caso haja erro em ambiente legado
+        # Evita transaÁ„o abortada caso haja erro em ambiente legado
         conn.rollback()
 
-    # Garante colunas de f√≥rmula
+    # Garante colunas de fÛrmula
     try:
         cur.execute(
             "SELECT 1 FROM information_schema.columns WHERE table_name='dre_mascaras' AND column_name='eh_formula'"
@@ -677,7 +727,7 @@ def ensure_dre_tables():
     except Exception:
         conn.rollback()
     
-    # N√≥s da m√°scara (hierarquia)
+    # NÛs da m·scara (hierarquia)
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS dre_nos (
@@ -691,7 +741,7 @@ def ensure_dre_tables():
         )
         """
     )
-    # Mapeamentos de categorias de receitas/despesas para n√≥s
+    # Mapeamentos de categorias de receitas/despesas para nÛs
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS dre_no_receitas (
@@ -721,16 +771,16 @@ ensure_ordens_pagamento_tables()
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
-    """Serve arquivos enviados pelo usu√°rio."""
+    """Serve arquivos enviados pelo usu·rio."""
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
-# Decorador para verificar se o usu√°rio est√° logado
+# Decorador para verificar se o usu·rio est· logado
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
-            flash("Voc√™ precisa estar logado para acessar esta p√°gina.", "info")
+            flash("VocÍ precisa estar logado para acessar esta p·gina.", "info")
             return redirect(url_for("login"))
         return f(*args, **kwargs)
 
@@ -740,7 +790,7 @@ def login_required(f):
 @app.route("/imoveis/fotos/<int:imovel_id>")
 @login_required
 def imoveis_fotos(imovel_id):
-    """Retorna as URLs das fotos de um im√≥vel em formato JSON."""
+    """Retorna as URLs das fotos de um imÛvel em formato JSON."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute(
@@ -759,32 +809,32 @@ def imoveis_fotos(imovel_id):
     return jsonify(fotos)
 
 
-# Decorador para verificar se o usu√°rio est√° logado
+# Decorador para verificar se o usu·rio est· logado
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
-            flash("Voc√™ precisa estar logado para acessar esta p√°gina.", "info")
+            flash("VocÍ precisa estar logado para acessar esta p·gina.", "info")
             return redirect(url_for("login"))
         return f(*args, **kwargs)
 
     return decorated_function
 
 
-# Decorador para verificar permiss√µes
+# Decorador para verificar permissıes
 def permission_required(module, action):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if "user_id" not in session:
-                flash("Voc√™ precisa estar logado para acessar esta p√°gina.", "info")
+                flash("VocÍ precisa estar logado para acessar esta p·gina.", "info")
                 return redirect(url_for("login"))
 
             user_id = session["user_id"]
             conn = get_db_connection()
             cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             
-            # Verifica se o usu√°rio √© Master (tem acesso total)
+            # Verifica se o usu·rio È Master (tem acesso total)
             cur.execute("SELECT tipo_usuario FROM usuarios WHERE id = %s", (user_id,))
             user = cur.fetchone()
             if user and user["tipo_usuario"] == "Master":
@@ -792,7 +842,7 @@ def permission_required(module, action):
                 conn.close()
                 return f(*args, **kwargs)
 
-            # Verifica permiss√µes espec√≠ficas para o m√≥dulo e a√ß√£o
+            # Verifica permissıes especÌficas para o mÛdulo e aÁ„o
             cur.execute(
                 """
                 SELECT COUNT(*) FROM permissoes
@@ -807,12 +857,12 @@ def permission_required(module, action):
 
             if not has_permission:
                 flash(
-                    f"Voc√™ n√£o tem permiss√£o para realizar esta a√ß√£o no m√≥dulo {module}.",
+                    f"VocÍ n„o tem permiss„o para realizar esta aÁ„o no mÛdulo {module}.",
                     "danger",
                 )
                 return redirect(
                     url_for("dashboard")
-                )  # Ou outra p√°gina de erro/acesso negado
+                )  # Ou outra p·gina de erro/acesso negado
             return f(*args, **kwargs)
 
         return decorated_function
@@ -820,7 +870,7 @@ def permission_required(module, action):
     return decorator
 
 
-# Context processor para injetar vari√°veis em todos os templates
+# Context processor para injetar vari·veis em todos os templates
 @app.context_processor
 def inject_global_vars():
     return {
@@ -829,10 +879,10 @@ def inject_global_vars():
     }
 
 
-# --- Rotas de Autentica√ß√£o ---
+# --- Rotas de AutenticaÁ„o ---
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    # Se o usu√°rio j√° estiver logado, redireciona para o dashboard
+    # Se o usu·rio j· estiver logado, redireciona para o dashboard
     if "user_id" in session:
         return redirect(url_for("dashboard"))
 
@@ -860,15 +910,15 @@ def login():
             flash("Login realizado com sucesso!", "success")
             return redirect(
                 url_for("dashboard")
-            )  # Redireciona para o dashboard ap√≥s o login
+            )  # Redireciona para o dashboard apÛs o login
         else:
-            flash("Usu√°rio ou senha inv√°lidos, ou usu√°rio inativo.", "danger")
+            flash("Usu·rio ou senha inv·lidos, ou usu·rio inativo.", "danger")
     return render_template("login.html")
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    # Se o usu√°rio j√° estiver logado, redireciona para o dashboard
+    # Se o usu·rio j· estiver logado, redireciona para o dashboard
     if "user_id" in session:
         return redirect(url_for("dashboard"))
 
@@ -878,7 +928,7 @@ def register():
         confirm_password = request.form["confirm_password"]
 
         if password != confirm_password:
-            flash("As senhas n√£o coincidem.", "danger")
+            flash("As senhas n„o coincidem.", "danger")
             return render_template("register.html")
 
         # Hash da senha antes de armazenar
@@ -887,7 +937,7 @@ def register():
         conn = get_db_connection()
         cur = conn.cursor()
         try:
-            # Insere o novo usu√°rio com tipo "Operador" por padr√£o
+            # Insere o novo usu·rio com tipo "Operador" por padr„o
             cur.execute(
                 "INSERT INTO usuarios (nome_usuario, senha_hash, tipo_usuario, status) VALUES (%s, %s, %s, %s) RETURNING id",
                 (username, hashed_password, "Operador", "Ativo")
@@ -895,17 +945,17 @@ def register():
             new_user_id = cur.fetchone()[0]
             conn.commit()
 
-            # Opcional: Atribuir permiss√µes b√°sicas para o novo usu√°rio "Operador"
-            # Isso pode ser feito de forma mais sofisticada, mas aqui √© um exemplo b√°sico.
-            # Por exemplo, dar permiss√£o de consulta para alguns m√≥dulos.
+            # Opcional: Atribuir permissıes b·sicas para o novo usu·rio "Operador"
+            # Isso pode ser feito de forma mais sofisticada, mas aqui È um exemplo b·sico.
+            # Por exemplo, dar permiss„o de consulta para alguns mÛdulos.
             modules_to_grant_access = [
                 "Cadastro Fornecedores/Clientes",
                 "Cadastro Imoveis",
                 "Gestao Contratos",
                 "Financeiro",
-                "Cadastro Despesas",  # Nova permiss√£o
-                "Cadastro Origens",  # Nova permiss√£o
-                "Cadastro Receitas",  # Nova permiss√£o
+                "Cadastro Despesas",  # Nova permiss„o
+                "Cadastro Origens",  # Nova permiss„o
+                "Cadastro Receitas",  # Nova permiss„o
             ]
             for module in modules_to_grant_access:
                 cur.execute(
@@ -915,14 +965,14 @@ def register():
             conn.commit()
 
             flash(
-                "Usu√°rio cadastrado com sucesso! Voc√™ j√° pode fazer login.", "success"
+                "Usu·rio cadastrado com sucesso! VocÍ j· pode fazer login.", "success"
             )
             return redirect(url_for("login"))
         except psycopg2.errors.UniqueViolation:
-            flash("Nome de usu√°rio j√° existe. Por favor, escolha outro.", "danger")
+            flash("Nome de usu·rio j· existe. Por favor, escolha outro.", "danger")
             conn.rollback()
         except Exception as e:
-            flash(f"Erro ao cadastrar usu√°rio: {e}", "danger")
+            flash(f"Erro ao cadastrar usu·rio: {e}", "danger")
             conn.rollback()
         finally:
             cur.close()
@@ -935,7 +985,7 @@ def register():
 def logout():
     session.pop("user_id", None)
     session.pop("username", None)
-    flash("Voc√™ foi desconectado.", "info")
+    flash("VocÍ foi desconectado.", "info")
     return redirect(url_for("login"))
 
 
@@ -978,6 +1028,38 @@ def dashboard():
         if total_imoveis_ativos
         else 0
     )
+    cur.execute(
+        """
+        SELECT c.id,
+               c.nome_inquilino,
+               c.data_fim,
+               COALESCE(i.endereco, '') AS endereco,
+               COALESCE(i.bairro, '') AS bairro
+        FROM contratos_aluguel c
+        LEFT JOIN imoveis i ON c.imovel_id = i.id
+        WHERE c.status_contrato = 'Ativo'
+          AND c.data_fim BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '15 days'
+        ORDER BY c.data_fim ASC
+        """
+    )
+    contratos_vencendo = cur.fetchall()
+    hoje = date.today()
+    avisos_contratos = []
+    for contrato_id, nome_inquilino, data_fim, endereco, bairro in contratos_vencendo:
+        if endereco and bairro:
+            localizacao = f"{endereco} - {bairro}"
+        else:
+            localizacao = endereco or bairro or ''
+        dias_restantes = (data_fim - hoje).days if data_fim else None
+        avisos_contratos.append(
+            {
+                "id": contrato_id,
+                "nome_inquilino": nome_inquilino,
+                "data_fim": data_fim.strftime("%d/%m/%Y") if data_fim else '',
+                "dias_restantes": dias_restantes,
+                "localizacao": localizacao.strip(),
+            }
+        )
     cur.close()
     conn.close()
     meses_labels = [
@@ -1019,10 +1101,11 @@ def dashboard():
         saldo_total=saldo_total,
         alertas_saldo_negativo=alertas_saldo_negativo,
         conciliacoes_pendentes=conciliacoes_pendentes,
+        avisos_contratos=avisos_contratos,
     )
 
 
-# --- M√≥dulo de Cadastros ---
+# --- MÛdulo de Cadastros ---
 
 
 # 1.1. Cadastro de Fornecedores e Clientes (Pessoas)
@@ -1095,40 +1178,56 @@ def pessoas_add():
             profissao = request.form.get("profissao")
             rg = request.form.get("rg")
             observacao = request.form.get("observacao")
+            responsavel_nome = request.form.get("responsavel_nome")
+            responsavel_cpf = request.form.get("responsavel_cpf", "").strip()
+            if responsavel_cpf:
+                responsavel_cpf = "".join(ch for ch in responsavel_cpf if ch.isdigit())
+            else:
+                responsavel_cpf = None
+            responsavel_endereco = request.form.get("responsavel_endereco")
+            responsavel_bairro = request.form.get("responsavel_bairro")
+            responsavel_cidade = request.form.get("responsavel_cidade")
+            responsavel_estado = request.form.get("responsavel_estado")
+            responsavel_uf = request.form.get("responsavel_uf")
+            if responsavel_uf:
+                responsavel_uf = responsavel_uf.upper()
+            else:
+                responsavel_uf = None
+            responsavel_estado_civil = request.form.get("responsavel_estado_civil")
             tipo = request.form["tipo"]
             status = request.form["status"]
 
-            # Valida√ß√£o de CPF/CNPJ (simplificada, voc√™ precisaria de uma biblioteca real como "validate-docbr")
+            # ValidaÁ„o de CPF/CNPJ (simplificada, vocÍ precisaria de uma biblioteca real como "validate-docbr")
             if len(documento) == 11 and not documento.isdigit():
-                 flash("CPF inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                 flash("CPF inv·lido. Deve conter apenas n˙meros.", "danger")
                  return render_template("pessoas/add_list.html", pessoa={})
             elif len(documento) == 14 and not documento.isdigit():
-                 flash("CNPJ inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                 flash("CNPJ inv·lido. Deve conter apenas n˙meros.", "danger")
                  return render_template("pessoas/add_list.html", pessoa={})
             elif len(documento) != 11 and len(documento) != 14:
                 flash(
-                    "Documento deve ser um CPF (11 d√≠gitos) ou CNPJ (14 d√≠gitos).",
+                    "Documento deve ser um CPF (11 dÌgitos) ou CNPJ (14 dÌgitos).",
                     "danger",
                 )
                 return render_template("pessoas/add_list.html", pessoa={})
             
-            # Exemplo de uso de validate-docbr (necessita instala√ß√£o: pip install validate-docbr)
+            # Exemplo de uso de validate-docbr (necessita instalaÁ„o: pip install validate-docbr)
             # from validate_docbr import CPF, CNPJ
             # if len(documento) == 11:
             #     if not CPF().validate(documento):
-            #         flash("CPF inv√°lido.", "danger")
+            #         flash("CPF inv·lido.", "danger")
             #         return render_template("pessoas/add_list.html", pessoa={})
             # elif len(documento) == 14:
             #     if not CNPJ().validate(documento):
-            #         flash("CNPJ inv√°lido.", "danger")
+            #         flash("CNPJ inv·lido.", "danger")
             #         return render_template("pessoas/add_list.html", pessoa={})
 
             conn = get_db_connection()
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, contato, nacionalidade, estado_civil, profissao, rg, observacao, tipo, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, contato, nacionalidade, estado_civil, profissao, rg, observacao, responsavel_nome, responsavel_cpf, responsavel_endereco, responsavel_bairro, responsavel_cidade, responsavel_estado, responsavel_uf, responsavel_estado_civil, tipo, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     documento,
@@ -1146,6 +1245,14 @@ def pessoas_add():
                     profissao,
                     rg,
                     observacao,
+                    responsavel_nome,
+                    responsavel_cpf,
+                    responsavel_endereco,
+                    responsavel_bairro,
+                    responsavel_cidade,
+                    responsavel_estado,
+                    responsavel_uf,
+                    responsavel_estado_civil,
                     tipo,
                     status,
                 ),
@@ -1156,8 +1263,8 @@ def pessoas_add():
             flash("Pessoa cadastrada com sucesso!", "success")
             return redirect(url_for("pessoas_list"))
         except psycopg2.errors.UniqueViolation:
-            flash("Erro: Documento (CPF/CNPJ) j√° cadastrado.", "danger")
-            conn.rollback()  # Garante que a transa√ß√£o seja desfeita em caso de erro
+            flash("Erro: Documento (CPF/CNPJ) j· cadastrado.", "danger")
+            conn.rollback()  # Garante que a transaÁ„o seja desfeita em caso de erro
             return render_template("pessoas/add_list.html", pessoa=request.form)
         except Exception as e:
             flash(f"Erro ao cadastrar pessoa: {e}", "danger")
@@ -1193,19 +1300,35 @@ def pessoas_edit(id):
             profissao = request.form.get("profissao")
             rg = request.form.get("rg")
             observacao = request.form.get("observacao")
+            responsavel_nome = request.form.get("responsavel_nome")
+            responsavel_cpf = request.form.get("responsavel_cpf", "").strip()
+            if responsavel_cpf:
+                responsavel_cpf = "".join(ch for ch in responsavel_cpf if ch.isdigit())
+            else:
+                responsavel_cpf = None
+            responsavel_endereco = request.form.get("responsavel_endereco")
+            responsavel_bairro = request.form.get("responsavel_bairro")
+            responsavel_cidade = request.form.get("responsavel_cidade")
+            responsavel_estado = request.form.get("responsavel_estado")
+            responsavel_uf = request.form.get("responsavel_uf")
+            if responsavel_uf:
+                responsavel_uf = responsavel_uf.upper()
+            else:
+                responsavel_uf = None
+            responsavel_estado_civil = request.form.get("responsavel_estado_civil")
             tipo = request.form["tipo"]
             status = request.form["status"]
 
-            # Valida√ß√£o de CPF/CNPJ (simplificada)
+            # ValidaÁ„o de CPF/CNPJ (simplificada)
             if len(documento) == 11 and not documento.isdigit():
-                 flash("CPF inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                 flash("CPF inv·lido. Deve conter apenas n˙meros.", "danger")
                  return render_template("pessoas/add_list.html", pessoa=request.form)
             elif len(documento) == 14 and not documento.isdigit():
-                 flash("CNPJ inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                 flash("CNPJ inv·lido. Deve conter apenas n˙meros.", "danger")
                  return render_template("pessoas/add_list.html", pessoa={})
             elif len(documento) != 11 and len(documento) != 14:
                 flash(
-                    "Documento deve ser um CPF (11 d√≠gitos) ou CNPJ (14 d√≠gitos).",
+                    "Documento deve ser um CPF (11 dÌgitos) ou CNPJ (14 dÌgitos).",
                     "danger",
                 )
                 return render_template("pessoas/add_list.html", pessoa={})
@@ -1242,16 +1365,16 @@ def pessoas_edit(id):
             return redirect(url_for("pessoas_list"))
         except psycopg2.errors.UniqueViolation:
             flash(
-                "Erro: Documento (CPF/CNPJ) j√° cadastrado para outra pessoa.", "danger"
+                "Erro: Documento (CPF/CNPJ) j· cadastrado para outra pessoa.", "danger"
             )
             conn.rollback()
-            # Recarrega os dados da pessoa para preencher o formul√°rio novamente
+            # Recarrega os dados da pessoa para preencher o formul·rio novamente
             cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
             pessoa = cur.fetchone()
             return render_template("pessoas/add_list.html", pessoa=pessoa)
         except Exception as e:
             flash(f"Erro ao atualizar pessoa: {e}", "danger")
-            # Recarrega os dados da pessoa para preencher o formul√°rio novamente
+            # Recarrega os dados da pessoa para preencher o formul·rio novamente
             cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
             pessoa = cur.fetchone()
             return render_template("pessoas/add_list.html", pessoa=pessoa)
@@ -1261,7 +1384,7 @@ def pessoas_edit(id):
     cur.close()
     conn.close()
     if pessoa is None:
-        flash("Pessoa n√£o encontrada.", "danger")
+        flash("Pessoa n„o encontrada.", "danger")
         return redirect(url_for("pessoas_list"))
     return render_template("pessoas/add_list.html", pessoa=pessoa)
 
@@ -1275,7 +1398,7 @@ def pessoas_delete(id):
     try:
         cur.execute("DELETE FROM pessoas WHERE id = %s", (id,))
         conn.commit()
-        flash("Pessoa exclu√≠da com sucesso!", "success")
+        flash("Pessoa excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir pessoa: {e}", "danger")
@@ -1285,10 +1408,10 @@ def pessoas_delete(id):
     return redirect(url_for("pessoas_list"))
 
 
-# --- M√≥dulo de Gest√£o de Im√≥veis e Alugu√©is ---
+# --- MÛdulo de Gest„o de ImÛveis e AluguÈis ---
 
 
-# 1.2. Cadastro de Im√≥veis
+# 1.2. Cadastro de ImÛveis
 @app.route("/imoveis")
 @login_required
 @permission_required("Cadastro Imoveis", "Consultar")
@@ -1361,7 +1484,7 @@ def imoveis_mapa():
         """
     )
     imoveis = cur.fetchall()
-    # Converte coordenadas para float quando poss√≠vel para uso no JavaScript
+    # Converte coordenadas para float quando possÌvel para uso no JavaScript
     imoveis = [
         {
             **dict(row),
@@ -1371,7 +1494,7 @@ def imoveis_mapa():
         for row in imoveis
     ]
  
-    # Totais de im√≥veis para exibi√ß√£o no mapa
+    # Totais de imÛveis para exibiÁ„o no mapa
     cur.execute(
         """
         SELECT
@@ -1515,14 +1638,14 @@ def imoveis_add():
             conn.commit()
             cur.close()
             conn.close()
-            flash("Im√≥vel cadastrado com sucesso!", "success")
+            flash("ImÛvel cadastrado com sucesso!", "success")
             return redirect(url_for("imoveis_list"))
         except Exception as e:
             if "conn" in locals():
                 conn.rollback()
                 cur.close()
                 conn.close()
-            flash(f"Erro ao cadastrar im√≥vel: {e}", "danger")
+            flash(f"Erro ao cadastrar imÛvel: {e}", "danger")
             return render_template("imoveis/add_list.html", imovel=request.form)
     return render_template("imoveis/add_list.html", imovel={})
 
@@ -1628,12 +1751,12 @@ def imoveis_edit(id):
                         )
             
             conn.commit()
-            flash("Im√≥vel atualizado com sucesso!", "success")
+            flash("ImÛvel atualizado com sucesso!", "success")
             return redirect(url_for("imoveis_list"))
         except Exception as e:
-            flash(f"Erro ao atualizar im√≥vel: {e}", "danger")
+            flash(f"Erro ao atualizar imÛvel: {e}", "danger")
             conn.rollback()
-            # Recarrega os dados do im√≥vel para preencher o formul√°rio novamente
+            # Recarrega os dados do imÛvel para preencher o formul·rio novamente
             cur.execute("SELECT * FROM imoveis WHERE id = %s", (id,))
             imovel = cur.fetchone()
             cur.execute("SELECT * FROM imovel_anexos WHERE imovel_id = %s", (id,))
@@ -1651,7 +1774,7 @@ def imoveis_edit(id):
     cur.close()
     conn.close()
     if imovel is None:
-        flash("Im√≥vel n√£o encontrado.", "danger")
+        flash("ImÛvel n„o encontrado.", "danger")
         return redirect(url_for("imoveis_list"))
     return render_template("imoveis/add_list.html", imovel=imovel, anexos=anexos)
 
@@ -1663,14 +1786,14 @@ def imoveis_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Primeiro, exclua os anexos relacionados para evitar viola√ß√£o de chave estrangeira
+        # Primeiro, exclua os anexos relacionados para evitar violaÁ„o de chave estrangeira
         cur.execute("DELETE FROM imovel_anexos WHERE imovel_id = %s", (id,))
         cur.execute("DELETE FROM imoveis WHERE id = %s", (id,))
         conn.commit()
-        flash("Im√≥vel exclu√≠do com sucesso!", "success")
+        flash("ImÛvel excluÌdo com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f"Erro ao excluir im√≥vel: {e}", "danger")
+        flash(f"Erro ao excluir imÛvel: {e}", "danger")
     finally:
         cur.close()
         conn.close()
@@ -1681,7 +1804,7 @@ def imoveis_delete(id):
 @login_required
 @permission_required(
     "Cadastro Imoveis", "Editar"
-)  # Permiss√£o para editar im√≥vel inclui exclus√£o de anexos
+)  # Permiss„o para editar imÛvel inclui exclus„o de anexos
 def imovel_anexo_delete(anexo_id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -1693,7 +1816,7 @@ def imovel_anexo_delete(anexo_id):
         anexo = cur.fetchone()
         
         if anexo:
-            # Tenta remover o arquivo f√≠sico
+            # Tenta remover o arquivo fÌsico
             if os.path.exists(anexo["caminho_arquivo"]):
                 os.remove(anexo["caminho_arquivo"])
 
@@ -1702,7 +1825,7 @@ def imovel_anexo_delete(anexo_id):
             flash("Anexo removido com sucesso!", "success")
             return redirect(url_for("imoveis_edit", id=anexo["imovel_id"]))
         else:
-            flash("Anexo n√£o encontrado.", "danger")
+            flash("Anexo n„o encontrado.", "danger")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao remover anexo: {e}", "danger")
@@ -1711,10 +1834,10 @@ def imovel_anexo_delete(anexo_id):
         conn.close()
     return redirect(
         url_for("imoveis_list")
-    )  # Redireciona para a lista caso n√£o encontre o anexo ou erro
+    )  # Redireciona para a lista caso n„o encontre o anexo ou erro
 
 
-# --- Avalia√ß√µes de Im√≥veis ---
+# --- AvaliaÁıes de ImÛveis ---
 @app.route("/avaliacoes-imovel")
 @login_required
 @permission_required("Cadastro Imoveis", "Consultar")
@@ -1770,11 +1893,11 @@ def avaliacoes_imovel_add():
                 (imovel_id, data_avaliacao, valor_avaliacao),
             )
             conn.commit()
-            flash("Avalia√ß√£o cadastrada com sucesso!", "success")
+            flash("AvaliaÁ„o cadastrada com sucesso!", "success")
             return redirect(url_for("avaliacoes_imovel_list"))
         except Exception as e:
             conn.rollback()
-            flash(f"Erro ao cadastrar avalia√ß√£o: {e}", "danger")
+            flash(f"Erro ao cadastrar avaliaÁ„o: {e}", "danger")
     cur.execute("SELECT id, endereco, bairro FROM imoveis ORDER BY endereco")
     imoveis = cur.fetchall()
     cur.close()
@@ -1803,11 +1926,11 @@ def avaliacoes_imovel_edit(id):
                 (imovel_id, data_avaliacao, valor_avaliacao, id),
             )
             conn.commit()
-            flash("Avalia√ß√£o atualizada com sucesso!", "success")
+            flash("AvaliaÁ„o atualizada com sucesso!", "success")
             return redirect(url_for("avaliacoes_imovel_list"))
         except Exception as e:
             conn.rollback()
-            flash(f"Erro ao atualizar avalia√ß√£o: {e}", "danger")
+            flash(f"Erro ao atualizar avaliaÁ„o: {e}", "danger")
     cur.execute(
         """
         SELECT a.*, i.endereco || ', ' || i.bairro AS endereco_imovel
@@ -1823,7 +1946,7 @@ def avaliacoes_imovel_edit(id):
     cur.close()
     conn.close()
     if avaliacao is None:
-        flash("Avalia√ß√£o n√£o encontrada.", "danger")
+        flash("AvaliaÁ„o n„o encontrada.", "danger")
         return redirect(url_for("avaliacoes_imovel_list"))
     return render_template(
         "avaliacoes_imovel/add_list.html", avaliacao=avaliacao, imoveis=imoveis
@@ -1839,10 +1962,10 @@ def avaliacoes_imovel_delete(id):
     try:
         cur.execute("DELETE FROM avaliacoes_imovel WHERE id = %s", (id,))
         conn.commit()
-        flash("Avalia√ß√£o exclu√≠da com sucesso!", "success")
+        flash("AvaliaÁ„o excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f"Erro ao excluir avalia√ß√£o: {e}", "danger")
+        flash(f"Erro ao excluir avaliaÁ„o: {e}", "danger")
     finally:
         cur.close()
         conn.close()
@@ -1928,7 +2051,7 @@ def despesas_edit(id):
     cur.close()
     conn.close()
     if despesa is None:
-        flash("Despesa n√£o encontrada.", "danger")
+        flash("Despesa n„o encontrada.", "danger")
         return redirect(url_for("despesas_list"))
     return render_template("despesas/add_list.html", despesa=despesa)
 
@@ -1942,7 +2065,7 @@ def despesas_delete(id):
     try:
         cur.execute("DELETE FROM despesas_cadastro WHERE id = %s", (id,))
         conn.commit()
-        flash("Despesa exclu√≠da com sucesso!", "success")
+        flash("Despesa excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir despesa: {e}", "danger")
@@ -2031,7 +2154,7 @@ def origens_edit(id):
     cur.close()
     conn.close()
     if origem is None:
-        flash("Origem n√£o encontrada.", "danger")
+        flash("Origem n„o encontrada.", "danger")
         return redirect(url_for("origens_list"))
     return render_template("origens/add_list.html", origem=origem)
 
@@ -2045,7 +2168,7 @@ def origens_delete(id):
     try:
         cur.execute("DELETE FROM origens_cadastro WHERE id = %s", (id,))
         conn.commit()
-        flash("Origem exclu√≠da com sucesso!", "success")
+        flash("Origem excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir origem: {e}", "danger")
@@ -2134,7 +2257,7 @@ def receitas_edit(id):
     cur.close()
     conn.close()
     if receita is None:
-        flash("Receita n√£o encontrada.", "danger")
+        flash("Receita n„o encontrada.", "danger")
         return redirect(url_for("receitas_list"))
     return render_template("receitaas/add_list.html", receita=receita)
 
@@ -2148,7 +2271,7 @@ def receitas_delete(id):
     try:
         cur.execute("DELETE FROM receitas_cadastro WHERE id = %s", (id,))
         conn.commit()
-        flash("Receita exclu√≠da com sucesso!", "success")
+        flash("Receita excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir receita: {e}", "danger")
@@ -2158,7 +2281,7 @@ def receitas_delete(id):
     return redirect(url_for("receitas_list"))
 
 
-# --- Rotas para outros m√≥dulos (placeholders existentes) ---
+# --- Rotas para outros mÛdulos (placeholders existentes) ---
 @app.route("/contratos")
 @login_required
 @permission_required("Gestao Contratos", "Consultar")
@@ -2187,7 +2310,7 @@ def contratos_list():
         """
         )
     contratos = cur.fetchall()
-    # Carrega modelos de contrato para o modal de sele√ß√£o
+    # Carrega modelos de contrato para o modal de seleÁ„o
     cur.execute("SELECT id, nome FROM contrato_modelos ORDER BY nome")
     modelos = cur.fetchall()
     cur.close()
@@ -2195,6 +2318,28 @@ def contratos_list():
     return render_template(
         "contratos/list.html", contratos=contratos, modelos=modelos, search_query=search_query
     )
+
+
+@app.route("/contratos/imovel/<int:imovel_id>/disponibilidade")
+@login_required
+@permission_required("Gestao Contratos", "Incluir")
+def contratos_imovel_disponibilidade(imovel_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT id
+        FROM contratos_aluguel
+        WHERE imovel_id = %s AND status_contrato = 'Ativo'
+        """,
+        (imovel_id,),
+    )
+    contrato = cur.fetchone()
+    cur.close()
+    conn.close()
+    if contrato:
+        return jsonify({"disponivel": False, "contrato_id": contrato["id"]})
+    return jsonify({"disponivel": True})
 
 
 @app.route("/contratos/add", methods=["GET", "POST"])
@@ -2227,17 +2372,48 @@ def contratos_add():
                         "Informe apenas um dos campos: Vencimento no mesmo dia ou Dias e intervalo"
                     )
 
-            # Para contratos de Comodato n√£o h√° contas a receber; for√ßa valores neutros
+            # Para contratos de Comodato n„o h· contas a receber; forÁa valores neutros
             if finalidade == "Comodato":
                 quantidade_parcelas = 0
                 valor_parcela = 0
                 quantidade_calcao = 0
                 valor_calcao = None
             else:
-                # Garante que venham valores v√°lidos para o banco
+                # Garante que venham valores v·lidos para o banco
                 quantidade_parcelas = int(quantidade_parcelas)
-                # aceita string num√©rica; o driver converte para NUMERIC
+                # aceita string numÈrica; o driver converte para NUMERIC
                 valor_parcela = valor_parcela or 0
+
+            cur.execute(
+                """
+                SELECT id
+                FROM contratos_aluguel
+                WHERE imovel_id = %s AND status_contrato = 'Ativo'
+                """,
+                (imovel_id,),
+            )
+            contrato_ativo = cur.fetchone()
+            if contrato_ativo:
+                conn.rollback()
+                flash(
+                    f"Imovel ja possui contrato ativo (#{contrato_ativo['id']}). Selecione outro imovel.",
+                    "danger",
+                )
+                cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
+                imoveis = cur.fetchall()
+                cur.execute(
+                    "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
+                )
+                clientes = cur.fetchall()
+                cur.close()
+                conn.close()
+                return render_template(
+                    "contratos/add_list.html",
+                    contrato=request.form,
+                    imoveis=imoveis,
+                    clientes=clientes,
+                    anexos=[],
+                )
 
             cur.execute(
                 "SELECT razao_social_nome, endereco, bairro, cidade, estado, cep, telefone FROM pessoas WHERE id = %s",
@@ -2286,7 +2462,7 @@ def contratos_add():
             )
             contrato_id = cur.fetchone()[0]
 
-            # Criar contas a receber somente se n√£o for Comodato
+            # Criar contas a receber somente se n„o for Comodato
             if finalidade != "Comodato":
                 # Receitas de aluguel (parcelas)
                 cur.execute(
@@ -2361,11 +2537,11 @@ def contratos_add():
                             ),
                         )
 
-                # Receitas de cal√ß√£o (quando houver)
+                # Receitas de calÁ„o (quando houver)
                 if quantidade_calcao > 0 and valor_calcao:
                     cur.execute(
                         "SELECT id FROM receitas_cadastro WHERE descricao = %s",
-                        ("CAL√áOES",),
+                        ("CAL«OES",),
                     )
                     calcao_result = cur.fetchone()
                     if calcao_result:
@@ -2373,7 +2549,7 @@ def contratos_add():
                     else:
                         cur.execute(
                             "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
-                            ("CAL√áOES",),
+                            ("CAL«OES",),
                         )
                         calcao_receita_id = cur.fetchone()[0]
 
@@ -2536,7 +2712,7 @@ def contratos_edit(id):
                 if existing_calcao == 0:
                     cur.execute(
                         "SELECT id FROM receitas_cadastro WHERE descricao = %s",
-                        ("CAL√áOES",),
+                        ("CAL«OES",),
                     )
                     calcao_result = cur.fetchone()
                     if calcao_result:
@@ -2544,7 +2720,7 @@ def contratos_edit(id):
                     else:
                         cur.execute(
                             "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
-                            ("CAL√áOES",),
+                            ("CAL«OES",),
                         )
                         calcao_receita_id = cur.fetchone()[0]
 
@@ -2613,7 +2789,7 @@ def contratos_edit(id):
     cur.close()
     conn.close()
     if contrato is None:
-        flash("Contrato n√£o encontrado.", "danger")
+        flash("Contrato n„o encontrado.", "danger")
         return redirect(url_for("contratos_list"))
     return render_template(
         "contratos/add_list.html",
@@ -2820,7 +2996,7 @@ def contratos_encerrar(id):
         conn.close()
     return redirect(url_for("contratos_list"))
 
-# ------------------ Modelos de Contrato (CRUD + Gera√ß√£o) ------------------
+# ------------------ Modelos de Contrato (CRUD + GeraÁ„o) ------------------
 
 @app.route("/contratos/modelos")
 @login_required
@@ -2894,7 +3070,7 @@ def contrato_modelos_edit(id):
     cur.close()
     conn.close()
     if not modelo:
-        flash("Modelo n√£o encontrado.", "danger")
+        flash("Modelo n„o encontrado.", "danger")
         return redirect(url_for("contrato_modelos_list"))
     return render_template("contratos/modelos/add_list.html", modelo=modelo)
 
@@ -2908,7 +3084,7 @@ def contrato_modelos_delete(id):
     try:
         cur.execute("DELETE FROM contrato_modelos WHERE id = %s", (id,))
         conn.commit()
-        flash("Modelo exclu√≠do com sucesso!", "success")
+        flash("Modelo excluÌdo com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir modelo: {e}", "danger")
@@ -2933,7 +3109,7 @@ def contrato_preview(contrato_id):
     if not modelo:
         cur.close()
         conn.close()
-        flash("Modelo n√£o encontrado.", "danger")
+        flash("Modelo n„o encontrado.", "danger")
         return redirect(url_for("contratos_list"))
     ctx = build_contrato_context(cur, contrato_id)
     cur.close()
@@ -2960,7 +3136,7 @@ def contratos_delete(id):
         cur.execute("DELETE FROM contrato_anexos WHERE contrato_id = %s", (id,))
         cur.execute("DELETE FROM contratos_aluguel WHERE id = %s", (id,))
         conn.commit()
-        flash("Contrato exclu√≠do com sucesso!", "success")
+        flash("Contrato excluÌdo com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir contrato: {e}", "danger")
@@ -2990,7 +3166,7 @@ def contrato_anexo_delete(anexo_id):
             flash("Anexo removido com sucesso!", "success")
             return redirect(url_for("contratos_edit", id=anexo["contrato_id"]))
         else:
-            flash("Anexo n√£o encontrado.", "danger")
+            flash("Anexo n„o encontrado.", "danger")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao remover anexo: {e}", "danger")
@@ -3053,7 +3229,7 @@ def reajustes_add():
             )
             contrato = cur.fetchone()
             if not contrato:
-                flash("Contrato n√£o encontrado.", "danger")
+                flash("Contrato n„o encontrado.", "danger")
                 cur.execute(
                     "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel ORDER BY id"
                 )
@@ -3123,7 +3299,7 @@ def reajustes_edit(id):
             )
             contrato = cur.fetchone()
             if not contrato:
-                flash("Contrato n√£o encontrado.", "danger")
+                flash("Contrato n„o encontrado.", "danger")
                 cur.execute(
                     "SELECT id, nome_inquilino, valor_parcela FROM contratos_aluguel ORDER BY id"
                 )
@@ -3166,7 +3342,7 @@ def reajustes_edit(id):
     cur.close()
     conn.close()
     if reajuste is None:
-        flash("Reajuste n√£o encontrado.", "danger")
+        flash("Reajuste n„o encontrado.", "danger")
         return redirect(url_for("reajustes_list"))
     return render_template(
         "reajustes_contrato/add_list.html", reajuste=reajuste, contratos=contratos
@@ -3182,7 +3358,7 @@ def reajustes_delete(id):
     try:
         cur.execute("DELETE FROM reajustes_contrato WHERE id = %s", (id,))
         conn.commit()
-        flash("Reajuste exclu√≠do com sucesso!", "success")
+        flash("Reajuste excluÌdo com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir reajuste: {e}", "danger")
@@ -3213,7 +3389,7 @@ def contrato_info(contrato_id):
     return {}, 404
 
 
-# --- M√≥dulo Financeiro ---
+# --- MÛdulo Financeiro ---
 @app.route("/contas-a-receber")
 @login_required
 @permission_required("Financeiro", "Consultar")
@@ -3227,6 +3403,7 @@ def contas_a_receber_list():
     venc_fim = request.args.get("venc_fim")
     cliente_id = request.args.get("cliente_id")
     receita_id = request.args.get("receita_id")
+    imovel_id = request.args.get("imovel_id")
     status_conta = request.args.get("status_conta")
 
     where = []
@@ -3243,17 +3420,24 @@ def contas_a_receber_list():
     if receita_id:
         where.append("cr.receita_id = %s")
         params.append(receita_id)
+    if imovel_id:
+        where.append("ca.imovel_id = %s")
+        params.append(imovel_id)
     if status_conta:
-        # Enum: for√ßa cast para status_conta_enum
+        # Enum: forÁa cast para status_conta_enum
         where.append("cr.status_conta = %s::status_conta_enum")
         params.append(status_conta)
 
     sql = (
         """
-        SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita
+        SELECT cr.*, p.razao_social_nome AS cliente, r.descricao AS receita,
+               ca.imovel_id AS imovel_id,
+               NULLIF(CONCAT_WS(' - ', i.endereco, i.bairro), '') AS imovel_descricao
         FROM contas_a_receber cr
         JOIN pessoas p ON cr.cliente_id = p.id
         JOIN receitas_cadastro r ON cr.receita_id = r.id
+        LEFT JOIN contratos_aluguel ca ON cr.contrato_id = ca.id
+        LEFT JOIN imoveis i ON ca.imovel_id = i.id
         """
     )
     if where:
@@ -3262,13 +3446,15 @@ def contas_a_receber_list():
 
     cur.execute(sql, tuple(params))
     contas = cur.fetchall()
-    # Listas para filtros (usar mesma conex√£o antes de fechar)
+    # Listas para filtros (usar mesma conex„o antes de fechar)
     cur.execute(
         "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     clientes = cur.fetchall()
     cur.execute("SELECT id, descricao FROM receitas_cadastro ORDER BY descricao")
     receitas = cur.fetchall()
+    cur.execute("SELECT id, endereco, bairro FROM imoveis ORDER BY endereco, bairro")
+    imoveis = cur.fetchall()
     cur.close()
     conn.close()
     contas_caixa = ContaCaixa.query.all()
@@ -3279,6 +3465,7 @@ def contas_a_receber_list():
         "venc_fim": venc_fim or "",
         "cliente_id": (cliente_id or ""),
         "receita_id": (receita_id or ""),
+        "imovel_id": (imovel_id or ""),
         "status_conta": (status_conta or ""),
     }
 
@@ -3289,6 +3476,7 @@ def contas_a_receber_list():
         contas_banco=contas_banco,
         clientes=clientes,
         receitas=receitas,
+        imoveis=imoveis,
         filtros=filtros,
     )
 
@@ -3402,7 +3590,7 @@ def contas_a_receber_view(id):
     cur.close()
     conn.close()
     if not conta:
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("contas_a_receber_list"))
     return render_template(
         "financeiro/contas_a_receber/view.html",
@@ -3493,7 +3681,7 @@ def contas_a_receber_edit(id):
     cur.close()
     conn.close()
     if conta is None:
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("contas_a_receber_list"))
     return render_template(
         "financeiro/contas_a_receber/add_list.html",
@@ -3513,7 +3701,7 @@ def contas_a_receber_delete(id):
     try:
         cur.execute("DELETE FROM contas_a_receber WHERE id = %s", (id,))
         conn.commit()
-        flash("Conta exclu√≠da com sucesso!", "success")
+        flash("Conta excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir conta: {e}", "danger")
@@ -3544,13 +3732,13 @@ def contas_a_receber_pagar(id):
     if not conta:
         cur.close()
         conn.close()
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("contas_a_receber_list"))
-    # Evita pagamento duplicado ou de t√≠tulos cancelados
+    # Evita pagamento duplicado ou de tÌtulos cancelados
     if conta["status_conta"] not in ("Aberta", "Vencida", "Parcial"):
         cur.close()
         conn.close()
-        flash("Esta conta n√£o pode ser paga novamente.", "warning")
+        flash("Esta conta n„o pode ser paga novamente.", "warning")
         return redirect(url_for("contas_a_receber_list"))
     try:
         conta_tipo = request.form["conta_tipo"]
@@ -3602,7 +3790,7 @@ def contas_a_receber_pagar(id):
             "valor_desconto": valor_desconto,
             "valor_multa": valor_multa,
             "valor_juros": valor_juros,
-            # associa o lan√ßamento √† conta a receber para permitir revers√£o
+            # associa o lanÁamento ‡ conta a receber para permitir revers„o
             "documento": f"CR-{id}",
         }
         criar_movimento(data)
@@ -3631,13 +3819,16 @@ def contas_a_pagar_list():
     data_fim = request.args.get("data_fim")
     fornecedor_id = request.args.get("fornecedor_id")
     despesa_id = request.args.get("despesa_id")
+    imovel_id = request.args.get("imovel_id")
     status_conta = request.args.get("status_conta")
 
     query = (
-        "SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa "
+        "SELECT cp.*, p.razao_social_nome AS fornecedor, d.descricao AS despesa, "
+        "       i.endereco AS imovel_endereco, i.bairro AS imovel_bairro "
         "FROM contas_a_pagar cp "
         "JOIN pessoas p ON cp.fornecedor_id = p.id "
         "JOIN despesas_cadastro d ON cp.despesa_id = d.id "
+        "LEFT JOIN imoveis i ON cp.imovel_id = i.id "
     )
     where = []
     params = []
@@ -3659,6 +3850,9 @@ def contas_a_pagar_list():
     if despesa_id:
         where.append("cp.despesa_id = %s")
         params.append(despesa_id)
+    if imovel_id:
+        where.append("cp.imovel_id = %s")
+        params.append(imovel_id)
 
     if status_conta:
         where.append("cp.status_conta = %s::status_conta_enum")
@@ -3672,13 +3866,15 @@ def contas_a_pagar_list():
     cur.execute(query, params)
     contas = cur.fetchall()
 
-    # Op√ß√µes para filtros
+    # OpÁıes para filtros
     cur.execute(
         "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Fornecedor', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
     )
     fornecedores = cur.fetchall()
     cur.execute("SELECT id, descricao FROM despesas_cadastro ORDER BY descricao")
     despesas = cur.fetchall()
+    cur.execute("SELECT id, endereco, bairro FROM imoveis ORDER BY endereco, bairro")
+    imoveis = cur.fetchall()
     cur.close()
     conn.close()
 
@@ -3689,6 +3885,7 @@ def contas_a_pagar_list():
         "data_fim": data_fim or "",
         "fornecedor_id": fornecedor_id or "",
         "despesa_id": despesa_id or "",
+        "imovel_id": imovel_id or "",
         "status_conta": status_conta or "",
     }
     return render_template(
@@ -3698,6 +3895,7 @@ def contas_a_pagar_list():
         contas_banco=contas_banco,
         fornecedores=fornecedores,
         despesas=despesas,
+        imoveis=imoveis,
         filtros=filtros,
     )
 
@@ -3813,7 +4011,7 @@ def contas_a_pagar_view(id):
     cur.close()
     conn.close()
     if not conta:
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("contas_a_pagar_list"))
     return render_template(
         "financeiro/contas_a_pagar/view.html",
@@ -3901,7 +4099,7 @@ def contas_a_pagar_edit(id):
     cur.close()
     conn.close()
     if conta is None:
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("contas_a_pagar_list"))
     return render_template(
         "financeiro/contas_a_pagar/add_list.html",
@@ -3922,7 +4120,7 @@ def contas_a_pagar_delete(id):
     try:
         cur.execute("DELETE FROM contas_a_pagar WHERE id = %s", (id,))
         conn.commit()
-        flash("Conta exclu√≠da com sucesso!", "success")
+        flash("Conta excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir conta: {e}", "danger")
@@ -3940,7 +4138,7 @@ def contas_a_pagar_replicar(id):
     same_day = int(request.form.get("same_day", 0) or 0)
     days_interval = int(request.form.get("days_interval", 0) or 0)
     if quantidade < 1:
-        flash("Quantidade inv√°lida.", "warning")
+        flash("Quantidade inv·lida.", "warning")
         return redirect(url_for("contas_a_pagar_list"))
     if (same_day > 0 and days_interval > 0) or (same_day == 0 and days_interval == 0):
         flash(
@@ -3955,7 +4153,7 @@ def contas_a_pagar_replicar(id):
     if not conta:
         cur.close()
         conn.close()
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("contas_a_pagar_list"))
     try:
         if same_day > 0:
@@ -4052,10 +4250,10 @@ def contas_a_pagar_replicar(id):
                     ),
                 )
         conn.commit()
-        flash("T√≠tulos replicados com sucesso!", "success")
+        flash("TÌtulos replicados com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f"Erro ao replicar t√≠tulos: {e}", "danger")
+        flash(f"Erro ao replicar tÌtulos: {e}", "danger")
     finally:
         cur.close()
         conn.close()
@@ -4083,12 +4281,12 @@ def contas_a_pagar_pagar(id):
     if not conta:
         cur.close()
         conn.close()
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("contas_a_pagar_list"))
     if conta["status_conta"] not in ("Aberta", "Vencida"):
         cur.close()
         conn.close()
-        flash("Esta conta n√£o pode ser paga novamente.", "warning")
+        flash("Esta conta n„o pode ser paga novamente.", "warning")
         return redirect(url_for("contas_a_pagar_list"))
     try:
         conta_tipo = request.form["conta_tipo"]
@@ -4145,7 +4343,7 @@ def contas_a_pagar_pagar(id):
     return redirect(url_for("contas_a_pagar_list"))
 
 
-# --- M√≥dulo Caixa e Banco ---
+# --- MÛdulo Caixa e Banco ---
 
 # --- Ordens de Pagamento ---
 
@@ -4270,7 +4468,7 @@ def ordens_pagamento_add():
                         it["valor_total"],
                     ),
                 )
-            # Parcelas (t√≠tulos)
+            # Parcelas (tÌtulos)
             parc_nums = request.form.getlist("parcela_numero[]")
             parc_vencs = request.form.getlist("parcela_vencimento[]")
             parc_vals = request.form.getlist("parcela_valor[]")
@@ -4478,7 +4676,7 @@ def ordens_pagamento_edit(id):
     if not ordem:
         cur.close()
         conn.close()
-        flash("Ordem de Pagamento n√£o encontrada.", "danger")
+        flash("Ordem de Pagamento n„o encontrada.", "danger")
         return redirect(url_for("ordens_pagamento_list"))
     cur.execute(
         "SELECT * FROM ordem_pagamento_itens WHERE ordem_id = %s ORDER BY id",
@@ -4540,7 +4738,7 @@ def ordens_pagamento_view(id):
     if not ordem:
         cur.close()
         conn.close()
-        flash("Ordem de Pagamento n√£o encontrada.", "danger")
+        flash("Ordem de Pagamento n„o encontrada.", "danger")
         return redirect(url_for("ordens_pagamento_list"))
     cur.execute(
         "SELECT * FROM ordem_pagamento_itens WHERE ordem_id = %s ORDER BY id",
@@ -4575,7 +4773,7 @@ def ordens_pagamento_gerar_contas(id):
         )
         ordem = cur.fetchone()
         if not ordem:
-            flash("Ordem de Pagamento n√£o encontrada.", "danger")
+            flash("Ordem de Pagamento n„o encontrada.", "danger")
             return redirect(url_for("ordens_pagamento_list"))
 
         ordem = dict(ordem)
@@ -4589,7 +4787,7 @@ def ordens_pagamento_gerar_contas(id):
             (id,),
         )
         if cur.fetchone():
-            flash("J√° existem contas a pagar vinculadas a esta ordem.", "info")
+            flash("J· existem contas a pagar vinculadas a esta ordem.", "info")
             return redirect(url_for("ordens_pagamento_view", id=id))
 
         cur.execute(
@@ -4618,7 +4816,7 @@ def ordens_pagamento_gerar_contas(id):
             "Gerado automaticamente a partir da Ordem de Pagamento #{}".format(ordem["id"])
         )
         if ordem.get("observacoes"):
-            observacao_base += f". Observa√ß√µes: {ordem['observacoes']}"
+            observacao_base += f". ObservaÁıes: {ordem['observacoes']}"
 
         titulo_base = (ordem.get("descricao_servico") or "").strip()
         if not titulo_base:
@@ -4709,7 +4907,7 @@ def ordens_pagamento_print(id):
     if not ordem:
         cur.close()
         conn.close()
-        flash("Ordem de Pagamento n√£o encontrada.", "danger")
+        flash("Ordem de Pagamento n„o encontrada.", "danger")
         return redirect(url_for("ordens_pagamento_list"))
     cur.execute(
         "SELECT * FROM ordem_pagamento_itens WHERE ordem_id = %s ORDER BY id",
@@ -4726,7 +4924,7 @@ def ordens_pagamento_print(id):
     return render_template("financeiro/ordens_pagamento/print.html", ordem=ordem, itens=itens, parcelas=parcelas)
 
 
-# --- M√≥dulo Caixa e Banco ---
+# --- MÛdulo Caixa e Banco ---
 
 @app.route("/ordens-pagamento/delete/<int:id>", methods=["POST"])
 @login_required
@@ -4735,10 +4933,10 @@ def ordens_pagamento_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        # Itens s√£o removidos por ON DELETE CASCADE
+        # Itens s„o removidos por ON DELETE CASCADE
         cur.execute("DELETE FROM ordens_pagamento WHERE id = %s", (id,))
         conn.commit()
-        flash("Ordem de Pagamento exclu√≠da com sucesso!", "success")
+        flash("Ordem de Pagamento excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir a Ordem de Pagamento: {e}", "danger")
@@ -4847,7 +5045,7 @@ def bancos_add():
         )
         db.session.add(conta)
         db.session.commit()
-        flash("Conta banc√°ria cadastrada com sucesso!", "success")
+        flash("Conta banc·ria cadastrada com sucesso!", "success")
         return redirect(url_for("bancos_list"))
     return render_template(
         "financeiro/bancos/add_list.html",
@@ -4881,7 +5079,7 @@ def bancos_edit(id):
             datetime.strptime(data_saldo, "%Y-%m-%d").date() if data_saldo else None
         )
         db.session.commit()
-        flash("Conta banc√°ria atualizada com sucesso!", "success")
+        flash("Conta banc·ria atualizada com sucesso!", "success")
         return redirect(url_for("bancos_list"))
     return render_template(
         "financeiro/bancos/add_list.html",
@@ -4896,7 +5094,7 @@ def bancos_edit(id):
 def movimento_novo(tipo, conta_id):
     conta = ContaCaixa.query.get(conta_id) if tipo == "caixa" else ContaBanco.query.get(conta_id)
     if not conta:
-        flash("Conta n√£o encontrada.", "danger")
+        flash("Conta n„o encontrada.", "danger")
         return redirect(url_for("caixas_list" if tipo == "caixa" else "bancos_list"))
     if request.method == "POST":
         valor_pago = parse_decimal(request.form.get("valor_pago")) or Decimal("0")
@@ -5001,7 +5199,7 @@ def lancamentos_novo():
 def lancamentos_view(id):
     lancamento = MovimentoFinanceiro.query.get(id)
     if not lancamento:
-        flash("Lan√ßamento n√£o encontrado.", "danger")
+        flash("LanÁamento n„o encontrado.", "danger")
         return redirect(url_for("lancamentos_list"))
     contas_caixa = {c.id: c.nome for c in ContaCaixa.query.all()}
     contas_banco = {b.id: f"{b.nome_banco} {b.conta}" for b in ContaBanco.query.all()}
@@ -5019,7 +5217,7 @@ def lancamentos_view(id):
 def lancamentos_edit(id):
     lancamento = MovimentoFinanceiro.query.get(id)
     if not lancamento:
-        flash("Lan√ßamento n√£o encontrado.", "danger")
+        flash("LanÁamento n„o encontrado.", "danger")
         return redirect(url_for("lancamentos_list"))
     contas_caixa = ContaCaixa.query.all()
     contas_banco = ContaBanco.query.all()
@@ -5045,7 +5243,7 @@ def lancamentos_edit(id):
             "receita_id": request.form.get("receita_id") or None,
         }
         atualizar_movimento(lancamento, data)
-        flash("Lan√ßamento atualizado com sucesso!", "success")
+        flash("LanÁamento atualizado com sucesso!", "success")
         return redirect(url_for("lancamentos_list"))
 
     conn = get_db_connection()
@@ -5073,10 +5271,10 @@ def lancamentos_edit(id):
 def lancamentos_delete(id):
     lancamento = MovimentoFinanceiro.query.get(id)
     if not lancamento:
-        flash("Lan√ßamento n√£o encontrado.", "danger")
+        flash("LanÁamento n„o encontrado.", "danger")
     else:
         deletar_movimento(lancamento)
-        flash("Lan√ßamento exclu√≠do com sucesso!", "success")
+        flash("LanÁamento excluÌdo com sucesso!", "success")
     return redirect(url_for("lancamentos_list"))
 
 
@@ -5107,14 +5305,14 @@ def lancamentos_list():
 def banco_importar_cnab(conta_id):
     conta = ContaBanco.query.get(conta_id)
     if not conta:
-        flash("Conta banc√°ria n√£o encontrada.", "danger")
+        flash("Conta banc·ria n„o encontrada.", "danger")
         return redirect(url_for("bancos_list"))
     arquivo = request.files.get("arquivo")
     if not arquivo:
         flash("Selecione um arquivo CNAB.", "danger")
     else:
         resultados = importar_cnab(arquivo, conta_id, "banco")
-        flash(f"{len(resultados)} lan√ßamentos importados.", "success")
+        flash(f"{len(resultados)} lanÁamentos importados.", "success")
     return redirect(url_for("bancos_list"))
 
 
@@ -5177,10 +5375,10 @@ def cobrancas_add():
             )
             db.session.add(cobranca)
             db.session.commit()
-            flash("Cobran√ßa registrada com sucesso.", "success")
+            flash("CobranÁa registrada com sucesso.", "success")
             return redirect(url_for("cobrancas_list"))
         else:
-            flash("Selecione um t√≠tulo e informe a data da cobran√ßa.", "danger")
+            flash("Selecione um tÌtulo e informe a data da cobranÁa.", "danger")
     return render_template("financeiro/cobrancas/add.html", conta=conta, cliente=cliente)
 
 
@@ -5190,7 +5388,7 @@ def cobrancas_add():
 def cobrancas_view(id):
     cobranca = Cobranca.query.get(id)
     if not cobranca:
-        flash("Cobran√ßa n√£o encontrada.", "danger")
+        flash("CobranÁa n„o encontrada.", "danger")
         return redirect(url_for("cobrancas_list"))
     conta = ContaReceber.query.get(cobranca.conta_id)
     cliente = Pessoa.query.get(conta.cliente_id) if conta else None
@@ -5208,7 +5406,7 @@ def cobrancas_view(id):
 def cobrancas_edit(id):
     cobranca = Cobranca.query.get(id)
     if not cobranca:
-        flash("Cobran√ßa n√£o encontrada.", "danger")
+        flash("CobranÁa n„o encontrada.", "danger")
         return redirect(url_for("cobrancas_list"))
     conta = ContaReceber.query.get(cobranca.conta_id)
     cliente = Pessoa.query.get(conta.cliente_id) if conta else None
@@ -5226,7 +5424,7 @@ def cobrancas_edit(id):
             else None
         )
         db.session.commit()
-        flash("Cobran√ßa atualizada com sucesso.", "success")
+        flash("CobranÁa atualizada com sucesso.", "success")
         return redirect(url_for("cobrancas_list"))
     return render_template(
         "financeiro/cobrancas/add.html",
@@ -5242,11 +5440,11 @@ def cobrancas_edit(id):
 def cobrancas_delete(id):
     cobranca = Cobranca.query.get(id)
     if not cobranca:
-        flash("Cobran√ßa n√£o encontrada.", "danger")
+        flash("CobranÁa n„o encontrada.", "danger")
     else:
         db.session.delete(cobranca)
         db.session.commit()
-        flash("Cobran√ßa exclu√≠da com sucesso.", "success")
+        flash("CobranÁa excluÌda com sucesso.", "success")
     return redirect(url_for("cobrancas_list"))
 
 
@@ -5276,11 +5474,11 @@ def posicoes_recalcular():
         datetime.strptime(inicio_str, "%Y-%m-%d").date() if inicio_str else None
     )
     quantidade = recalcular_posicoes(inicio)
-    flash(f"{quantidade} posi√ß√µes recalculadas.", "success")
+    flash(f"{quantidade} posiÁıes recalculadas.", "success")
     return redirect(url_for("posicoes_list"))
 
 
-# --- M√≥dulo de Relat√≥rios ---
+# --- MÛdulo de RelatÛrios ---
 
 @app.route("/relatorios/contas-a-pagar")
 @login_required
@@ -5320,23 +5518,23 @@ def relatorios_contas_a_receber():
 @app.route("/relatorios/contas-a-receber/recebimento-inquilino", methods=["POST"])
 @login_required
 def relatorio_recebimento_por_inquilino():
-    """Relat√≥rio de recebimentos por inquilino, filtrado por data de recebimento.
+    """RelatÛrio de recebimentos por inquilino, filtrado por data de recebimento.
 
-    Colunas: Data | Cliente | CPF | Im√≥vel | Receita | Valor Previsto | Multa | Juros | Desconto | Total Recebido | Hist√≥rico
-    Orienta√ß√£o: Paisagem
+    Colunas: Data | Cliente | CPF | ImÛvel | Receita | Valor Previsto | Multa | Juros | Desconto | Total Recebido | HistÛrico
+    OrientaÁ„o: Paisagem
     """
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
     receitas_ids = [int(x) for x in request.form.getlist("receitas_ids") if str(x).strip()]
 
     if not (data_inicio and data_fim):
-        flash("Informe o per√≠odo.", "warning")
+        flash("Informe o perÌodo.", "warning")
         return redirect(url_for("relatorios_contas_a_receber"))
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
 
-    # Empresa para cabe√ßalho
+    # Empresa para cabeÁalho
     cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
     empresa = cur.fetchone()
 
@@ -5384,7 +5582,7 @@ def relatorio_recebimento_por_inquilino():
     cur.close()
     conn.close()
 
-    # Monta linhas j√° com campos prontos e totais
+    # Monta linhas j· com campos prontos e totais
     linhas = []
     for r in rows:
         imovel = ""
@@ -5399,7 +5597,7 @@ def relatorio_recebimento_por_inquilino():
                 imovel = f"{tipo} / {ender}".strip(" /")
         total_recebido = r.get("valor_mov")
         if total_recebido is None:
-            # Fallback quando n√£o houver movimento associado
+            # Fallback quando n„o houver movimento associado
             total_recebido = (r.get("valor_pago") or 0) + (r.get("valor_juros") or 0) + (r.get("valor_multa") or 0) - (r.get("valor_desconto") or 0)
         linhas.append(
             {
@@ -5436,27 +5634,27 @@ def relatorio_recebimento_por_inquilino():
                 self.cell(0, 6, emp, 0, 1, "C")
             per = getattr(self, "periodo", "")
             if per:
-                self.cell(0, 6, f"Per√≠odo: {per}", 0, 1, "C")
+                self.cell(0, 6, f"PerÌodo: {per}", 0, 1, "C")
             self.ln(3)
 
         def footer(self):
             self.set_y(-15)
             self.set_font("Arial", "", 10)
-            self.cell(0, 10, f"P√°gina {self.page_no()}/{{nb}}", 0, 0, "C")
+            self.cell(0, 10, f"P·gina {self.page_no()}/{{nb}}", 0, 0, "C")
 
-    # Larguras pensadas para A4 paisagem (~277mm √∫teis)
+    # Larguras pensadas para A4 paisagem (~277mm ˙teis)
     headers = [
         ("Data", 20),
         ("Cliente", 35),
         ("CPF", 28),
-        ("Im√≥vel", 38),
+        ("ImÛvel", 38),
         ("Receita", 25),
         ("Valor Previsto", 22),
         ("Multa", 18),
         ("Juros", 18),
         ("Desconto", 18),
         ("Total Recebido", 25),
-        ("Hist√≥rico", 30),
+        ("HistÛrico", 30),
     ]
 
     def truncate_text(pdf, text, max_width):
@@ -5476,7 +5674,7 @@ def relatorio_recebimento_por_inquilino():
     pdf.alias_nb_pages()
     pdf.add_page()
 
-    # Cabe√ßalho da tabela
+    # CabeÁalho da tabela
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(200, 200, 200)
     for text, width in headers:
@@ -5579,17 +5777,17 @@ def relatorio_contas_a_pagar_periodo():
         def footer(self):
             self.set_y(-15)
             self.set_font("Arial", "", 10)
-            self.cell(0, 10, f"P√°gina {self.page_no()}/{{nb}}", 0, 0, "C")
+            self.cell(0, 10, f"P·gina {self.page_no()}/{{nb}}", 0, 0, "C")
 
     pdf = PDF()
     pdf.empresa = empresa["razao_social_nome"] if empresa else ""
     pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
     data_inicio_fmt = datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
     data_fim_fmt = datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
-    pdf.periodo = f"Per√≠odo de {data_inicio_fmt} at√© {data_fim_fmt}"
+    pdf.periodo = f"PerÌodo de {data_inicio_fmt} atÈ {data_fim_fmt}"
     if imovel:
         pdf.imovel_info = (
-            f"Im√≥vel {imovel['tipo_imovel']} / {imovel['endereco']} / {imovel['cidade']}/{imovel['estado']}"
+            f"ImÛvel {imovel['tipo_imovel']} / {imovel['endereco']} / {imovel['cidade']}/{imovel['estado']}"
         )
     else:
         pdf.imovel_info = ""
@@ -5599,7 +5797,7 @@ def relatorio_contas_a_pagar_periodo():
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(200, 200, 200)
     headers = [
-        ("T√≠tulo\n ", 36),
+        ("TÌtulo\n ", 36),
         ("Fornecedor\n ", 68),
         ("Despesa\n ", 24),
         ("Data\nVencimento", 30),
@@ -5753,7 +5951,7 @@ def relatorio_financeiro_caixa_banco():
     class PDF(FPDF):
         def header(self):
             self.set_font("Arial", "B", 12)
-            self.cell(0, 10, "Lan√ßamentos Financeiros", 0, 0, "L")
+            self.cell(0, 10, "LanÁamentos Financeiros", 0, 0, "L")
             self.set_font("Arial", "", 10)
             self.cell(0, 10, getattr(self, "gerado_em", ""), 0, 1, "R")
             conta = getattr(self, "conta", "")
@@ -5764,7 +5962,7 @@ def relatorio_financeiro_caixa_banco():
         def footer(self):
             self.set_y(-15)
             self.set_font("Arial", "", 10)
-            self.cell(0, 10, f"P√°gina {self.page_no()}/{{nb}}", 0, 0, "C")
+            self.cell(0, 10, f"P·gina {self.page_no()}/{{nb}}", 0, 0, "C")
 
     def nb_lines(pdf, w, txt):
         cw = pdf.current_font["cw"]
@@ -5812,9 +6010,9 @@ def relatorio_financeiro_caixa_banco():
 
     headers = [
         ("Data", 25),
-        ("Hist√≥rico", 75),
+        ("HistÛrico", 75),
         ("Entrada (Valor)", 30),
-        ("Sa√≠da (Valor)", 30),
+        ("SaÌda (Valor)", 30),
         ("Saldo", 30),
     ]
     def draw_table_header():
@@ -5910,19 +6108,19 @@ def relatorio_financeiro_despesas_imovel():
             self.set_font("Arial", "B", 12)
             page_width = self.w - self.l_margin - self.r_margin
             self.cell(page_width / 3, 10, "", 0, 0, "L")
-            self.cell(page_width / 3, 10, "Despesas Por Im√≥vel", 0, 0, "C")
+            self.cell(page_width / 3, 10, "Despesas Por ImÛvel", 0, 0, "C")
             self.set_font("Arial", "", 10)
             self.cell(page_width / 3, 10, getattr(self, "gerado_em", ""), 0, 1, "R")
             self.cell(0, 10, getattr(self, "empresa", ""), 0, 1, "C")
             imovel_info = getattr(self, "imovel_info", "")
             if imovel_info:
-                self.cell(0, 10, f"Im√≥vel: {imovel_info}", 0, 1, "L")
+                self.cell(0, 10, f"ImÛvel: {imovel_info}", 0, 1, "L")
             self.ln(5)
 
         def footer(self):
             self.set_y(-15)
             self.set_font("Arial", "", 10)
-            self.cell(0, 10, f"P√°gina {self.page_no()}/{{nb}}", 0, 0, "C")
+            self.cell(0, 10, f"P·gina {self.page_no()}/{{nb}}", 0, 0, "C")
 
     pdf = PDF()
     pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -5938,7 +6136,7 @@ def relatorio_financeiro_despesas_imovel():
     pdf.set_fill_color(200, 200, 200)
     headers = [
         ("Data Pagamento", 25),
-        ("T√≠tulo", 45),
+        ("TÌtulo", 45),
         ("Fornecedor", 50),
         ("Despesas", 40),
         ("Valor Pago", 30),
@@ -6003,7 +6201,7 @@ def relatorio_financeiro_fluxo_caixa():
         params_periodo.extend(bancos_ids)
     where_extras = f" AND ({' OR '.join(filtros)})" if filtros else ""
 
-    # Saldo inicial via Posi√ß√µes Di√°rias (dia anterior ao in√≠cio)
+    # Saldo inicial via PosiÁıes Di·rias (dia anterior ao inÌcio)
     data_inicio_dt = datetime.strptime(data_inicio, "%Y-%m-%d").date()
     dia_anterior = (data_inicio_dt - timedelta(days=1)).isoformat()
     pos_filtros = []
@@ -6028,7 +6226,7 @@ def relatorio_financeiro_fluxo_caixa():
     cur.execute(query_pos, tuple(params_pos))
     saldo_inicial = Decimal(cur.fetchone()["saldo"]) if cur.rowcount is not None else Decimal("0")
 
-    # Entradas e sa√≠das por dia no per√≠odo
+    # Entradas e saÌdas por dia no perÌodo
     query_periodo = (
         "SELECT DATE(data_movimento) AS dia, "
         "COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END),0) AS entradas, "
@@ -6039,7 +6237,7 @@ def relatorio_financeiro_fluxo_caixa():
     cur.execute(query_periodo, tuple(params_periodo))
     rows = cur.fetchall()
 
-    # Nome da empresa para cabe√ßalho
+    # Nome da empresa para cabeÁalho
     cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
     empresa = cur.fetchone()
 
@@ -6081,7 +6279,7 @@ def relatorio_financeiro_fluxo_caixa():
         def footer(self):
             self.set_y(-15)
             self.set_font("Arial", "", 10)
-            self.cell(0, 10, f"P√°gina {self.page_no()}/{{nb}}", 0, 0, "C")
+            self.cell(0, 10, f"P·gina {self.page_no()}/{{nb}}", 0, 0, "C")
 
     pdf = PDF()
     pdf.alias_nb_pages()
@@ -6089,14 +6287,14 @@ def relatorio_financeiro_fluxo_caixa():
     pdf.empresa = empresa["razao_social_nome"] if empresa else ""
     data_inicio_fmt = datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
     data_fim_fmt = datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
-    pdf.periodo = f"Per√≠odo: {data_inicio_fmt} a {data_fim_fmt}"
-    pdf.saldo_inicial_txt = f"Saldo inicial do per√≠odo: {format_currency(saldo_inicial)}"
+    pdf.periodo = f"PerÌodo: {data_inicio_fmt} a {data_fim_fmt}"
+    pdf.saldo_inicial_txt = f"Saldo inicial do perÌodo: {format_currency(saldo_inicial)}"
     pdf.add_page()
 
-    # Cabe√ßalhos da tabela
+    # CabeÁalhos da tabela
     pdf.set_font("Arial", "B", 10)
     pdf.set_fill_color(200, 200, 200)
-    headers = [("Data", 30), ("Entradas", 40), ("Sa√≠das", 40), ("Saldo", 40)]
+    headers = [("Data", 30), ("Entradas", 40), ("SaÌdas", 40), ("Saldo", 40)]
     for text, width in headers:
         pdf.cell(width, 8, text, 1, 0, "C", True)
     pdf.ln(8)
@@ -6148,7 +6346,7 @@ def relatorio_financeiro_fluxo_caixa_visualizar():
         params_periodo.extend(bancos_ids)
     where_extras = f" AND ({' OR '.join(filtros)})" if filtros else ""
 
-    # Saldo inicial via Posi√ß√µes Di√°rias (dia anterior ao in√≠cio)
+    # Saldo inicial via PosiÁıes Di·rias (dia anterior ao inÌcio)
     data_inicio_dt = datetime.strptime(data_inicio, "%Y-%m-%d").date()
     dia_anterior = (data_inicio_dt - timedelta(days=1)).isoformat()
     pos_filtros = []
@@ -6173,7 +6371,7 @@ def relatorio_financeiro_fluxo_caixa_visualizar():
     cur.execute(query_pos, tuple(params_pos))
     saldo_inicial = Decimal(cur.fetchone()["saldo"]) if cur.rowcount is not None else Decimal("0")
 
-    # Entradas e sa√≠das por dia no per√≠odo
+    # Entradas e saÌdas por dia no perÌodo
     query_periodo = (
         "SELECT DATE(data_movimento) AS dia, "
         "COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END),0) AS entradas, "
@@ -6184,7 +6382,7 @@ def relatorio_financeiro_fluxo_caixa_visualizar():
     cur.execute(query_periodo, tuple(params_periodo))
     rows = cur.fetchall()
 
-    # Nome da empresa para cabe√ßalho
+    # Nome da empresa para cabeÁalho
     cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
     empresa = cur.fetchone()
 
@@ -6207,10 +6405,10 @@ def relatorio_financeiro_fluxo_caixa_visualizar():
 
     total_final = saldo
 
-    # Formata√ß√µes de per√≠odo para exibi√ß√£o
+    # FormataÁıes de perÌodo para exibiÁ„o
     data_inicio_fmt = datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
     data_fim_fmt = datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
-    periodo = f"Per√≠odo: {data_inicio_fmt} a {data_fim_fmt}"
+    periodo = f"PerÌodo: {data_inicio_fmt} a {data_fim_fmt}"
 
     return render_template(
         "relatorios/financeiro/fluxo_caixa.html",
@@ -6233,11 +6431,11 @@ def relatorios_gerencial():
     return render_template("relatorios/gerencial/index.html")
 
 
-# ------------------ DRE (M√°scara & Relat√≥rio) ------------------
+# ------------------ DRE (M·scara & RelatÛrio) ------------------
 
 
 def _montar_arvore_nos(nos):
-    """Monta uma √°rvore a partir de uma lista de n√≥s (dicts)."""
+    """Monta uma ·rvore a partir de uma lista de nÛs (dicts)."""
     by_parent = {}
     for n in nos:
         by_parent.setdefault(n.get("parent_id"), []).append(n)
@@ -6279,8 +6477,8 @@ def dre_mascaras_add():
         eh_formula = True if request.form.get("eh_formula") == "on" else False
         formula = request.form.get("formula")
         if not nome:
-            flash("Informe o nome da m√°scara.", "danger")
-            # Carrega tokens de m√°scaras existentes
+            flash("Informe o nome da m·scara.", "danger")
+            # Carrega tokens de m·scaras existentes
             conn = get_db_connection()
             cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             cur.execute("SELECT id, nome FROM dre_mascaras ORDER BY ordem ASC, nome ASC")
@@ -6296,12 +6494,12 @@ def dre_mascaras_add():
                 (nome, descricao, ordem, eh_formula, formula, ativo),
             )
             conn.commit()
-            flash("M√°scara criada com sucesso!", "success")
+            flash("M·scara criada com sucesso!", "success")
             return redirect(url_for("dre_mascaras_list"))
         except Exception as e:
             conn.rollback()
-            flash(f"Erro ao criar m√°scara: {e}", "danger")
-            # Carrega tokens de m√°scaras existentes
+            flash(f"Erro ao criar m·scara: {e}", "danger")
+            # Carrega tokens de m·scaras existentes
             try:
                 cur2 = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
                 cur2.execute("SELECT id, nome FROM dre_mascaras ORDER BY ordem ASC, nome ASC")
@@ -6313,7 +6511,7 @@ def dre_mascaras_add():
         finally:
             cur.close()
             conn.close()
-    # GET: Carrega tokens de m√°scaras existentes
+    # GET: Carrega tokens de m·scaras existentes
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute("SELECT id, nome FROM dre_mascaras ORDER BY ordem ASC, nome ASC")
@@ -6337,7 +6535,7 @@ def dre_mascaras_edit(id):
         eh_formula = True if request.form.get("eh_formula") == "on" else False
         formula = request.form.get("formula")
         if not nome:
-            flash("Informe o nome da m√°scara.", "danger")
+            flash("Informe o nome da m·scara.", "danger")
         else:
             try:
                 cur.execute(
@@ -6345,20 +6543,20 @@ def dre_mascaras_edit(id):
                     (nome, descricao, ordem, eh_formula, formula, ativo, id),
                 )
                 conn.commit()
-                flash("M√°scara atualizada com sucesso!", "success")
+                flash("M·scara atualizada com sucesso!", "success")
                 return redirect(url_for("dre_mascaras_list"))
             except Exception as e:
                 conn.rollback()
-                flash(f"Erro ao atualizar m√°scara: {e}", "danger")
+                flash(f"Erro ao atualizar m·scara: {e}", "danger")
     cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (id,))
     mascara = cur.fetchone()
-    # Carrega tokens de m√°scaras existentes (exceto a pr√≥pria)
+    # Carrega tokens de m·scaras existentes (exceto a prÛpria)
     cur.execute("SELECT id, nome FROM dre_mascaras WHERE id<>%s ORDER BY ordem ASC, nome ASC", (id,))
     mascaras_tokens = cur.fetchall()
     cur.close()
     conn.close()
     if not mascara:
-        flash("M√°scara n√£o encontrada.", "danger")
+        flash("M·scara n„o encontrada.", "danger")
         return redirect(url_for("dre_mascaras_list"))
     return render_template("gerencial/dre_mascaras/add_edit.html", mascara=mascara, mascaras_tokens=mascaras_tokens)
 
@@ -6372,10 +6570,10 @@ def dre_mascaras_delete(id):
     try:
         cur.execute("DELETE FROM dre_mascaras WHERE id=%s", (id,))
         conn.commit()
-        flash("M√°scara exclu√≠da com sucesso!", "success")
+        flash("M·scara excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f"Erro ao excluir m√°scara: {e}", "danger")
+        flash(f"Erro ao excluir m·scara: {e}", "danger")
     finally:
         cur.close()
         conn.close()
@@ -6386,7 +6584,7 @@ def dre_mascaras_delete(id):
 @login_required
 @permission_required("Administracao Sistema", "Editar")
 def dre_mascaras_builder(id):
-    """Tela de montagem da m√°scara: gerencia n√≥s e mapeamentos."""
+    """Tela de montagem da m·scara: gerencia nÛs e mapeamentos."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (id,))
@@ -6394,7 +6592,7 @@ def dre_mascaras_builder(id):
     if not mascara:
         cur.close()
         conn.close()
-        flash("M√°scara n√£o encontrada.", "danger")
+        flash("M·scara n„o encontrada.", "danger")
         return redirect(url_for("dre_mascaras_list"))
 
     cur.execute(
@@ -6404,14 +6602,14 @@ def dre_mascaras_builder(id):
     nos = cur.fetchall()
     arvore = _montar_arvore_nos([dict(n) for n in nos])
 
-    # Para formul√°rios: pais poss√≠veis (apenas grupos)
+    # Para formul·rios: pais possÌveis (apenas grupos)
     cur.execute(
         "SELECT id, titulo FROM dre_nos WHERE mascara_id=%s AND tipo='grupo' ORDER BY ordem, titulo",
         (id,),
     )
     pais = cur.fetchall()
 
-    # Dados para mapeamentos (caso um n√≥ seja selecionado via query string)
+    # Dados para mapeamentos (caso um nÛ seja selecionado via query string)
     no_id = request.args.get("no_id", type=int)
     no = None
     receitas = despesas = []
@@ -6450,13 +6648,13 @@ def dre_mascaras_builder(id):
 @login_required
 @permission_required("Administracao Sistema", "Excluir")
 def dre_mascaras_estrutura_delete(id):
-    """Exclui toda a estrutura (n√≥s) de uma m√°scara, mantendo a m√°scara."""
+    """Exclui toda a estrutura (nÛs) de uma m·scara, mantendo a m·scara."""
     conn = get_db_connection()
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM dre_nos WHERE mascara_id=%s", (id,))
         conn.commit()
-        flash("Estrutura da m√°scara exclu√≠da com sucesso.", "success")
+        flash("Estrutura da m·scara excluÌda com sucesso.", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir estrutura: {e}", "danger")
@@ -6531,7 +6729,7 @@ def dre_nos_map(no_id):
     if not no:
         cur.close()
         conn.close()
-        flash("Item n√£o encontrado.", "danger")
+        flash("Item n„o encontrado.", "danger")
         return redirect(url_for("dre_mascaras_list"))
     mascara_id = no["mascara_id"]
     try:
@@ -6608,7 +6806,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
             row = cur.fetchone()
             total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
 
-            # Previs√µes diretas (Movimento Financeiro)
+            # Previsıes diretas (Movimento Financeiro)
             cur.execute(
                 """
                 SELECT COALESCE(SUM(COALESCE(mf.valor_previsto, mf.valor)),0) AS total
@@ -6638,7 +6836,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
             row = cur.fetchone()
             total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
 
-            # Sa√≠das diretas (Movimento Financeiro)
+            # SaÌdas diretas (Movimento Financeiro)
             cur.execute(
                 """
                 SELECT COALESCE(SUM(mf.valor),0) AS total
@@ -6666,7 +6864,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
             row = cur.fetchone()
             total += Decimal(str(row["total"])) if row and row["total"] is not None else Decimal("0")
 
-            # Previs√µes diretas (Movimento Financeiro)
+            # Previsıes diretas (Movimento Financeiro)
             cur.execute(
                 """
                 SELECT COALESCE(SUM(COALESCE(mf.valor_previsto, mf.valor)),0) AS total
@@ -6685,7 +6883,7 @@ def _somar_leaf(cur, no_id, tipo, base, data_inicio, data_fim):
 
 
 def _calcular_totais(cur, arvore, base, data_inicio, data_fim):
-    """Calcula o total de cada n√≥ da √°rvore e retorna a mesma estrutura com 'valor'."""
+    """Calcula o total de cada nÛ da ·rvore e retorna a mesma estrutura com 'valor'."""
     total = Decimal("0")
     for n in arvore:
         if n["tipo"] == "grupo":
@@ -6702,7 +6900,7 @@ def _calcular_totais(cur, arvore, base, data_inicio, data_fim):
 
 
 def _prune_zero_nodes(nos):
-    """Remove n√≥s com valor 0 e sem filhos relevantes."""
+    """Remove nÛs com valor 0 e sem filhos relevantes."""
     pruned = []
     for n in nos:
         filhos = _prune_zero_nodes(n.get("filhos", []))
@@ -6721,7 +6919,7 @@ def relatorio_dre():
     cur.execute("SELECT id, nome, eh_formula, formula FROM dre_mascaras WHERE ativo=true ORDER BY ordem ASC, nome ASC")
     mascaras = cur.fetchall()
 
-    # Gera lista de per√≠odos (√∫ltimos 24 meses, incluindo m√™s atual)
+    # Gera lista de perÌodos (˙ltimos 24 meses, incluindo mÍs atual)
     hoje = date.today()
     periodos_lista = []  # [{"value": "YYYY-MM", "label": "MM/YYYY"}, ...]
     ano = hoje.year
@@ -6743,7 +6941,7 @@ def relatorio_dre():
     if request.method == "POST" and periodos_sel:
         cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
         empresa = cur.fetchone()
-        resultados = []  # lista por per√≠odo
+        resultados = []  # lista por perÌodo
         # Map de alias por nome normalizado -> id
         def _norm(s):
             return re.sub(r"[^0-9a-zA-Z]+", "", (s or "").lower())
@@ -6764,10 +6962,10 @@ def relatorio_dre():
                 "periodo_label": f"{m:02d}/{y:04d}",
                 "data_inicio": di.strftime("%Y-%m-%d"),
                 "data_fim": df.strftime("%Y-%m-%d"),
-                "itens": [],  # por m√°scara
+                "itens": [],  # por m·scara
             }
 
-            # Primeiro, calcula m√°scaras base (n√£o f√≥rmula) e guarda por id
+            # Primeiro, calcula m·scaras base (n„o fÛrmula) e guarda por id
             totals_by_id = {}
             item_by_id = {}
             for mask in mascaras:
@@ -6793,7 +6991,7 @@ def relatorio_dre():
                         "data_fim": df.strftime("%Y-%m-%d"),
                     }
 
-            # Depois, calcula m√°scaras por f√≥rmula e guarda por id
+            # Depois, calcula m·scaras por fÛrmula e guarda por id
             def _eval_formula(expr, totals_by_id, alias_to_id):
                 if not expr:
                     return Decimal("0")
@@ -6809,9 +7007,9 @@ def relatorio_dre():
                     if mid is not None:
                         val = totals_by_id.get(mid, Decimal("0"))
                         return str(val)
-                    return tok  # mant√©m operadores/par√™nteses
+                    return tok  # mantÈm operadores/parÍnteses
 
-                expr_num = re.sub(r"#\d+|[A-Za-z√Ä-√ø0-9_]+", repl_token, expr)
+                expr_num = re.sub(r"#\d+|[A-Za-z¿-ˇ0-9_]+", repl_token, expr)
 
                 # Avaliador seguro com Decimal
                 tokens = re.findall(r"\d+(?:\.\d+)?|[()+\-*/]", expr_num)
@@ -6871,7 +7069,7 @@ def relatorio_dre():
 
             resultados.append(grupo)
 
-        # Monta estrutura comparativa (per√≠odos em colunas)
+        # Monta estrutura comparativa (perÌodos em colunas)
         periodos_comp = [
             {
                 "value": g["periodo_value"],
@@ -6919,7 +7117,7 @@ def relatorio_dre():
 @login_required
 @permission_required("Administracao Sistema", "Editar")
 def dre_nos_reorder():
-    """Atualiza ordem e pai de uma lista de n√≥s ap√≥s drag-and-drop."""
+    """Atualiza ordem e pai de uma lista de nÛs apÛs drag-and-drop."""
     data = request.get_json(silent=True) or {}
     mascara_id = data.get("mascara_id")
     parent_id = data.get("parent_id")
@@ -6931,7 +7129,7 @@ def dre_nos_reorder():
     try:
         mascara_id = int(mascara_id)
     except (TypeError, ValueError):
-        return jsonify({"ok": False, "error": "mascara_id inv√°lido"}), 400
+        return jsonify({"ok": False, "error": "mascara_id inv·lido"}), 400
 
     conn = get_db_connection()
     cur = conn.cursor()
@@ -6958,7 +7156,7 @@ def dre_nos_reorder():
 @app.route("/relatorios/gerencial/dre/pdf", methods=["POST"])
 @login_required
 def relatorio_dre_pdf():
-    """Gera PDF do DRE com base nos par√¢metros informados."""
+    """Gera PDF do DRE com base nos par‚metros informados."""
     base = (request.form.get("base") or "caixa").lower()
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
@@ -6966,23 +7164,23 @@ def relatorio_dre_pdf():
     hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True")
 
     if not (mascara_id and data_inicio and data_fim):
-        flash("Par√¢metros inv√°lidos para gerar o PDF.", "danger")
+        flash("Par‚metros inv·lidos para gerar o PDF.", "danger")
         return redirect(url_for("relatorio_dre"))
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    # Busca m√°scara
+    # Busca m·scara
     cur.execute("SELECT * FROM dre_mascaras WHERE id=%s", (mascara_id,))
     mascara_sel = cur.fetchone()
-    # Se m√°scara for por f√≥rmula, calcula total pela f√≥rmula; caso contr√°rio, usa estrutura
+    # Se m·scara for por fÛrmula, calcula total pela fÛrmula; caso contr·rio, usa estrutura
     arvore_val = []
     if mascara_sel and mascara_sel.get('eh_formula'):
-        # Carrega todas as m√°scaras ativas para mapear nomes/ids
+        # Carrega todas as m·scaras ativas para mapear nomes/ids
         cur.execute("SELECT id, nome FROM dre_mascaras WHERE ativo=true ORDER BY ordem ASC, nome ASC")
         all_masks = cur.fetchall()
         alias_to_id = {re.sub(r"[^0-9a-zA-Z]+", "", (m['nome'] or '').lower()): m['id'] for m in all_masks}
-        # Calcula totais das m√°scaras base
+        # Calcula totais das m·scaras base
         totals_by_id = {}
         for m in all_masks:
             if m['id'] == mascara_id:
@@ -7012,7 +7210,7 @@ def relatorio_dre_pdf():
                 if mid is not None:
                     return str(totals_by_id.get(mid, Decimal('0')))
                 return tok
-            expr_num = re.sub(r"#\d+|[A-Za-z√Ä-√ø0-9_]+", repl_token, mascara_sel.get('formula') or '')
+            expr_num = re.sub(r"#\d+|[A-Za-z¿-ˇ0-9_]+", repl_token, mascara_sel.get('formula') or '')
             tokens = re.findall(r"\d+(?:\.\d+)?|[()+\-*/]", expr_num)
             prec = {'+':1,'-':1,'*':2,'/':2}
             output, ops = [], []
@@ -7066,7 +7264,7 @@ def relatorio_dre_pdf():
         def header(self):
             self.set_font("Arial", "B", 12)
             page_width = self.w - self.l_margin - self.r_margin
-            self.cell(page_width, 6, "Demonstra√ß√£o do Resultado (DRE)", 0, 1, "C")
+            self.cell(page_width, 6, "DemonstraÁ„o do Resultado (DRE)", 0, 1, "C")
             self.set_font("Arial", "", 10)
             empresa_nome = empresa["razao_social_nome"] if empresa else ""
             periodo = (
@@ -7077,7 +7275,7 @@ def relatorio_dre_pdf():
             subtitulo = f"{empresa_nome} | {periodo}"
             self.cell(page_width, 5, subtitulo, 0, 1, "C")
             if mascara_sel:
-                self.cell(page_width, 5, f"M√°scara: {mascara_sel['nome']}", 0, 1, "C")
+                self.cell(page_width, 5, f"M·scara: {mascara_sel['nome']}", 0, 1, "C")
             self.ln(2)
 
     pdf = PDF()
@@ -7087,7 +7285,7 @@ def relatorio_dre_pdf():
     def render_lines(nos, nivel=0):
         indent = 5 * nivel
         for n in nos:
-            # Defini√ß√µes de layout
+            # DefiniÁıes de layout
             left_margin = pdf.l_margin + indent
             page_width = pdf.w - pdf.l_margin - pdf.r_margin
             value_col_w = 45
@@ -7097,7 +7295,7 @@ def relatorio_dre_pdf():
             is_group = (n.get("tipo") == "grupo")
             pdf.set_font("Arial", "B" if is_group else "", 10)
 
-            # T√≠tulo
+            # TÌtulo
             # Estilos para grupo (subtotais): sombreamento + borda
             fill = False
             border = 0
@@ -7106,7 +7304,7 @@ def relatorio_dre_pdf():
                 fill = True
                 border = "TB"
 
-            # T√≠tulo
+            # TÌtulo
             pdf.set_x(left_margin)
             pdf.cell(title_w, 6, str(n.get("titulo") or ""), border, 0, "L", fill)
 
@@ -7126,7 +7324,7 @@ def relatorio_dre_pdf():
     pdf.set_font("Arial", "B", 11)
     page_width = pdf.w - pdf.l_margin - pdf.r_margin
     pdf.set_fill_color(230, 230, 230)
-    pdf.cell(page_width - 45, 7, "Total do Per√≠odo", "TB", 0, "L", True)
+    pdf.cell(page_width - 45, 7, "Total do PerÌodo", "TB", 0, "L", True)
     pdf.cell(45, 7, format_currency(total), "TB", 1, "R", True)
 
     output = pdf.output(dest="S").encode("latin1", "ignore")
@@ -7137,20 +7335,20 @@ def relatorio_dre_pdf():
 @app.route("/relatorios/gerencial/dre/pdf_full", methods=["POST"])
 @login_required
 def relatorio_dre_pdf_full():
-    """Gera PDF completo do DRE (todas as m√°scaras ativas) para um per√≠odo."""
+    """Gera PDF completo do DRE (todas as m·scaras ativas) para um perÌodo."""
     base = (request.form.get("base") or "caixa").lower()
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
     hide_zeros = request.form.get("hide_zeros") in ("1", "on", "true", "True")
 
     if not (data_inicio and data_fim):
-        flash("Par√¢metros inv√°lidos para gerar o PDF.", "danger")
+        flash("Par‚metros inv·lidos para gerar o PDF.", "danger")
         return redirect(url_for("relatorio_dre"))
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    # M√°scaras ativas ordenadas
+    # M·scaras ativas ordenadas
     cur.execute("SELECT id, nome, eh_formula, formula FROM dre_mascaras WHERE ativo=true ORDER BY ordem ASC, nome ASC")
     mascaras = cur.fetchall()
 
@@ -7158,13 +7356,13 @@ def relatorio_dre_pdf_full():
     cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
     empresa = cur.fetchone()
 
-    # Calcula itens por m√°scara
+    # Calcula itens por m·scara
     resultados = []
     alias_to_id = {re.sub(r"[^0-9a-zA-Z]+", "", (m["nome"] or "").lower()): m["id"] for m in mascaras}
     totals_by_id = {}
     item_by_id = {}
 
-    # Base (n√£o f√≥rmula)
+    # Base (n„o fÛrmula)
     for mask in mascaras:
         if not mask.get("eh_formula"):
             cur.execute(
@@ -7180,7 +7378,7 @@ def relatorio_dre_pdf_full():
             totals_by_id[mask["id"]] = total
             item_by_id[mask["id"]] = {"mascara": mask, "arvore": arvore_val, "total": total}
 
-    # F√≥rmula
+    # FÛrmula
     def _eval_formula(expr):
         if not expr:
             return Decimal("0")
@@ -7194,7 +7392,7 @@ def relatorio_dre_pdf_full():
             if mid is not None:
                 return str(totals_by_id.get(mid, Decimal('0')))
             return tok
-        expr_num = re.sub(r"#\d+|[A-Za-z√Ä-√ø0-9_]+", repl_token, expr)
+        expr_num = re.sub(r"#\d+|[A-Za-z¿-ˇ0-9_]+", repl_token, expr)
         tokens = re.findall(r"\d+(?:\.\d+)?|[()+\-*/]", expr_num)
         prec = {'+':1,'-':1,'*':2,'/':2}
         output, ops = [], []
@@ -7232,13 +7430,13 @@ def relatorio_dre_pdf_full():
             total = _eval_formula(mask.get("formula") or "")
             item_by_id[mask["id"]] = {"mascara": mask, "arvore": [], "total": total}
 
-    # Ordena por ordem e comp√µe lista
+    # Ordena por ordem e compıe lista
     for mask in mascaras:
         it = item_by_id.get(mask["id"])
         if it:
             resultados.append(it)
 
-    # Empresa/Per√≠odo j√° capturados
+    # Empresa/PerÌodo j· capturados
     cur.close()
     conn.close()
 
@@ -7246,7 +7444,7 @@ def relatorio_dre_pdf_full():
         def header(self):
             self.set_font("Arial", "B", 12)
             page_width = self.w - self.l_margin - self.r_margin
-            self.cell(page_width, 6, "Demonstra√ß√£o do Resultado (DRE)", 0, 1, "C")
+            self.cell(page_width, 6, "DemonstraÁ„o do Resultado (DRE)", 0, 1, "C")
             self.set_font("Arial", "", 10)
             empresa_nome = empresa["razao_social_nome"] if empresa else ""
             periodo = (
@@ -7280,14 +7478,14 @@ def relatorio_dre_pdf_full():
             if filhos:
                 render_lines(filhos, nivel + 1)
 
-    # Conte√∫do por m√°scara
+    # Conte˙do por m·scara
     page_width = pdf.w - pdf.l_margin - pdf.r_margin
     value_col_w = 45
     for item in resultados:
         mask = item["mascara"]
         total = item["total"]
         arvore_val = item["arvore"]
-        # Cabe√ßalho da m√°scara com total
+        # CabeÁalho da m·scara com total
         pdf.set_font("Arial", "B", 11)
         pdf.cell(page_width - value_col_w, 7, str(mask["nome"]), 0, 0, "L")
         pdf.cell(value_col_w, 7, format_currency(total), 0, 1, "R")
@@ -7295,7 +7493,7 @@ def relatorio_dre_pdf_full():
         if mask.get("eh_formula"):
             formula = mask.get("formula") or ""
             if formula:
-                pdf.cell(page_width, 6, f"F√≥rmula: {formula}", 0, 1, "L")
+                pdf.cell(page_width, 6, f"FÛrmula: {formula}", 0, 1, "L")
         else:
             render_lines(arvore_val, 0)
         # separador
@@ -7305,10 +7503,10 @@ def relatorio_dre_pdf_full():
     filename = f"dre_completo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     return send_file(io.BytesIO(output), mimetype="application/pdf", as_attachment=True, download_name=filename)
 
-# --- M√≥dulo de Administra√ß√£o do Sistema ---
+# --- MÛdulo de AdministraÁ„o do Sistema ---
 @app.route("/admin/backup", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Incluir") # Permiss√£o para gerar backup
+@permission_required("Administracao Sistema", "Incluir") # Permiss„o para gerar backup
 def backup_db():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7322,11 +7520,11 @@ def backup_db():
             app.config["UPLOAD_FOLDER"], "backups", backup_filename
         )
         
-        # Garante que o diret√≥rio de backups exista
+        # Garante que o diretÛrio de backups exista
         os.makedirs(os.path.dirname(backup_path), exist_ok=True)
 
         try:
-            # Extrai informa√ß√µes do DATABASE_URL para pg_dump
+            # Extrai informaÁıes do DATABASE_URL para pg_dump
             # Ex: postgresql://user:password@host:port/dbname
             db_url_parts = DATABASE_URL.split("://")[1].split("@")
             user_pass = db_url_parts[0].split(":")
@@ -7343,8 +7541,8 @@ def backup_db():
             db_name = host_port_db[1]
 
             # Comando pg_dump
-            # Aten√ß√£o: O pg_dump precisa estar no PATH do sistema onde o Flask est√° rodando.
-            # Em produ√ß√£o, considere um m√©todo mais robusto e seguro para backups.
+            # AtenÁ„o: O pg_dump precisa estar no PATH do sistema onde o Flask est· rodando.
+            # Em produÁ„o, considere um mÈtodo mais robusto e seguro para backups.
             command = [
                 "pg_dump",
                 "-h",
@@ -7360,7 +7558,7 @@ def backup_db():
                 db_name,
             ]
             
-            # Define a vari√°vel de ambiente PGPASSWORD para pg_dump
+            # Define a vari·vel de ambiente PGPASSWORD para pg_dump
             env = os.environ.copy()
             env["PGPASSWORD"] = db_password
 
@@ -7376,7 +7574,7 @@ def backup_db():
                 message = f"Erro ao gerar backup: {result.stderr}"
                 flash(message, "danger")
             
-            # Registra no hist√≥rico
+            # Registra no histÛrico
             cur.execute(
                 "INSERT INTO historico_backups (data_backup, nome_arquivo, caminho_arquivo, status_backup, observacao, usuario_id) VALUES (%s, %s, %s, %s, %s, %s)",
                 (
@@ -7408,7 +7606,7 @@ def backup_db():
             )
             conn.commit()
         
-    # Carrega hist√≥rico de backups
+    # Carrega histÛrico de backups
     cur.execute("SELECT * FROM historico_backups ORDER BY data_backup DESC")
     historico = cur.fetchall()
     cur.close()
@@ -7420,7 +7618,7 @@ def backup_db():
 @login_required
 @permission_required(
     "Administracao Sistema", "Bloquear"
-)  # A√ß√£o de restaurar √© mais restritiva
+)  # AÁ„o de restaurar È mais restritiva
 def restore_db():
     if request.method == "POST":
         backup_id = request.form.get("backup_id")
@@ -7435,13 +7633,13 @@ def restore_db():
         conn.close()
 
         if not backup_record:
-            flash("Backup n√£o encontrado.", "danger")
+            flash("Backup n„o encontrado.", "danger")
             return redirect(url_for("backup_db"))
 
         backup_path = backup_record["caminho_arquivo"]
 
         try:
-            # Extrai informa√ß√µes do DATABASE_URL para psql
+            # Extrai informaÁıes do DATABASE_URL para psql
             db_url_parts = DATABASE_URL.split("://")[1].split("@")
             user_pass = db_url_parts[0].split(":")
             host_port_db = db_url_parts[1].split("/")
@@ -7457,11 +7655,11 @@ def restore_db():
             db_name = host_port_db[1]
 
             # Comando psql para restaurar
-            # Aten√ß√£o: Isso ir√° apagar e recriar o banco de dados. Tenha certeza do que est√° fazendo.
-            # Para restaurar, o banco de dados n√£o pode ter conex√µes ativas.
-            # Em um cen√°rio real, voc√™ precisaria de um script mais complexo para desconectar usu√°rios,
-            # dropar o banco, recriar e ent√£o restaurar.
-            # Este √© um exemplo simplificado.
+            # AtenÁ„o: Isso ir· apagar e recriar o banco de dados. Tenha certeza do que est· fazendo.
+            # Para restaurar, o banco de dados n„o pode ter conexıes ativas.
+            # Em um cen·rio real, vocÍ precisaria de um script mais complexo para desconectar usu·rios,
+            # dropar o banco, recriar e ent„o restaurar.
+            # Este È um exemplo simplificado.
             command = [
                 "psql",
                 "-h",
@@ -7525,14 +7723,14 @@ def usuarios_add():
                 (username, hashed_password, tipo, status),
             )
             conn.commit()
-            flash("Usu√°rio cadastrado com sucesso!", "success")
+            flash("Usu·rio cadastrado com sucesso!", "success")
             return redirect(url_for("usuarios_list"))
         except psycopg2.errors.UniqueViolation:
             conn.rollback()
-            flash("Nome de usu√°rio j√° existe.", "danger")
+            flash("Nome de usu·rio j· existe.", "danger")
         except Exception as e:
             conn.rollback()
-            flash(f"Erro ao cadastrar usu√°rio: {e}", "danger")
+            flash(f"Erro ao cadastrar usu·rio: {e}", "danger")
         finally:
             cur.close()
             conn.close()
@@ -7563,20 +7761,20 @@ def usuarios_edit(id):
                     (username, tipo, status, id),
                 )
             conn.commit()
-            flash("Usu√°rio atualizado com sucesso!", "success")
+            flash("Usu·rio atualizado com sucesso!", "success")
             return redirect(url_for("usuarios_list"))
         except psycopg2.errors.UniqueViolation:
             conn.rollback()
-            flash("Nome de usu√°rio j√° existe.", "danger")
+            flash("Nome de usu·rio j· existe.", "danger")
         except Exception as e:
             conn.rollback()
-            flash(f"Erro ao atualizar usu√°rio: {e}", "danger")
+            flash(f"Erro ao atualizar usu·rio: {e}", "danger")
     cur.execute("SELECT * FROM usuarios WHERE id = %s", (id,))
     usuario = cur.fetchone()
     cur.close()
     conn.close()
     if usuario is None:
-        flash("Usu√°rio n√£o encontrado.", "danger")
+        flash("Usu·rio n„o encontrado.", "danger")
         return redirect(url_for("usuarios_list"))
     return render_template("admin/usuarios/add_list.html", usuario=usuario)
 
@@ -7590,10 +7788,10 @@ def usuarios_delete(id):
     try:
         cur.execute("DELETE FROM usuarios WHERE id = %s", (id,))
         conn.commit()
-        flash("Usu√°rio exclu√≠do com sucesso!", "success")
+        flash("Usu·rio excluÌdo com sucesso!", "success")
     except Exception as e:
         conn.rollback()
-        flash(f"Erro ao excluir usu√°rio: {e}", "danger")
+        flash(f"Erro ao excluir usu·rio: {e}", "danger")
     finally:
         cur.close()
         conn.close()
@@ -7617,7 +7815,7 @@ def usuarios_permissoes(id):
                         (id, module, action),
                     )
         conn.commit()
-        flash("Permiss√µes atualizadas com sucesso!", "success")
+        flash("Permissıes atualizadas com sucesso!", "success")
 
     cur.execute("SELECT modulo, acao FROM permissoes WHERE usuario_id = %s", (id,))
     existing = {(row["modulo"], row["acao"]) for row in cur.fetchall()}
@@ -7626,7 +7824,7 @@ def usuarios_permissoes(id):
     cur.close()
     conn.close()
     if usuario is None:
-        flash("Usu√°rio n√£o encontrado.", "danger")
+        flash("Usu·rio n„o encontrado.", "danger")
         return redirect(url_for("usuarios_list"))
     return render_template(
         "admin/usuarios/permissoes.html",
@@ -7684,14 +7882,14 @@ def empresa_add():
             status = request.form["status"]
 
             if len(documento) == 11 and not documento.isdigit():
-                flash("CPF inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                flash("CPF inv·lido. Deve conter apenas n˙meros.", "danger")
                 return render_template("admin/empresa/add_list.html", empresa=request.form)
             elif len(documento) == 14 and not documento.isdigit():
-                flash("CNPJ inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                flash("CNPJ inv·lido. Deve conter apenas n˙meros.", "danger")
                 return render_template("admin/empresa/add_list.html", empresa=request.form)
             elif len(documento) != 11 and len(documento) != 14:
                 flash(
-                    "Documento deve ser um CPF (11 d√≠gitos) ou CNPJ (14 d√≠gitos).",
+                    "Documento deve ser um CPF (11 dÌgitos) ou CNPJ (14 dÌgitos).",
                     "danger",
                 )
                 return render_template("admin/empresa/add_list.html", empresa=request.form)
@@ -7723,7 +7921,7 @@ def empresa_add():
             flash("Empresa cadastrada com sucesso!", "success")
             return redirect(url_for("empresa_list"))
         except psycopg2.errors.UniqueViolation:
-            flash("Erro: Documento (CNPJ/CPF) j√° cadastrado.", "danger")
+            flash("Erro: Documento (CNPJ/CPF) j· cadastrado.", "danger")
             conn.rollback()
             return render_template("admin/empresa/add_list.html", empresa=request.form)
         except Exception as e:
@@ -7755,18 +7953,18 @@ def empresa_edit(id):
             status = request.form["status"]
 
             if len(documento) == 11 and not documento.isdigit():
-                flash("CPF inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                flash("CPF inv·lido. Deve conter apenas n˙meros.", "danger")
                 cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
                 empresa = cur.fetchone()
                 return render_template("admin/empresa/add_list.html", empresa=empresa)
             elif len(documento) == 14 and not documento.isdigit():
-                flash("CNPJ inv√°lido. Deve conter apenas n√∫meros.", "danger")
+                flash("CNPJ inv·lido. Deve conter apenas n˙meros.", "danger")
                 cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
                 empresa = cur.fetchone()
                 return render_template("admin/empresa/add_list.html", empresa=empresa)
             elif len(documento) != 11 and len(documento) != 14:
                 flash(
-                    "Documento deve ser um CPF (11 d√≠gitos) ou CNPJ (14 d√≠gitos).",
+                    "Documento deve ser um CPF (11 dÌgitos) ou CNPJ (14 dÌgitos).",
                     "danger",
                 )
                 cur.execute("SELECT * FROM empresa_licenciada WHERE id = %s", (id,))
@@ -7798,7 +7996,7 @@ def empresa_edit(id):
             flash("Empresa atualizada com sucesso!", "success")
             return redirect(url_for("empresa_list"))
         except psycopg2.errors.UniqueViolation:
-            flash("Erro: Documento (CNPJ/CPF) j√° cadastrado para outra empresa.", "danger")
+            flash("Erro: Documento (CNPJ/CPF) j· cadastrado para outra empresa.", "danger")
             conn.rollback()
         except Exception as e:
             conn.rollback()
@@ -7808,7 +8006,7 @@ def empresa_edit(id):
         cur.close()
         conn.close()
         if empresa is None:
-            flash("Empresa n√£o encontrada.", "danger")
+            flash("Empresa n„o encontrada.", "danger")
             return redirect(url_for("empresa_list"))
         return render_template("admin/empresa/add_list.html", empresa=empresa)
 
@@ -7817,7 +8015,7 @@ def empresa_edit(id):
     cur.close()
     conn.close()
     if empresa is None:
-        flash("Empresa n√£o encontrada.", "danger")
+        flash("Empresa n„o encontrada.", "danger")
         return redirect(url_for("empresa_list"))
     return render_template("admin/empresa/add_list.html", empresa=empresa)
 
@@ -7831,7 +8029,7 @@ def empresa_delete(id):
     try:
         cur.execute("DELETE FROM empresa_licenciada WHERE id = %s", (id,))
         conn.commit()
-        flash("Empresa exclu√≠da com sucesso!", "success")
+        flash("Empresa excluÌda com sucesso!", "success")
     except Exception as e:
         conn.rollback()
         flash(f"Erro ao excluir empresa: {e}", "danger")
@@ -7840,10 +8038,14 @@ def empresa_delete(id):
         conn.close()
     return redirect(url_for("empresa_list"))
 
-# --- Execu√ß√£o da Aplica√ß√£o ---
+# --- ExecuÁ„o da AplicaÁ„o ---
 
 if __name__ == "__main__":
     # Ao definir host="0.0.0.0" o Flask escuta em todas as interfaces de
-    # rede, permitindo acesso por outras m√°quinas da rede local.
-    # Altere debug para False em produ√ß√£o.
+    # rede, permitindo acesso por outras m·quinas da rede local.
+    # Altere debug para False em produÁ„o.
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
+
+

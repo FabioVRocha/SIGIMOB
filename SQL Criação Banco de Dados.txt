@@ -20,6 +20,14 @@ CREATE TABLE pessoas (
     profissao VARCHAR(100),
     rg VARCHAR(20),
     observacao TEXT,
+    responsavel_nome VARCHAR(255),
+    responsavel_cpf VARCHAR(14),
+    responsavel_endereco VARCHAR(255),
+    responsavel_bairro VARCHAR(100),
+    responsavel_cidade VARCHAR(100),
+    responsavel_estado VARCHAR(100),
+    responsavel_uf CHAR(2),
+    responsavel_estado_civil VARCHAR(50),
     tipo tipo_pessoa_enum NOT NULL,
     status status_geral_enum NOT NULL DEFAULT 'Ativo',
     data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
@@ -97,7 +105,7 @@ CREATE TABLE movimentacoes_imovel (
 );
 
 -- Tabela para Contrato de Aluguel
-CREATE TYPE status_contrato_enum AS ENUM ('Ativo', 'Encerrado', 'Pendente');
+CREATE TYPE status_contrato_enum AS ENUM ('Ativo', 'Encerrado', 'Pendente', 'Finalizado');
 CREATE TYPE finalidade_contrato_enum AS ENUM ('Comercial', 'Residencial', 'Comodato');
 
 CREATE TABLE contratos_aluguel (

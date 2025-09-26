@@ -20,6 +20,7 @@
             <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
                 <tr>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID Imovel</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Inquilino</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Finalidade</th>
@@ -36,6 +37,7 @@
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"></th>
                 </tr>
             </thead>
@@ -43,6 +45,7 @@
                 {% for contrato in contratos %}
                 <tr class="{{ loop.cycle('table-row-odd','table-row-even') }} border-b border-gray-200 hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.imovel_id }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.endereco_imovel }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.nome_inquilino }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.finalidade }}</td>
@@ -52,7 +55,7 @@
                     <td class="py-3 px-4 text-sm">
                         <a href="#" onclick="openModeloModal({{ contrato.id }}); return false;" class="text-green-600 hover:text-green-800 mr-3" title="Gerar Contrato"><i class="fas fa-file-signature"></i></a>
                         <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
-                        {% if contrato.status_contrato != 'Encerrado' %}
+                        {% if contrato.status_contrato not in ['Encerrado', 'Finalizado'] %}
                         <button type="button" class="text-yellow-600 hover:text-yellow-800 mr-3 inline-flex items-center" title="Encerrar" data-contrato-id="{{ contrato.id }}" data-data-fim='{{ contrato.data_fim.strftime("%Y-%m-%d") if contrato.data_fim else "" }}' onclick="openEncerrarModal(this)">
                             <i class="fas fa-ban"></i>
                         </button>
