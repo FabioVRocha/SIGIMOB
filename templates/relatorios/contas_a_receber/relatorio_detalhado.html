@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório - Contas a Receber{% endblock %}
+{% block page_title %}Relatório de Contas a Receber{% endblock %}
+
+{% block content %}
+<div class="card p-6">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div>
+      <h2 class="text-2xl font-semibold text-dark-blue">Contas a Receber Detalhado</h2>
+      <p class="text-medium-gray">Período: <strong>{{ filtros.periodo }}</strong></p>
+      {% if filtros.cliente_nome %}
+        <p class="text-medium-gray">Cliente: <strong>{{ filtros.cliente_nome }}</strong></p>
+      {% endif %}
+      {% if filtros.imovel_descricao %}
+        <p class="text-medium-gray">Imóvel: <strong>{{ filtros.imovel_descricao }}</strong></p>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <form action="{{ url_for('relatorio_contas_a_receber_detalhado_excel') }}" method="POST">
+        <input type="hidden" name="cliente_id" value="{{ filtros.cliente_id or '' }}">
+        <input type="hidden" name="imovel_id" value="{{ filtros.imovel_id or '' }}">
+        <input type="hidden" name="vencimento_inicio" value="{{ filtros.inicio_str }}">
+        <input type="hidden" name="vencimento_fim" value="{{ filtros.fim_str }}">
+        <button type="submit" class="btn-secondary"><i class="fas fa-file-excel mr-2"></i>Exportar Excel</button>
+      </form>
+      <form action="{{ url_for('relatorio_contas_a_receber_detalhado_pdf') }}" method="POST" target="_blank">
+        <input type="hidden" name="cliente_id" value="{{ filtros.cliente_id or '' }}">
+        <input type="hidden" name="imovel_id" value="{{ filtros.imovel_id or '' }}">
+        <input type="hidden" name="vencimento_inicio" value="{{ filtros.inicio_str }}">
+        <input type="hidden" name="vencimento_fim" value="{{ filtros.fim_str }}">
+        <button type="submit" class="btn-secondary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
+      </form>
+      <a href="{{ url_for('relatorios_contas_a_receber') }}" class="btn-secondary">Voltar</a>
+    </div>
+  </div>
+
+  {% if dados %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-dark-blue text-white">
+          <tr>
+            <th class="px-4 py-3 text-left text-sm font-semibold">Vencimento</th>
+            <th class="px-4 py-3 text-left text-sm font-semibold">Receita</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold">Valor Previsto</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold">Multa</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold">Juros</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold">Desconto</th>
+            <th class="px-4 py-3 text-right text-sm font-semibold">Total</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for linha in dados %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2 text-sm">{{ linha.data_vencimento.strftime('%d/%m/%Y') if linha.data_vencimento else '' }}</td>
+              <td class="px-4 py-2 text-sm">{{ linha.receita or '' }}</td>
+              <td class="px-4 py-2 text-sm text-right">{{ linha.valor_previsto|currency }}</td>
+              <td class="px-4 py-2 text-sm text-right">{{ linha.valor_multa|currency }}</td>
+              <td class="px-4 py-2 text-sm text-right">{{ linha.valor_juros|currency }}</td>
+              <td class="px-4 py-2 text-sm text-right">{{ linha.valor_desconto|currency }}</td>
+              <td class="px-4 py-2 text-sm text-right">{{ linha.total|currency }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="bg-gray-100">
+          <tr>
+            <th class="px-4 py-3 text-sm text-right" colspan="2">Totais</th>
+            <th class="px-4 py-3 text-sm text-right">{{ totais.valor_previsto|currency }}</th>
+            <th class="px-4 py-3 text-sm text-right">{{ totais.multa|currency }}</th>
+            <th class="px-4 py-3 text-sm text-right">{{ totais.juros|currency }}</th>
+            <th class="px-4 py-3 text-sm text-right">{{ totais.desconto|currency }}</th>
+            <th class="px-4 py-3 text-sm text-right">{{ totais.total|currency }}</th>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  {% else %}
+    <div class="text-center py-12 text-medium-gray">
+      Nenhuma conta a receber encontrada para os filtros informados.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
