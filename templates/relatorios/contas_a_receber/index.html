@@ -52,12 +52,45 @@
             <label for="rel-cr-inicio" class="form-label">Vencimento Início:</label>
             <input type="date" id="rel-cr-inicio" name="vencimento_inicio" class="form-input" required>
           </div>
-          <div class="form-group">
-            <label for="rel-cr-fim" class="form-label">Vencimento Fim:</label>
-            <input type="date" id="rel-cr-fim" name="vencimento_fim" class="form-input" required>
+            <div class="form-group">
+              <label for="rel-cr-fim" class="form-label">Vencimento Fim:</label>
+              <input type="date" id="rel-cr-fim" name="vencimento_fim" class="form-input" required>
+            </div>
+            <div class="form-group md:col-span-2">
+              <label class="form-label" for="rel-cr-status-combobox">Status do título:</label>
+              <div class="relative">
+                <button
+                  type="button"
+                  id="rel-cr-status-combobox"
+                  class="form-select flex items-center justify-between"
+                  data-default-label="Todos os status"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                >
+                  <span class="rel-cr-status-label">Todos os status</span>
+                  <i class="fas fa-chevron-down text-gray-500 text-sm"></i>
+                </button>
+                <div
+                  id="rel-cr-status-options"
+                  class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg hidden"
+                >
+                  <div class="max-h-52 overflow-y-auto py-2">
+                    {% for status in status_opcoes %}
+                      <label class="flex items-center gap-2 px-3 py-1 hover:bg-gray-50">
+                        <input type="checkbox" name="status_conta" value="{{ status }}" class="rel-cr-status-option">
+                        <span>{{ status }}</span>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  <div class="border-t px-3 py-2 text-right">
+                    <button type="button" class="text-sm text-blue-600 hover:underline" data-action="rel-cr-clear-status">Limpar seleção</button>
+                  </div>
+                </div>
+              </div>
+              <p class="text-xs text-gray-500 mt-1">Selecione um ou mais status para filtrar os títulos.</p>
+            </div>
           </div>
-        </div>
-        <p class="text-xs text-gray-500 mb-4">Ao selecionar um cliente, apenas imóveis vinculados a ele serão exibidos (e vice-versa).</p>
+          <p class="text-xs text-gray-500 mb-4">Ao selecionar um cliente, apenas imóveis vinculados a ele serão exibidos (e vice-versa).</p>
         <div class="flex justify-end space-x-4">
           <button type="button" class="btn-secondary" onclick="closeRelatorioCrModal()">Cancelar</button>
           <button type="submit" class="btn-primary">Gerar Relatório</button>
@@ -116,82 +149,141 @@ function closeRelatorioCrModal(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const vinculos = {{ vinculos_json|safe }};
-  const clienteSelect = document.getElementById('rel-cr-cliente');
-  const imovelSelect = document.getElementById('rel-cr-imovel');
+    const vinculos = {{ vinculos_json|safe }};
+    const clienteSelect = document.getElementById('rel-cr-cliente');
+    const imovelSelect = document.getElementById('rel-cr-imovel');
+    const statusCombobox = document.getElementById('rel-cr-status-combobox');
+    const statusDropdown = document.getElementById('rel-cr-status-options');
 
-  if (!clienteSelect || !imovelSelect) {
-    return;
-  }
+    if (statusCombobox && statusDropdown) {
+      const statusLabel = statusCombobox.querySelector('.rel-cr-status-label');
+      const defaultLabel = statusCombobox.getAttribute('data-default-label') || 'Todos os status';
+      const statusCheckboxes = statusDropdown.querySelectorAll('.rel-cr-status-option');
+      const clearButton = statusDropdown.querySelector('[data-action="rel-cr-clear-status"]');
 
-  const clienteOptions = Array.from(clienteSelect.options).map((opt) => ({
-    value: opt.value,
-    text: opt.text,
-  }));
-  const imovelOptions = Array.from(imovelSelect.options).map((opt) => ({
-    value: opt.value,
-    text: opt.text,
-  }));
-
-  const mapaClienteImoveis = {};
-  const mapaImovelClientes = {};
-
-  vinculos.forEach((v) => {
-    const clienteId = String(v.cliente_id);
-    const imovelId = String(v.imovel_id);
-    if (!mapaClienteImoveis[clienteId]) {
-      mapaClienteImoveis[clienteId] = new Set();
-    }
-    if (!mapaImovelClientes[imovelId]) {
-      mapaImovelClientes[imovelId] = new Set();
-    }
-    mapaClienteImoveis[clienteId].add(imovelId);
-    mapaImovelClientes[imovelId].add(clienteId);
-  });
-
-  function reconstruirOpcoes(select, opcoesOriginais, permitidos){
-    const valorAtual = select.value;
-    select.innerHTML = '';
-    opcoesOriginais.forEach((opt) => {
-      const valor = opt.value;
-      if (!permitidos || valor === '' || (permitidos.has && permitidos.has(valor))){
-        const optionEl = document.createElement('option');
-        optionEl.value = valor;
-        optionEl.textContent = opt.text;
-        if (valor === valorAtual){
-          optionEl.selected = true;
-        }
-        select.appendChild(optionEl);
+      function atualizarRotuloStatus() {
+        const selecionados = Array.from(statusCheckboxes)
+          .filter((checkbox) => checkbox.checked)
+          .map((checkbox) => checkbox.value);
+        statusLabel.textContent = selecionados.length ? selecionados.join(', ') : defaultLabel;
       }
+
+      statusCombobox.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const expanded = statusCombobox.getAttribute('aria-expanded') === 'true';
+        statusCombobox.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+        if (expanded) {
+          statusDropdown.classList.add('hidden');
+        } else {
+          statusDropdown.classList.remove('hidden');
+        }
+      });
+
+      document.addEventListener('click', (event) => {
+        if (event.target === statusCombobox || statusCombobox.contains(event.target)) {
+          return;
+        }
+        if (!statusDropdown.contains(event.target)) {
+          statusDropdown.classList.add('hidden');
+          statusCombobox.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      if (statusDropdown) {
+        statusDropdown.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+      }
+
+      statusCheckboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', atualizarRotuloStatus);
+      });
+
+      if (clearButton) {
+        clearButton.addEventListener('click', () => {
+          statusCheckboxes.forEach((checkbox) => {
+            checkbox.checked = false;
+          });
+          atualizarRotuloStatus();
+        });
+      }
+
+      atualizarRotuloStatus();
+    }
+
+    if (!clienteSelect || !imovelSelect) {
+      return;
+    }
+    
+    const clienteOptions = Array.from(clienteSelect.options).map((opt) => ({
+      value: opt.value,
+      text: opt.text,
+    }));
+    const imovelOptions = Array.from(imovelSelect.options).map((opt) => ({
+      value: opt.value,
+      text: opt.text,
+    }));
+
+    const mapaClienteImoveis = {};
+    const mapaImovelClientes = {};
+
+    vinculos.forEach((v) => {
+      const clienteId = String(v.cliente_id);
+      const imovelId = String(v.imovel_id);
+      if (!mapaClienteImoveis[clienteId]) {
+        mapaClienteImoveis[clienteId] = new Set();
+      }
+      if (!mapaImovelClientes[imovelId]) {
+        mapaImovelClientes[imovelId] = new Set();
+      }
+      mapaClienteImoveis[clienteId].add(imovelId);
+      mapaImovelClientes[imovelId].add(clienteId);
     });
-    if (select.value !== valorAtual){
-      select.value = '';
+    
+    function reconstruirOpcoes(select, opcoesOriginais, permitidos){
+      const valorAtual = select.value;
+      select.innerHTML = '';
+      opcoesOriginais.forEach((opt) => {
+        const valor = opt.value;
+        if (!permitidos || valor === '' || (permitidos.has && permitidos.has(valor))){
+          const optionEl = document.createElement('option');
+          optionEl.value = valor;
+          optionEl.textContent = opt.text;
+          if (valor === valorAtual){
+            optionEl.selected = true;
+          }
+          select.appendChild(optionEl);
+        }
+      });
+      if (select.value !== valorAtual){
+        select.value = '';
+      }
     }
-  }
+  
+    function atualizarImoveis(){
+      const clienteId = clienteSelect.value;
+      const valorAnterior = imovelSelect.value;
+      const permitidos = clienteId ? (mapaClienteImoveis[clienteId] || new Set()) : null;
+      reconstruirOpcoes(imovelSelect, imovelOptions, permitidos);
+      if (imovelSelect.value !== valorAnterior){
+        atualizarClientes();
+      }
+    }
 
-  function atualizarImoveis(){
-    const clienteId = clienteSelect.value;
-    const valorAnterior = imovelSelect.value;
-    const permitidos = clienteId ? (mapaClienteImoveis[clienteId] || new Set()) : null;
-    reconstruirOpcoes(imovelSelect, imovelOptions, permitidos);
-    if (imovelSelect.value !== valorAnterior){
+    function atualizarClientes(){
+      const imovelId = imovelSelect.value;
+      const permitidos = imovelId ? (mapaImovelClientes[imovelId] || new Set()) : null;
+      reconstruirOpcoes(clienteSelect, clienteOptions, permitidos);
+    }
+
+    clienteSelect.addEventListener('change', () => {
+      atualizarImoveis();
+    });
+
+    imovelSelect.addEventListener('change', () => {
       atualizarClientes();
-    }
-  }
-
-  function atualizarClientes(){
-    const imovelId = imovelSelect.value;
-    const permitidos = imovelId ? (mapaImovelClientes[imovelId] || new Set()) : null;
-    reconstruirOpcoes(clienteSelect, clienteOptions, permitidos);
-  }
-
-  clienteSelect.addEventListener('change', () => {
-    atualizarImoveis();
+    });
   });
-
-  imovelSelect.addEventListener('change', () => {
-    atualizarClientes();
-  });
-});
 </script>
 {% endblock %}

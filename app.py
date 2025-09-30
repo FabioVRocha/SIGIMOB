@@ -5605,17 +5605,25 @@ def relatorios_contas_a_receber():
             if v["cliente_id"] and v["imovel_id"]
         ]
     )
+    status_opcoes = ["Aberta", "Parcial", "Paga", "Vencida", "Cancelada"]
+
     return render_template(
         "relatorios/contas_a_receber/index.html",
         receitas=receitas,
         clientes=clientes,
         imoveis=imoveis,
         vinculos_json=vinculos_json,
+        status_opcoes=status_opcoes,
     )
 
 
 def consultar_relatorio_contas_receber(
-    cur, data_inicio, data_fim, cliente_id=None, imovel_id=None
+    cur,
+    data_inicio,
+    data_fim,
+    cliente_id=None,
+    imovel_id=None,
+    status_contas=None,
 ):
     query = [
         """
@@ -5646,6 +5654,11 @@ def consultar_relatorio_contas_receber(
     if imovel_id:
         query.append("AND ca.imovel_id = %s")
         params.append(imovel_id)
+
+    if status_contas:
+        marcadores = ", ".join(["%s"] * len(status_contas))
+        query.append(f"AND cr.status_conta IN ({marcadores})")
+        params.extend(status_contas)
 
     query.append("ORDER BY cr.data_vencimento, receita")
     cur.execute("\n".join(query), params)
@@ -5724,6 +5737,9 @@ def carregar_dados_relatorio_contas_receber(form):
     imovel_id = parse_int(form.get("imovel_id"))
     data_inicio = parse_date(form.get("vencimento_inicio"))
     data_fim = parse_date(form.get("vencimento_fim"))
+    status_contas = []
+    if hasattr(form, "getlist"):
+        status_contas = [valor for valor in form.getlist("status_conta") if valor]
 
     if not data_inicio or not data_fim:
         return None, "Informe o intervalo de vencimento."
@@ -5735,7 +5751,12 @@ def carregar_dados_relatorio_contas_receber(form):
     cur = conn.cursor(cursor_factory=extras.DictCursor)
     try:
         dados = consultar_relatorio_contas_receber(
-            cur, data_inicio, data_fim, cliente_id, imovel_id
+            cur,
+            data_inicio,
+            data_fim,
+            cliente_id,
+            imovel_id,
+            status_contas,
         )
         totais = calcular_totais_contas_receber(dados)
         cliente_nome, imovel_descricao = obter_descricoes_filtros_contas_receber(
@@ -5754,6 +5775,7 @@ def carregar_dados_relatorio_contas_receber(form):
         "imovel_descricao": imovel_descricao,
         "data_inicio": data_inicio,
         "data_fim": data_fim,
+        "status_contas": status_contas,
     }
 
     return resultado, None
@@ -5783,6 +5805,7 @@ def relatorio_contas_a_receber_detalhado():
         "inicio_str": resultado["data_inicio"].isoformat(),
         "fim_str": resultado["data_fim"].isoformat(),
         "periodo": periodo_txt,
+        "status_contas": resultado["status_contas"],
     }
 
     return render_template(

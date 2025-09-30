@@ -15,6 +15,9 @@
       {% if filtros.imovel_descricao %}
         <p class="text-medium-gray">Imóvel: <strong>{{ filtros.imovel_descricao }}</strong></p>
       {% endif %}
+      {% if filtros.status_contas %}
+        <p class="text-medium-gray">Status: <strong>{{ filtros.status_contas|join(', ') }}</strong></p>
+      {% endif %}
     </div>
     <div class="flex flex-wrap gap-3">
       <form action="{{ url_for('relatorio_contas_a_receber_detalhado_excel') }}" method="POST">
@@ -22,6 +25,9 @@
         <input type="hidden" name="imovel_id" value="{{ filtros.imovel_id or '' }}">
         <input type="hidden" name="vencimento_inicio" value="{{ filtros.inicio_str }}">
         <input type="hidden" name="vencimento_fim" value="{{ filtros.fim_str }}">
+        {% for status in filtros.status_contas %}
+          <input type="hidden" name="status_conta" value="{{ status }}">
+        {% endfor %}
         <button type="submit" class="btn-secondary"><i class="fas fa-file-excel mr-2"></i>Exportar Excel</button>
       </form>
       <form action="{{ url_for('relatorio_contas_a_receber_detalhado_pdf') }}" method="POST" target="_blank">
@@ -29,6 +35,9 @@
         <input type="hidden" name="imovel_id" value="{{ filtros.imovel_id or '' }}">
         <input type="hidden" name="vencimento_inicio" value="{{ filtros.inicio_str }}">
         <input type="hidden" name="vencimento_fim" value="{{ filtros.fim_str }}">
+        {% for status in filtros.status_contas %}
+          <input type="hidden" name="status_conta" value="{{ status }}">
+        {% endfor %}
         <button type="submit" class="btn-secondary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
       </form>
       <a href="{{ url_for('relatorios_contas_a_receber') }}" class="btn-secondary">Voltar</a>
