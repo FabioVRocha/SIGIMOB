@@ -24,7 +24,7 @@
     <div class="modal-content max-w-3xl">
       <span class="close-button" onclick="closeRelatorioCrModal()">&times;</span>
       <h2 class="text-lg font-semibold mb-4">Contas a Receber Detalhado</h2>
-      <form action="{{ url_for('relatorio_contas_a_receber_detalhado') }}" method="POST" target="_blank">
+      <form action="{{ url_for('relatorio_contas_a_receber_detalhado') }}" method="POST">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div class="form-group">
             <label for="rel-cr-cliente" class="form-label">Cliente:</label>
