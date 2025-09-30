@@ -5597,6 +5597,9 @@ def relatorios_contas_a_receber():
     finally:
         cur.close()
         conn.close()
+        
+    vinculos_json = json.dumps(
+        [
             {"cliente_id": v["cliente_id"], "imovel_id": v["imovel_id"]}
             for v in vinculos
             if v["cliente_id"] and v["imovel_id"]
