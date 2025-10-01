@@ -15,7 +15,7 @@ from flask import (
     has_request_context,
 )
 import psycopg2
-from psycopg2 import extras
+from psycopg2 import extras, sql
 import os
 import posixpath
 from datetime import datetime, timedelta, date
@@ -1538,6 +1538,36 @@ ensure_dre_tables()
 ensure_ordens_pagamento_tables()
 
 
+def ensure_column_exists(cur, table_name, column_name, definition_sql):
+    """Create a column if it is missing.
+
+    Older versions of PostgreSQL used in some environments do not support
+    ``ADD COLUMN IF NOT EXISTS``. To keep compatibility we check the
+    ``information_schema`` before attempting to add a column. The
+    ``definition_sql`` parameter should contain only the column definition
+    (type, constraints, defaults, etc.).
+    """
+
+    cur.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = %s AND column_name = %s
+        """,
+        (table_name, column_name),
+    )
+    if cur.fetchone():
+        return
+
+    cur.execute(
+        sql.SQL("ALTER TABLE {} ADD COLUMN {} {}").format(
+            sql.Identifier(table_name),
+            sql.Identifier(column_name),
+            sql.SQL(definition_sql),
+        )
+    )
+
+
 def ensure_prestacao_contas_tables():
     conn = None
     cur = None
@@ -1591,23 +1621,44 @@ def ensure_prestacao_contas_tables():
             """
         )
 
-        alter_commands = [
-            "ALTER TABLE prestacoes_contas ADD COLUMN IF NOT EXISTS conta_pagar_id INTEGER REFERENCES contas_a_pagar(id)",
-            "ALTER TABLE prestacoes_contas ADD COLUMN IF NOT EXISTS conta_receber_id INTEGER REFERENCES contas_a_receber(id)",
-            "ALTER TABLE prestacoes_contas ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()",
-            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS status_original status_conta_enum",
-            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS valor_pago_original NUMERIC(10,2)",
-            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS valor_pendente_original NUMERIC(10,2)",
-            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS data_pagamento_original DATE",
-        ]
-        for command in alter_commands:
-            try:
-                cur.execute(command)
-            except Exception:
-                conn.rollback()
-                conn.autocommit = True
-                cur.execute(command)
-                conn.autocommit = False
+        for table_name, column_name, definition in [
+            (
+                "prestacoes_contas",
+                "conta_pagar_id",
+                "INTEGER REFERENCES contas_a_pagar(id)",
+            ),
+            (
+                "prestacoes_contas",
+                "conta_receber_id",
+                "INTEGER REFERENCES contas_a_receber(id)",
+            ),
+            (
+                "prestacoes_contas",
+                "atualizado_em",
+                "TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()",
+            ),
+            (
+                "prestacoes_contas_itens",
+                "status_original",
+                "status_conta_enum",
+            ),
+            (
+                "prestacoes_contas_itens",
+                "valor_pago_original",
+                "NUMERIC(10,2)",
+            ),
+            (
+                "prestacoes_contas_itens",
+                "valor_pendente_original",
+                "NUMERIC(10,2)",
+            ),
+            (
+                "prestacoes_contas_itens",
+                "data_pagamento_original",
+                "DATE",
+            ),
+        ]:
+            ensure_column_exists(cur, table_name, column_name, definition)
         conn.commit()
     finally:
         if cur:
