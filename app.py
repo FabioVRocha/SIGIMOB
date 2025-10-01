@@ -12,6 +12,7 @@ from flask import (
     send_from_directory,
     jsonify,
     send_file,
+    has_request_context,
 )
 import psycopg2
 from psycopg2 import extras
@@ -342,6 +343,87 @@ def ensure_status_contrato_enum_finalizado():
 
 
 ensure_status_contrato_enum_finalizado()
+
+
+def ensure_auditoria_table():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS auditoria_logs (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                username VARCHAR(150),
+                modulo VARCHAR(150),
+                acao VARCHAR(50),
+                descricao TEXT,
+                dados JSONB,
+                ip VARCHAR(45),
+                criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        conn.commit()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        app.logger.exception("Erro ao garantir tabela de auditoria: %s", e)
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+ensure_auditoria_table()
+
+
+def _get_request_ip():
+    if not has_request_context():
+        return None
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.remote_addr
+
+
+def log_user_action(acao, modulo, descricao=None, dados=None):
+    if "user_id" not in session:
+        return
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO auditoria_logs (user_id, username, modulo, acao, descricao, dados, ip)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                session.get("user_id"),
+                session.get("username"),
+                modulo,
+                acao,
+                descricao,
+                extras.Json(dados) if dados is not None else None,
+                _get_request_ip(),
+            ),
+        )
+        conn.commit()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        app.logger.exception("Erro ao registrar log de auditoria: %s", e)
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
 
 # Função auxiliar para verificar extensões de arquivo permitidas
 def allowed_file(filename):
@@ -937,6 +1019,12 @@ def login():
         ):
             session["user_id"] = user["id"]
             session["username"] = user["nome_usuario"]
+            log_user_action(
+                "Acesso",
+                "Autenticação",
+                "Login realizado com sucesso.",
+                {"user_id": user["id"]},
+            )
             flash("Login realizado com sucesso!", "success")
             return redirect(
                 url_for("dashboard")
@@ -1013,6 +1101,11 @@ def register():
 @app.route("/logout")
 @login_required
 def logout():
+    log_user_action(
+        "Acesso",
+        "Autenticação",
+        "Logout realizado.",
+    )
     session.pop("user_id", None)
     session.pop("username", None)
     flash("Você foi desconectado.", "info")
@@ -7065,10 +7158,21 @@ def dre_mascaras_add():
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO dre_mascaras (nome, descricao, ordem, eh_formula, formula, ativo) VALUES (%s,%s,COALESCE(%s,0),%s,%s,%s)",
+                "INSERT INTO dre_mascaras (nome, descricao, ordem, eh_formula, formula, ativo) VALUES (%s,%s,COALESCE(%s,0),%s,%s,%s) RETURNING id",
                 (nome, descricao, ordem, eh_formula, formula, ativo),
             )
+            mascara_id = cur.fetchone()[0]
             conn.commit()
+            log_user_action(
+                "Incluir",
+                "Gerencial - DRE Máscaras",
+                f"Máscara '{nome}' criada.",
+                {
+                    "mascara_id": mascara_id,
+                    "eh_formula": eh_formula,
+                    "ativo": ativo,
+                },
+            )
             flash("Máscara criada com sucesso!", "success")
             return redirect(url_for("dre_mascaras_list"))
         except Exception as e:
@@ -7118,6 +7222,16 @@ def dre_mascaras_edit(id):
                     (nome, descricao, ordem, eh_formula, formula, ativo, id),
                 )
                 conn.commit()
+                log_user_action(
+                    "Editar",
+                    "Gerencial - DRE Máscaras",
+                    f"Máscara ID {id} atualizada.",
+                    {
+                        "mascara_id": id,
+                        "eh_formula": eh_formula,
+                        "ativo": ativo,
+                    },
+                )
                 flash("Máscara atualizada com sucesso!", "success")
                 return redirect(url_for("dre_mascaras_list"))
             except Exception as e:
@@ -7144,7 +7258,15 @@ def dre_mascaras_delete(id):
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM dre_mascaras WHERE id=%s", (id,))
+        deleted = cur.rowcount
         conn.commit()
+        if deleted:
+            log_user_action(
+                "Excluir",
+                "Gerencial - DRE Máscaras",
+                f"Máscara ID {id} excluída.",
+                {"mascara_id": id},
+            )
         flash("Máscara excluída com sucesso!", "success")
     except Exception as e:
         conn.rollback()
@@ -7228,7 +7350,15 @@ def dre_mascaras_estrutura_delete(id):
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM dre_nos WHERE mascara_id=%s", (id,))
+        removidos = cur.rowcount
         conn.commit()
+        if removidos:
+            log_user_action(
+                "Excluir",
+                "Gerencial - DRE Máscaras",
+                f"Estrutura da máscara ID {id} removida.",
+                {"mascara_id": id, "nos_removidos": removidos},
+            )
         flash("Estrutura da máscara excluída com sucesso.", "success")
     except Exception as e:
         conn.rollback()
@@ -7255,10 +7385,22 @@ def dre_nos_add():
     cur = conn.cursor()
     try:
         cur.execute(
-            "INSERT INTO dre_nos (mascara_id, parent_id, titulo, tipo, ordem) VALUES (%s,%s,%s,%s,COALESCE(%s,0))",
+            "INSERT INTO dre_nos (mascara_id, parent_id, titulo, tipo, ordem) VALUES (%s,%s,%s,%s,COALESCE(%s,0)) RETURNING id",
             (mascara_id, parent_id, titulo, tipo, ordem),
         )
+        no_id = cur.fetchone()[0]
         conn.commit()
+        log_user_action(
+            "Incluir",
+            "Gerencial - DRE Máscaras",
+            "Nó adicionado à estrutura do DRE.",
+            {
+                "mascara_id": mascara_id,
+                "no_id": no_id,
+                "tipo": tipo,
+                "parent_id": parent_id,
+            },
+        )
         flash("Item adicionado.", "success")
     except Exception as e:
         conn.rollback()
@@ -7280,7 +7422,15 @@ def dre_nos_delete(no_id):
     mascara_id = row["mascara_id"] if row else None
     try:
         cur.execute("DELETE FROM dre_nos WHERE id=%s", (no_id,))
+        removido = cur.rowcount
         conn.commit()
+        if removido:
+            log_user_action(
+                "Excluir",
+                "Gerencial - DRE Máscaras",
+                f"Nó ID {no_id} removido.",
+                {"mascara_id": mascara_id, "no_id": no_id},
+            )
         flash("Item removido.", "success")
     except Exception as e:
         conn.rollback()
@@ -7307,24 +7457,46 @@ def dre_nos_map(no_id):
         flash("Item não encontrado.", "danger")
         return redirect(url_for("dre_mascaras_list"))
     mascara_id = no["mascara_id"]
+    selecionadas_ids = []
     try:
         if no["tipo"] == "receita":
             selecionadas = request.form.getlist("receitas")
             cur.execute("DELETE FROM dre_no_receitas WHERE no_id=%s", (no_id,))
             for rid in selecionadas:
+                try:
+                    rid_int = int(rid)
+                except (TypeError, ValueError):
+                    continue
+                selecionadas_ids.append(rid_int)
                 cur.execute(
                     "INSERT INTO dre_no_receitas (no_id, receita_id) VALUES (%s,%s)",
-                    (no_id, int(rid)),
+                    (no_id, rid_int),
                 )
         elif no["tipo"] == "despesa":
             selecionadas = request.form.getlist("despesas")
             cur.execute("DELETE FROM dre_no_despesas WHERE no_id=%s", (no_id,))
             for did in selecionadas:
+                try:
+                    did_int = int(did)
+                except (TypeError, ValueError):
+                    continue
+                selecionadas_ids.append(did_int)
                 cur.execute(
                     "INSERT INTO dre_no_despesas (no_id, despesa_id) VALUES (%s,%s)",
-                    (no_id, int(did)),
+                    (no_id, did_int),
                 )
         conn.commit()
+        log_user_action(
+            "Editar",
+            "Gerencial - DRE Máscaras",
+            "Mapeamento de nó atualizado.",
+            {
+                "mascara_id": mascara_id,
+                "no_id": no_id,
+                "tipo": no["tipo"],
+                "itens_mapeados": selecionadas_ids,
+            },
+        )
         flash("Mapeamentos atualizados.", "success")
     except Exception as e:
         conn.rollback()
@@ -7708,17 +7880,29 @@ def dre_nos_reorder():
 
     conn = get_db_connection()
     cur = conn.cursor()
+    ids_processados = []
     try:
         for ordem, no_id in enumerate(ids):
             try:
                 no_id_int = int(no_id)
             except (TypeError, ValueError):
                 continue
+            ids_processados.append(no_id_int)
             cur.execute(
                 "UPDATE dre_nos SET parent_id=%s, ordem=%s WHERE id=%s AND mascara_id=%s",
                 (parent_id, ordem, no_id_int, mascara_id),
             )
         conn.commit()
+        log_user_action(
+            "Editar",
+            "Gerencial - DRE Máscaras",
+            "Nós da estrutura foram reordenados.",
+            {
+                "mascara_id": mascara_id,
+                "parent_id": parent_id,
+                "ordem": ids_processados,
+            },
+        )
         return jsonify({"ok": True})
     except Exception as e:
         conn.rollback()
