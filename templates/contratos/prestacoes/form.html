@@ -183,8 +183,21 @@
         if(typeof valor !== 'string'){
             return 0;
         }
-        const cleaned = valor.replace(/[^0-9,-]/g, '').replace(/\./g, '').replace(',', '.');
-        const parsed = parseFloat(cleaned);
+        
+        const cleaned = valor.replace(/[^0-9.,-]/g, '');
+        const hasComma = cleaned.includes(',');
+        const hasDot = cleaned.includes('.');
+
+        let normalized;
+        if(hasComma && hasDot){
+            normalized = cleaned.replace(/\./g, '').replace(',', '.');
+        }else if(hasComma){
+            normalized = cleaned.replace(',', '.');
+        }else{
+            normalized = cleaned;
+        }
+
+        const parsed = parseFloat(normalized);
         return Number.isFinite(parsed) ? parsed : 0;
     }
 
