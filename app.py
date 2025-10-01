@@ -379,6 +379,9 @@ MODULES = [
 # Ações possíveis
 ACTIONS = ["Incluir", "Editar", "Consultar", "Excluir", "Bloquear"]
 
+PRESTACAO_RECEITA_DESCR = "PRESTACAO ENCERRAMENTO CONTRATO"
+PRESTACAO_DESPESA_DESCR = "PRESTACAO ENCERRAMENTO CONTRATO"
+
 
 # Função para conectar ao banco de dados
 def get_db_connection():
@@ -720,6 +723,426 @@ def parse_date(value):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def decimal_to_string(value) -> str:
+    if value is None:
+        value = Decimal("0")
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
+    return format(value.quantize(Decimal("0.01")), ".2f")
+
+
+def get_or_create_categoria(cur, tabela: str, descricao: str) -> int:
+    cur.execute(f"SELECT id FROM {tabela} WHERE descricao = %s", (descricao,))
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    cur.execute(
+        f"INSERT INTO {tabela} (descricao) VALUES (%s) RETURNING id",
+        (descricao,),
+    )
+    return cur.fetchone()[0]
+
+
+def fetch_contrato_info(cur, contrato_id: int):
+    cur.execute(
+        """
+        SELECT c.*, p.razao_social_nome AS cliente_nome, p.documento AS cliente_documento,
+               p.endereco AS cliente_endereco, p.bairro AS cliente_bairro,
+               p.cidade AS cliente_cidade, p.estado AS cliente_estado,
+               p.cep AS cliente_cep,
+               i.endereco AS imovel_endereco, i.bairro AS imovel_bairro,
+               i.cidade AS imovel_cidade, i.estado AS imovel_estado
+        FROM contratos_aluguel c
+        JOIN pessoas p ON c.cliente_id = p.id
+        JOIN imoveis i ON c.imovel_id = i.id
+        WHERE c.id = %s
+        """,
+        (contrato_id,),
+    )
+    return cur.fetchone()
+
+
+def listar_creditos_calcao(cur, contrato_id: int):
+    cur.execute(
+        """
+        SELECT id, titulo, data_pagamento, valor_pago, valor_previsto
+        FROM contas_a_receber
+        WHERE contrato_id = %s
+          AND titulo LIKE 'C%%'
+          AND status_conta = 'Paga'
+        ORDER BY data_pagamento NULLS LAST, id
+        """,
+        (contrato_id,),
+    )
+    creditos = []
+    for row in cur.fetchall():
+        valor_pago = row["valor_pago"]
+        if valor_pago is None:
+            continue
+        valor_pago = Decimal(str(valor_pago))
+        if valor_pago <= 0:
+            continue
+        creditos.append(
+            {
+                "id": row["id"],
+                "titulo": row["titulo"],
+                "data_pagamento": row["data_pagamento"],
+                "valor": valor_pago,
+                "valor_previsto": Decimal(str(row["valor_previsto"]))
+                if row["valor_previsto"] is not None
+                else valor_pago,
+            }
+        )
+    return creditos
+
+
+def listar_debitos_para_prestacao(cur, contrato_id: int, data_encerramento: date):
+    cur.execute(
+        """
+        SELECT id, titulo, data_vencimento, data_pagamento, valor_previsto, valor_pago, valor_pendente, status_conta
+        FROM contas_a_receber
+        WHERE contrato_id = %s
+          AND status_conta IN ('Aberta', 'Vencida', 'Parcial')
+          AND (data_vencimento IS NULL OR data_vencimento >= %s)
+        ORDER BY data_vencimento NULLS LAST, id
+        """,
+        (contrato_id, data_encerramento),
+    )
+    debitos = []
+    for row in cur.fetchall():
+        valor_previsto = Decimal(str(row["valor_previsto"]))
+        valor_pago = (
+            Decimal(str(row["valor_pago"]))
+            if row["valor_pago"] is not None
+            else Decimal("0")
+        )
+        valor_pendente = (
+            Decimal(str(row["valor_pendente"]))
+            if row["valor_pendente"] is not None
+            else valor_previsto - valor_pago
+        )
+        if valor_pendente <= 0:
+            continue
+        debitos.append(
+            {
+                "id": row["id"],
+                "titulo": row["titulo"],
+                "data_vencimento": row["data_vencimento"],
+                "valor_previsto": valor_previsto,
+                "valor_pago": valor_pago,
+                "valor_pendente": valor_pendente,
+                "status": row["status_conta"],
+                "data_pagamento": row["data_pagamento"],
+            }
+        )
+    return debitos
+
+
+def calcular_totais_prestacao(creditos, debitos, despesas):
+    total_creditos = sum(item["valor"] for item in creditos)
+    total_debitos = sum(item["valor_pendente"] for item in debitos)
+    total_despesas = sum(item["valor"] for item in despesas)
+    saldo_final = total_creditos - total_debitos - total_despesas
+    return {
+        "total_creditos": total_creditos,
+        "total_debitos": total_debitos,
+        "total_despesas": total_despesas,
+        "saldo_final": saldo_final,
+    }
+
+
+def preparar_despesas(payload):
+    despesas = []
+    if not payload:
+        return despesas
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        descricao = str(item.get("descricao", "")).strip()
+        valor = parse_decimal(item.get("valor"))
+        if not descricao or valor is None:
+            continue
+        try:
+            valor = valor.quantize(Decimal("0.01"))
+        except InvalidOperation:
+            continue
+        if valor <= 0:
+            continue
+        despesas.append({"descricao": descricao, "valor": valor})
+    return despesas
+
+
+def reverter_prestacao(cur, prestacao_id: int):
+    cur.execute(
+        "SELECT conta_pagar_id, conta_receber_id FROM prestacoes_contas WHERE id = %s",
+        (prestacao_id,),
+    )
+    prestacao = cur.fetchone()
+    if prestacao is None:
+        raise ValueError("Prestacao de contas não encontrada.")
+
+    cur.execute(
+        """
+        SELECT conta_receber_id, status_original, valor_pago_original, valor_pendente_original, data_pagamento_original
+        FROM prestacoes_contas_itens
+        WHERE prestacao_id = %s AND tipo = 'debito'
+        """,
+        (prestacao_id,),
+    )
+    for row in cur.fetchall():
+        conta_id = row["conta_receber_id"]
+        if conta_id is None:
+            continue
+        status_original = row["status_original"] or "Aberta"
+        cur.execute(
+            """
+            UPDATE contas_a_receber
+            SET status_conta = %s,
+                valor_pago = %s,
+                valor_pendente = %s,
+                data_pagamento = %s
+            WHERE id = %s
+            """,
+            (
+                status_original,
+                row["valor_pago_original"],
+                row["valor_pendente_original"],
+                row["data_pagamento_original"],
+                conta_id,
+            ),
+        )
+
+    conta_pagar_id = prestacao["conta_pagar_id"]
+    conta_receber_id = prestacao["conta_receber_id"]
+    if conta_pagar_id:
+        cur.execute("DELETE FROM contas_a_pagar WHERE id = %s", (conta_pagar_id,))
+    if conta_receber_id:
+        cur.execute("DELETE FROM contas_a_receber WHERE id = %s", (conta_receber_id,))
+
+
+def processar_prestacao(
+    cur,
+    contrato,
+    data_encerramento,
+    payload,
+    prestacao_id=None,
+):
+    contrato_id = contrato["id"]
+    creditos = listar_creditos_calcao(cur, contrato_id)
+    debitos_disponiveis = listar_debitos_para_prestacao(cur, contrato_id, data_encerramento)
+    debitos_map = {item["id"]: item for item in debitos_disponiveis}
+
+    debitos_ids = set()
+    for conta_id in payload.get("debitos_incluir", []):
+        try:
+            debitos_ids.add(int(conta_id))
+        except (TypeError, ValueError):
+            raise ValueError("Identificador de parcela inválido.")
+
+    debitos = []
+    for conta_id in debitos_ids:
+        debito = debitos_map.get(conta_id)
+        if not debito:
+            raise ValueError("Parcela selecionada não é válida para a prestação de contas.")
+        debitos.append(debito)
+
+    despesas = preparar_despesas(payload.get("despesas"))
+    observacoes = (payload.get("observacoes") or "").strip()
+
+    totais = calcular_totais_prestacao(creditos, debitos, despesas)
+    total_creditos = totais["total_creditos"].quantize(Decimal("0.01"))
+    total_debitos = totais["total_debitos"].quantize(Decimal("0.01"))
+    total_despesas = totais["total_despesas"].quantize(Decimal("0.01"))
+    saldo_final = totais["saldo_final"].quantize(Decimal("0.01"))
+
+    if prestacao_id is None:
+        cur.execute(
+            """
+            INSERT INTO prestacoes_contas (
+                contrato_id, data_encerramento,
+                total_creditos, total_debitos, total_despesas, saldo_final, observacoes
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (
+                contrato_id,
+                data_encerramento,
+                total_creditos,
+                total_debitos,
+                total_despesas,
+                saldo_final,
+                observacoes if observacoes else None,
+            ),
+        )
+        prestacao_id = cur.fetchone()[0]
+    else:
+        cur.execute(
+            """
+            UPDATE prestacoes_contas
+            SET data_encerramento = %s,
+                total_creditos = %s,
+                total_debitos = %s,
+                total_despesas = %s,
+                saldo_final = %s,
+                observacoes = %s,
+                conta_pagar_id = NULL,
+                conta_receber_id = NULL,
+                atualizado_em = NOW()
+            WHERE id = %s
+            """,
+            (
+                data_encerramento,
+                total_creditos,
+                total_debitos,
+                total_despesas,
+                saldo_final,
+                observacoes if observacoes else None,
+                prestacao_id,
+            ),
+        )
+        if cur.rowcount == 0:
+            raise ValueError("Prestação de contas não encontrada para atualização.")
+        cur.execute(
+            "DELETE FROM prestacoes_contas_itens WHERE prestacao_id = %s",
+            (prestacao_id,),
+        )
+
+    for credito in creditos:
+        cur.execute(
+            """
+            INSERT INTO prestacoes_contas_itens (
+                prestacao_id, conta_receber_id, tipo, descricao, valor
+            ) VALUES (%s, %s, 'credito', %s, %s)
+            """,
+            (
+                prestacao_id,
+                credito["id"],
+                credito["titulo"],
+                credito["valor"].quantize(Decimal("0.01")),
+            ),
+        )
+
+    for debito in debitos:
+        cur.execute(
+            """
+            INSERT INTO prestacoes_contas_itens (
+                prestacao_id, conta_receber_id, tipo, descricao, valor,
+                status_original, valor_pago_original, valor_pendente_original, data_pagamento_original
+            ) VALUES (%s, %s, 'debito', %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                prestacao_id,
+                debito["id"],
+                debito["titulo"],
+                debito["valor_pendente"].quantize(Decimal("0.01")),
+                debito["status"],
+                debito["valor_pago"],
+                debito["valor_pendente"],
+                debito["data_pagamento"],
+            ),
+        )
+        cur.execute(
+            """
+            UPDATE contas_a_receber
+            SET status_conta = 'Paga',
+                valor_pago = %s,
+                valor_pendente = 0,
+                data_pagamento = %s
+            WHERE id = %s
+            """,
+            (
+                debito["valor_previsto"],
+                data_encerramento,
+                debito["id"],
+            ),
+        )
+
+    for despesa in despesas:
+        cur.execute(
+            """
+            INSERT INTO prestacoes_contas_itens (prestacao_id, tipo, descricao, valor)
+            VALUES (%s, 'despesa', %s, %s)
+            """,
+            (
+                prestacao_id,
+                despesa["descricao"],
+                despesa["valor"].quantize(Decimal("0.01")),
+            ),
+        )
+
+    conta_pagar_id = None
+    conta_receber_id = None
+    titulo = f"Prestação de contas contrato #{contrato_id}"
+    if saldo_final > 0:
+        despesa_id = get_or_create_categoria(cur, "despesas_cadastro", PRESTACAO_DESPESA_DESCR)
+        cur.execute(
+            """
+            INSERT INTO contas_a_pagar (
+                despesa_id, fornecedor_id, titulo, data_vencimento, competencia,
+                valor_previsto, valor_pendente, observacao, status_conta
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Aberta')
+            RETURNING id
+            """,
+            (
+                despesa_id,
+                contrato["cliente_id"],
+                titulo,
+                data_encerramento,
+                data_encerramento,
+                saldo_final,
+                saldo_final,
+                observacoes if observacoes else None,
+            ),
+        )
+        conta_pagar_id = cur.fetchone()[0]
+    elif saldo_final < 0:
+        receita_id = get_or_create_categoria(cur, "receitas_cadastro", PRESTACAO_RECEITA_DESCR)
+        valor_receber = abs(saldo_final)
+        cur.execute(
+            """
+            INSERT INTO contas_a_receber (
+                contrato_id, receita_id, cliente_id, titulo, data_vencimento,
+                valor_previsto, valor_pendente, observacao, status_conta
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Aberta')
+            RETURNING id
+            """,
+            (
+                contrato_id,
+                receita_id,
+                contrato["cliente_id"],
+                titulo,
+                data_encerramento,
+                valor_receber,
+                valor_receber,
+                observacoes if observacoes else None,
+            ),
+        )
+        conta_receber_id = cur.fetchone()[0]
+
+    cur.execute(
+        """
+        UPDATE prestacoes_contas
+        SET conta_pagar_id = %s,
+            conta_receber_id = %s,
+            atualizado_em = NOW()
+        WHERE id = %s
+        """,
+        (conta_pagar_id, conta_receber_id, prestacao_id),
+    )
+
+    return {
+        "prestacao_id": prestacao_id,
+        "totais": {
+            "total_creditos": total_creditos,
+            "total_debitos": total_debitos,
+            "total_despesas": total_despesas,
+            "saldo_final": saldo_final,
+        },
+        "conta_pagar_id": conta_pagar_id,
+        "conta_receber_id": conta_receber_id,
+    }
 
 
 def format_currency(value):
@@ -1113,6 +1536,87 @@ def ensure_dre_tables():
 
 ensure_dre_tables()
 ensure_ordens_pagamento_tables()
+
+
+def ensure_prestacao_contas_tables():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_type WHERE typname = 'prestacao_item_tipo'
+                ) THEN
+                    CREATE TYPE prestacao_item_tipo AS ENUM ('credito', 'debito', 'despesa');
+                END IF;
+            END$$;
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS prestacoes_contas (
+                id SERIAL PRIMARY KEY,
+                contrato_id INTEGER NOT NULL REFERENCES contratos_aluguel(id) ON DELETE CASCADE,
+                data_encerramento DATE NOT NULL,
+                total_creditos NUMERIC(10,2) NOT NULL DEFAULT 0,
+                total_debitos NUMERIC(10,2) NOT NULL DEFAULT 0,
+                total_despesas NUMERIC(10,2) NOT NULL DEFAULT 0,
+                saldo_final NUMERIC(10,2) NOT NULL DEFAULT 0,
+                observacoes TEXT,
+                conta_pagar_id INTEGER REFERENCES contas_a_pagar(id),
+                conta_receber_id INTEGER REFERENCES contas_a_receber(id),
+                criado_em TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+                atualizado_em TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS prestacoes_contas_itens (
+                id SERIAL PRIMARY KEY,
+                prestacao_id INTEGER NOT NULL REFERENCES prestacoes_contas(id) ON DELETE CASCADE,
+                conta_receber_id INTEGER REFERENCES contas_a_receber(id),
+                tipo prestacao_item_tipo NOT NULL,
+                descricao TEXT NOT NULL,
+                valor NUMERIC(10,2) NOT NULL DEFAULT 0,
+                status_original status_conta_enum,
+                valor_pago_original NUMERIC(10,2),
+                valor_pendente_original NUMERIC(10,2),
+                data_pagamento_original DATE
+            )
+            """
+        )
+
+        alter_commands = [
+            "ALTER TABLE prestacoes_contas ADD COLUMN IF NOT EXISTS conta_pagar_id INTEGER REFERENCES contas_a_pagar(id)",
+            "ALTER TABLE prestacoes_contas ADD COLUMN IF NOT EXISTS conta_receber_id INTEGER REFERENCES contas_a_receber(id)",
+            "ALTER TABLE prestacoes_contas ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()",
+            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS status_original status_conta_enum",
+            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS valor_pago_original NUMERIC(10,2)",
+            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS valor_pendente_original NUMERIC(10,2)",
+            "ALTER TABLE prestacoes_contas_itens ADD COLUMN IF NOT EXISTS data_pagamento_original DATE",
+        ]
+        for command in alter_commands:
+            try:
+                cur.execute(command)
+            except Exception:
+                conn.rollback()
+                conn.autocommit = True
+                cur.execute(command)
+                conn.autocommit = False
+        conn.commit()
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+ensure_prestacao_contas_tables()
 
 
 @app.route("/uploads/<path:filename>")
@@ -3187,19 +3691,33 @@ def contratos_encerrar(id):
         flash("Data de encerramento invalida.", "danger")
         return redirect(url_for("contratos_list"))
 
-    cancelamentos_raw = request.form.get("cancelamentos")
-    if cancelamentos_raw:
+    prestacao_raw = request.form.get("prestacao_payload")
+    prestacao_payload = None
+    if prestacao_raw:
         try:
-            cancelamentos = json.loads(cancelamentos_raw)
+            prestacao_payload = json.loads(prestacao_raw)
         except json.JSONDecodeError:
-            flash("Selecao de cancelamento invalida.", "danger")
+            flash("Dados da prestação de contas inválidos.", "danger")
             return redirect(url_for("contratos_list"))
-    else:
-        cancelamentos = []
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     try:
+        contrato = fetch_contrato_info(cur, id)
+        if contrato is None:
+            raise ValueError("Contrato nao encontrado.")
+
+        prestacao_result = None
+        if prestacao_payload is not None:
+            prestacao_result = processar_prestacao(
+                cur,
+                contrato,
+                data_encerramento,
+                prestacao_payload,
+            )
+        else:
+            atualizar_status_contas_a_receber(cur)
+
         cur.execute(
             """
             UPDATE contratos_aluguel
@@ -3208,95 +3726,11 @@ def contratos_encerrar(id):
             """,
             ("Encerrado", data_encerramento, id),
         )
-        if cur.rowcount == 0:
-            raise ValueError("Contrato nao encontrado.")
-
-        if cancelamentos:
-            cur.execute(
-                """
-                SELECT id, valor_previsto, valor_pago, valor_pendente, status_conta, data_vencimento, observacao
-                FROM contas_a_receber
-                WHERE contrato_id = %s
-                """,
-                (id,),
-            )
-            titulos_map = {row["id"]: row for row in cur.fetchall()}
-            processados = set()
-            for item in cancelamentos:
-                if not isinstance(item, dict):
-                    raise ValueError("Selecao de cancelamento invalida.")
-                conta_id = item.get("id")
-                tipo = item.get("tipo")
-                if conta_id is None or tipo not in {"total", "parcial"}:
-                    raise ValueError("Selecao de cancelamento invalida.")
-                conta_id = int(conta_id)
-                if conta_id in processados:
-                    continue
-                titulo = titulos_map.get(conta_id)
-                if not titulo or titulo["status_conta"] not in ("Aberta", "Vencida", "Parcial"):
-                    raise ValueError("Titulo selecionado nao pode ser cancelado.")
-                processados.add(conta_id)
-
-                valor_previsto = Decimal(titulo["valor_previsto"])
-                valor_pago = (
-                    Decimal(titulo["valor_pago"])
-                    if titulo["valor_pago"] is not None
-                    else Decimal("0")
-                )
-                valor_pendente_atual = (
-                    Decimal(titulo["valor_pendente"])
-                    if titulo["valor_pendente"] is not None
-                    else valor_previsto - valor_pago
-                )
-                observacao_atual = titulo["observacao"] or ""
-
-                if tipo == "total":
-                    anotacao = f"[Encerramento {data_encerramento.strftime('%d/%m/%Y')}] Cancelamento total do titulo."
-                    observacao = f"{observacao_atual}\n{anotacao}" if observacao_atual else anotacao
-                    cur.execute(
-                        """
-                        UPDATE contas_a_receber
-                        SET status_conta = 'Cancelada'::status_conta_enum,
-                            valor_pendente = 0,
-                            observacao = %s
-                        WHERE id = %s
-                        """,
-                        (observacao, conta_id),
-                    )
-                else:
-                    valor_restante = parse_decimal(item.get("valor_pendente"))
-                    if valor_restante is None:
-                        raise ValueError("Informe o valor pendente para cancelamento parcial.")
-                    try:
-                        valor_restante = valor_restante.quantize(Decimal("0.01"))
-                    except InvalidOperation:
-                        raise ValueError("Valor pendente invalido.")
-                    if valor_restante <= 0:
-                        raise ValueError("Valor pendente deve ser maior que zero.")
-                    if valor_restante > valor_pendente_atual:
-                        raise ValueError("Valor pendente nao pode ser maior que o valor atual do titulo.")
-
-                    novo_valor_previsto = valor_pago + valor_restante
-                    anotacao = (
-                        f"[Encerramento {data_encerramento.strftime('%d/%m/%Y')}] "
-                        f"Cancelamento parcial. Valor pendente ajustado de "
-                        f"R$ {valor_pendente_atual:.2f} para R$ {valor_restante:.2f}."
-                    )
-                    observacao = f"{observacao_atual}\n{anotacao}" if observacao_atual else anotacao
-                    cur.execute(
-                        """
-                        UPDATE contas_a_receber
-                        SET valor_previsto = %s,
-                            valor_pendente = %s,
-                            observacao = %s
-                        WHERE id = %s
-                        """,
-                        (novo_valor_previsto, valor_restante, observacao, conta_id),
-                    )
-
-        atualizar_status_contas_a_receber(cur)
         conn.commit()
-        flash("Contrato encerrado com sucesso!", "success")
+        if prestacao_result:
+            flash("Prestação de contas gerada e contrato encerrado com sucesso!", "success")
+        else:
+            flash("Contrato encerrado com sucesso!", "success")
     except ValueError as e:
         conn.rollback()
         flash(str(e), "danger")
@@ -5193,6 +5627,437 @@ def ordens_pagamento_gerar_contas(id):
     finally:
         cur.close()
         conn.close()
+
+
+@app.route("/contratos/<int:contrato_id>/prestacao/preview", methods=["GET"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_prestacao_preview(contrato_id):
+    data_encerramento = parse_date(request.args.get("data_encerramento"))
+    if not data_encerramento:
+        return jsonify({"error": "Data de encerramento inválida."}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        contrato = fetch_contrato_info(cur, contrato_id)
+        if contrato is None:
+            return jsonify({"error": "Contrato não encontrado."}), 404
+
+        creditos = listar_creditos_calcao(cur, contrato_id)
+        debitos = listar_debitos_para_prestacao(cur, contrato_id, data_encerramento)
+        totais = calcular_totais_prestacao(creditos, debitos, [])
+
+        creditos_serializados = []
+        for item in creditos:
+            data_pagamento = item["data_pagamento"]
+            creditos_serializados.append(
+                {
+                    "id": item["id"],
+                    "titulo": item["titulo"],
+                    "valor": decimal_to_string(item["valor"]),
+                    "valor_formatado": format_currency(item["valor"]),
+                    "valor_previsto": decimal_to_string(item["valor_previsto"]),
+                    "data_pagamento": data_pagamento.isoformat()
+                    if data_pagamento
+                    else None,
+                    "data_pagamento_formatada": data_pagamento.strftime("%d/%m/%Y")
+                    if data_pagamento
+                    else None,
+                }
+            )
+
+        debitos_serializados = []
+        for item in debitos:
+            data_vencimento = item["data_vencimento"]
+            debitos_serializados.append(
+                {
+                    "id": item["id"],
+                    "titulo": item["titulo"],
+                    "valor_previsto": decimal_to_string(item["valor_previsto"]),
+                    "valor_previsto_formatado": format_currency(item["valor_previsto"]),
+                    "valor_pago": decimal_to_string(item["valor_pago"]),
+                    "valor_pago_formatado": format_currency(item["valor_pago"]),
+                    "valor_pendente": decimal_to_string(item["valor_pendente"]),
+                    "valor_pendente_formatado": format_currency(item["valor_pendente"]),
+                    "status": item["status"],
+                    "data_vencimento": data_vencimento.isoformat()
+                    if data_vencimento
+                    else None,
+                    "data_vencimento_formatada": data_vencimento.strftime("%d/%m/%Y")
+                    if data_vencimento
+                    else None,
+                }
+            )
+
+        response = {
+            "contrato": {
+                "id": contrato["id"],
+                "cliente_nome": contrato.get("cliente_nome"),
+                "imovel_id": contrato.get("imovel_id"),
+                "data_inicio": contrato.get("data_inicio").isoformat()
+                if contrato.get("data_inicio")
+                else None,
+                "data_fim": contrato.get("data_fim").isoformat()
+                if contrato.get("data_fim")
+                else None,
+            },
+            "creditos": creditos_serializados,
+            "debitos": debitos_serializados,
+            "totais": {
+                "total_creditos": decimal_to_string(totais["total_creditos"]),
+                "total_creditos_formatado": format_currency(totais["total_creditos"]),
+                "total_debitos": decimal_to_string(totais["total_debitos"]),
+                "total_debitos_formatado": format_currency(totais["total_debitos"]),
+                "total_despesas": decimal_to_string(totais["total_despesas"]),
+                "total_despesas_formatado": format_currency(totais["total_despesas"]),
+                "saldo_final": decimal_to_string(totais["saldo_final"]),
+                "saldo_final_formatado": format_currency(totais["saldo_final"]),
+            },
+        }
+        return jsonify(response)
+    finally:
+        cur.close()
+        conn.close()
+
+
+@app.route("/contratos/<int:contrato_id>/encerrar", methods=["GET"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_encerrar_form(contrato_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        contrato = fetch_contrato_info(cur, contrato_id)
+        if contrato is None:
+            flash("Contrato não encontrado.", "danger")
+            return redirect(url_for("contratos_list"))
+
+        cur.execute(
+            """
+            SELECT id, data_encerramento, total_creditos, total_debitos,
+                   total_despesas, saldo_final, criado_em, atualizado_em
+            FROM prestacoes_contas
+            WHERE contrato_id = %s
+            ORDER BY criado_em DESC
+            """,
+            (contrato_id,),
+        )
+        prestacoes = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    data_sugerida = contrato.get("data_fim") or date.today()
+    configuracao = {
+        "selectedDebitos": [],
+        "despesas": [],
+        "observacoes": "",
+    }
+    return render_template(
+        "contratos/prestacoes/form.html",
+        contrato=contrato,
+        prestacao=None,
+        prestacoes=prestacoes,
+        form_action=url_for("contratos_encerrar", id=contrato_id),
+        preview_url=url_for("contratos_prestacao_preview", contrato_id=contrato_id),
+        data_encerramento=data_sugerida.strftime("%Y-%m-%d"),
+        configuracao=configuracao,
+        is_edit=False,
+    )
+
+
+@app.route("/contratos/prestacoes/<int:prestacao_id>/editar", methods=["GET"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_prestacao_editar(prestacao_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT pc.*, c.id AS contrato_id, c.data_fim,
+                   p.razao_social_nome AS cliente_nome, p.documento AS cliente_documento,
+                   c.cliente_id, c.imovel_id,
+                   i.endereco AS imovel_endereco, i.bairro AS imovel_bairro,
+                   i.cidade AS imovel_cidade, i.estado AS imovel_estado
+            FROM prestacoes_contas pc
+            JOIN contratos_aluguel c ON pc.contrato_id = c.id
+            JOIN pessoas p ON c.cliente_id = p.id
+            JOIN imoveis i ON c.imovel_id = i.id
+            WHERE pc.id = %s
+            """,
+            (prestacao_id,),
+        )
+        prestacao = cur.fetchone()
+        if prestacao is None:
+            flash("Prestação de contas não encontrada.", "danger")
+            return redirect(url_for("contratos_list"))
+
+        contrato_id = prestacao["contrato_id"]
+        contrato = fetch_contrato_info(cur, contrato_id)
+
+        cur.execute(
+            """
+            SELECT tipo, descricao, valor, conta_receber_id
+            FROM prestacoes_contas_itens
+            WHERE prestacao_id = %s
+            ORDER BY id
+            """,
+            (prestacao_id,),
+        )
+        itens = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT id, data_encerramento, total_creditos, total_debitos,
+                   total_despesas, saldo_final, criado_em, atualizado_em
+            FROM prestacoes_contas
+            WHERE contrato_id = %s
+            ORDER BY criado_em DESC
+            """,
+            (contrato_id,),
+        )
+        prestacoes = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    selected_debitos = [item["conta_receber_id"] for item in itens if item["tipo"] == "debito"]
+    despesas = [
+        {
+            "descricao": item["descricao"],
+            "valor": decimal_to_string(item["valor"]),
+        }
+        for item in itens
+        if item["tipo"] == "despesa"
+    ]
+    configuracao = {
+        "selectedDebitos": selected_debitos,
+        "despesas": despesas,
+        "observacoes": prestacao["observacoes"] or "",
+    }
+    data_encerramento = prestacao["data_encerramento"].strftime("%Y-%m-%d")
+
+    return render_template(
+        "contratos/prestacoes/form.html",
+        contrato=contrato,
+        prestacao=prestacao,
+        prestacoes=prestacoes,
+        form_action=url_for("contratos_prestacao_atualizar", prestacao_id=prestacao_id),
+        preview_url=url_for("contratos_prestacao_preview", contrato_id=contrato["id"]),
+        data_encerramento=data_encerramento,
+        configuracao=configuracao,
+        is_edit=True,
+    )
+
+
+@app.route("/contratos/prestacoes/<int:prestacao_id>/atualizar", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_prestacao_atualizar(prestacao_id):
+    data_encerramento = parse_date(request.form.get("data_encerramento"))
+    if not data_encerramento:
+        flash("Informe a data de encerramento.", "warning")
+        return redirect(request.referrer or url_for("contratos_list"))
+
+    prestacao_raw = request.form.get("prestacao_payload")
+    if not prestacao_raw:
+        flash("Informe os dados da prestação de contas.", "danger")
+        return redirect(request.referrer or url_for("contratos_list"))
+    try:
+        prestacao_payload = json.loads(prestacao_raw)
+    except json.JSONDecodeError:
+        flash("Dados da prestação de contas inválidos.", "danger")
+        return redirect(request.referrer or url_for("contratos_list"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            "SELECT contrato_id FROM prestacoes_contas WHERE id = %s",
+            (prestacao_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError("Prestação de contas não encontrada.")
+        contrato_id = row["contrato_id"]
+        contrato = fetch_contrato_info(cur, contrato_id)
+        if contrato is None:
+            raise ValueError("Contrato relacionado não encontrado.")
+
+        reverter_prestacao(cur, prestacao_id)
+        processar_prestacao(
+            cur,
+            contrato,
+            data_encerramento,
+            prestacao_payload,
+            prestacao_id=prestacao_id,
+        )
+        conn.commit()
+        flash("Prestação de contas atualizada com sucesso!", "success")
+        return redirect(url_for("contratos_encerrar_form", contrato_id=contrato_id))
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "danger")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Erro ao atualizar prestação de contas: {exc}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(request.referrer or url_for("contratos_list"))
+
+
+@app.route("/contratos/prestacoes/<int:prestacao_id>/excluir", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_prestacao_excluir(prestacao_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            "SELECT contrato_id FROM prestacoes_contas WHERE id = %s",
+            (prestacao_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise ValueError("Prestação de contas não encontrada.")
+        contrato_id = row["contrato_id"]
+        reverter_prestacao(cur, prestacao_id)
+        cur.execute(
+            "DELETE FROM prestacoes_contas WHERE id = %s",
+            (prestacao_id,),
+        )
+        conn.commit()
+        flash("Prestação de contas excluída com sucesso!", "success")
+        return redirect(url_for("contratos_encerrar_form", contrato_id=contrato_id))
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "danger")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Erro ao excluir prestação de contas: {exc}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(request.referrer or url_for("contratos_list"))
+
+
+@app.route("/contratos/prestacoes/<int:prestacao_id>/relatorio", methods=["GET"])
+@login_required
+@permission_required("Gestao Contratos", "Consultar")
+def contratos_prestacao_relatorio(prestacao_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT pc.*, c.id AS contrato_id, c.data_inicio, c.data_fim,
+                   p.razao_social_nome AS cliente_nome, p.documento AS cliente_documento,
+                   p.endereco AS cliente_endereco, p.cidade AS cliente_cidade,
+                   p.estado AS cliente_estado, p.cep AS cliente_cep,
+                   i.endereco AS imovel_endereco, i.cidade AS imovel_cidade,
+                   i.estado AS imovel_estado
+            FROM prestacoes_contas pc
+            JOIN contratos_aluguel c ON pc.contrato_id = c.id
+            JOIN pessoas p ON c.cliente_id = p.id
+            JOIN imoveis i ON c.imovel_id = i.id
+            WHERE pc.id = %s
+            """,
+            (prestacao_id,),
+        )
+        prestacao = cur.fetchone()
+        if prestacao is None:
+            flash("Prestação de contas não encontrada.", "danger")
+            return redirect(url_for("contratos_list"))
+
+        cur.execute(
+            """
+            SELECT tipo, descricao, valor, conta_receber_id
+            FROM prestacoes_contas_itens
+            WHERE prestacao_id = %s
+            ORDER BY tipo, id
+            """,
+            (prestacao_id,),
+        )
+        itens = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
+
+    creditos = [item for item in itens if item["tipo"] == "credito"]
+    debitos = [item for item in itens if item["tipo"] == "debito"]
+    despesas = [item for item in itens if item["tipo"] == "despesa"]
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 14)
+    pdf.cell(0, 10, "Prestação de Contas", ln=True, align="C")
+
+    pdf.set_font("Arial", "", 10)
+    pdf.ln(4)
+    pdf.cell(0, 6, f"Contrato #{prestacao['contrato_id']} - Cliente: {prestacao['cliente_nome']}", ln=True)
+    pdf.cell(0, 6, f"Documento: {prestacao['cliente_documento']}", ln=True)
+    pdf.cell(
+        0,
+        6,
+        f"Imóvel: {prestacao['imovel_endereco']} - {prestacao['imovel_cidade']}/{prestacao['imovel_estado']}",
+        ln=True,
+    )
+    pdf.cell(
+        0,
+        6,
+        f"Período do contrato: {prestacao['data_inicio'].strftime('%d/%m/%Y')}"
+        f" a {prestacao['data_fim'].strftime('%d/%m/%Y')}",
+        ln=True,
+    )
+    pdf.cell(
+        0,
+        6,
+        f"Data da prestação: {prestacao['data_encerramento'].strftime('%d/%m/%Y')}",
+        ln=True,
+    )
+
+    def add_section(titulo, registros):
+        pdf.ln(6)
+        pdf.set_font("Arial", "B", 12)
+        pdf.cell(0, 8, titulo, ln=True)
+        pdf.set_font("Arial", "", 10)
+        if not registros:
+            pdf.cell(0, 6, "Nenhum registro.", ln=True)
+            return
+        for registro in registros:
+            descricao = registro["descricao"]
+            valor = Decimal(str(registro["valor"]))
+            pdf.cell(0, 6, f"- {descricao}: {format_currency(valor)}", ln=True)
+
+    add_section("Créditos (Calção)", creditos)
+    add_section("Débitos", debitos)
+    add_section("Despesas Extras", despesas)
+
+    pdf.ln(8)
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(0, 6, "Totais", ln=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 6, f"Total de créditos: {format_currency(prestacao['total_creditos'])}", ln=True)
+    pdf.cell(0, 6, f"Total de débitos: {format_currency(prestacao['total_debitos'])}", ln=True)
+    pdf.cell(0, 6, f"Despesas extras: {format_currency(prestacao['total_despesas'])}", ln=True)
+    pdf.cell(0, 6, f"Saldo final: {format_currency(prestacao['saldo_final'])}", ln=True)
+
+    if prestacao.get("observacoes"):
+        pdf.ln(6)
+        pdf.set_font("Arial", "B", 11)
+        pdf.cell(0, 6, "Observações", ln=True)
+        pdf.set_font("Arial", "", 10)
+        for linha in prestacao["observacoes"].splitlines():
+            pdf.multi_cell(0, 5, linha)
+
+    pdf_bytes = pdf.output(dest="S").encode("latin-1")
+    buffer = io.BytesIO(pdf_bytes)
+    buffer.seek(0)
+    filename = f"prestacao_contrato_{prestacao_id}.pdf"
+    return send_file(buffer, mimetype="application/pdf", download_name=filename, as_attachment=True)
 
 
 @app.route("/ordens-pagamento/print/<int:id>")

@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Prestação de Contas do Contrato{% endblock %}
+
+{% block page_title %}Prestação de Contas do Contrato{% endblock %}
+
+{% block content %}
+<div class="content-section bg-white p-6 rounded-lg shadow-xl space-y-6">
+    <div class="flex justify-between items-start flex-wrap gap-4">
+        <div>
+            <h2 class="text-2xl font-semibold text-dark-blue mb-2">Contrato #{{ contrato.id }}</h2>
+            <p class="text-sm text-gray-700"><strong>Cliente:</strong> {{ contrato.cliente_nome }} ({{ contrato.cliente_documento }})</p>
+            <p class="text-sm text-gray-700"><strong>Imóvel:</strong> {{ contrato.imovel_endereco }} - {{ contrato.imovel_cidade }}/{{ contrato.imovel_estado }}</p>
+            <p class="text-sm text-gray-700"><strong>Período:</strong> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} até {{ contrato.data_fim.strftime('%d/%m/%Y') }}</p>
+        </div>
+        <div class="text-right">
+            <a href="{{ url_for('contratos_list') }}" class="btn-secondary inline-flex items-center"><i class="fas fa-arrow-left mr-2"></i>Voltar para contratos</a>
+        </div>
+    </div>
+
+    {% if prestacoes %}
+    <div class="border border-gray-200 rounded-lg p-4">
+        <h3 class="text-lg font-semibold text-gray-800 mb-3">Prestações de contas registradas</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-100 text-gray-700">
+                    <tr>
+                        <th class="py-2 px-3 text-left">Data</th>
+                        <th class="py-2 px-3 text-right">Créditos</th>
+                        <th class="py-2 px-3 text-right">Débitos</th>
+                        <th class="py-2 px-3 text-right">Despesas</th>
+                        <th class="py-2 px-3 text-right">Saldo</th>
+                        <th class="py-2 px-3 text-center">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for item in prestacoes %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-2 px-3">{{ item.data_encerramento.strftime('%d/%m/%Y') }}</td>
+                        <td class="py-2 px-3 text-right">{{ item.total_creditos|currency }}</td>
+                        <td class="py-2 px-3 text-right">{{ item.total_debitos|currency }}</td>
+                        <td class="py-2 px-3 text-right">{{ item.total_despesas|currency }}</td>
+                        <td class="py-2 px-3 text-right font-semibold {% if item.saldo_final > 0 %}text-green-600{% elif item.saldo_final < 0 %}text-red-600{% endif %}">{{ item.saldo_final|currency }}</td>
+                        <td class="py-2 px-3 text-center space-x-2 whitespace-nowrap">
+                            <a href="{{ url_for('contratos_prestacao_editar', prestacao_id=item.id) }}" class="text-blue-600 hover:text-blue-800" title="Editar"><i class="fas fa-edit"></i></a>
+                            <a href="{{ url_for('contratos_prestacao_relatorio', prestacao_id=item.id) }}" class="text-green-600 hover:text-green-800" title="Relatório" target="_blank"><i class="fas fa-file-pdf"></i></a>
+                            <form action="{{ url_for('contratos_prestacao_excluir', prestacao_id=item.id) }}" method="POST" class="inline" onsubmit="return confirm('Deseja realmente excluir esta prestação de contas?');">
+                                <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <form id="prestacao-form" method="POST" action="{{ form_action }}" class="space-y-6">
+        <input type="hidden" name="prestacao_payload" id="prestacao-payload">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="prestacao-data" class="form-label">Data de encerramento</label>
+                <input type="date" id="prestacao-data" name="data_encerramento" class="form-input" value="{{ data_encerramento }}" required>
+            </div>
+            <div class="md:text-right text-sm text-gray-600 flex items-end justify-start md:justify-end">
+                <span id="prestacao-feedback" class="hidden"></span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="border border-gray-200 rounded-lg p-4">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Créditos (Calção)</h3>
+                <div id="creditos-container" class="space-y-2 text-sm"></div>
+            </div>
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-lg font-semibold text-gray-800">Débitos pendentes</h3>
+                    <span class="text-xs text-gray-500">Selecione as parcelas incluídas</span>
+                </div>
+                <div id="debitos-container" class="space-y-2 text-sm"></div>
+            </div>
+        </div>
+
+        <div class="border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-gray-800">Despesas extras</h3>
+                <button type="button" id="add-despesa" class="btn-secondary text-sm"><i class="fas fa-plus mr-2"></i>Adicionar despesa</button>
+            </div>
+            <div id="despesas-container" class="space-y-3 text-sm"></div>
+        </div>
+
+        <div>
+            <label for="prestacao-observacoes" class="form-label">Observações</label>
+            <textarea id="prestacao-observacoes" name="observacoes" rows="4" class="form-input" placeholder="Anotações gerais para a prestação de contas"></textarea>
+        </div>
+
+        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">Resumo</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-700">
+                <div>
+                    <p class="font-medium">Total de créditos</p>
+                    <p id="total-creditos" class="text-lg font-semibold text-green-600">R$ 0,00</p>
+                </div>
+                <div>
+                    <p class="font-medium">Total de débitos</p>
+                    <p id="total-debitos" class="text-lg font-semibold text-red-600">R$ 0,00</p>
+                </div>
+                <div>
+                    <p class="font-medium">Despesas extras</p>
+                    <p id="total-despesas" class="text-lg font-semibold text-red-600">R$ 0,00</p>
+                </div>
+                <div>
+                    <p class="font-medium">Saldo final</p>
+                    <p id="saldo-final" class="text-lg font-semibold">R$ 0,00</p>
+                </div>
+            </div>
+            <p id="saldo-feedback" class="text-sm mt-3 text-gray-600"></p>
+        </div>
+
+        <div class="flex items-center justify-end gap-3">
+            <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Cancelar</a>
+            <button type="submit" class="btn-primary text-white">
+                {% if is_edit %}Atualizar prestação de contas{% else %}Gerar prestação de contas{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+    const previewUrl = "{{ preview_url }}";
+    const initialDate = "{{ data_encerramento }}";
+    const configuracao = {{ configuracao | tojson }};
+
+    const dataInput = document.getElementById('prestacao-data');
+    const creditosContainer = document.getElementById('creditos-container');
+    const debitosContainer = document.getElementById('debitos-container');
+    const despesasContainer = document.getElementById('despesas-container');
+    const addDespesaBtn = document.getElementById('add-despesa');
+    const observacoesTextarea = document.getElementById('prestacao-observacoes');
+    const payloadInput = document.getElementById('prestacao-payload');
+    const totalCreditosEl = document.getElementById('total-creditos');
+    const totalDebitosEl = document.getElementById('total-debitos');
+    const totalDespesasEl = document.getElementById('total-despesas');
+    const saldoFinalEl = document.getElementById('saldo-final');
+    const saldoFeedbackEl = document.getElementById('saldo-feedback');
+    const feedbackEl = document.getElementById('prestacao-feedback');
+
+    const state = {
+        creditos: [],
+        debitos: [],
+        selectedDebitos: new Set(configuracao.selectedDebitos || []),
+        despesas: [],
+    };
+
+    if (Array.isArray(configuracao.despesas)) {
+        state.despesas = configuracao.despesas.map((item, index) => ({
+            id: `despesa-${index + 1}`,
+            descricao: item.descricao || '',
+            valor: item.valor || ''
+        }));
+    }
+
+    if (observacoesTextarea) {
+        observacoesTextarea.value = configuracao.observacoes || '';
+    }
+
+    function formatCurrency(value){
+        const numero = Number(value || 0);
+        if(!Number.isFinite(numero)){
+            return 'R$ 0,00';
+        }
+        return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function parseValor(valor){
+        if(typeof valor === 'number'){
+            return valor;
+        }
+        if(typeof valor !== 'string'){
+            return 0;
+        }
+        const cleaned = valor.replace(/[^0-9,-]/g, '').replace(/\./g, '').replace(',', '.');
+        const parsed = parseFloat(cleaned);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function renderCreditos(){
+        if(!creditosContainer){ return; }
+        if(!state.creditos.length){
+            creditosContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum crédito encontrado.</p>';
+            return;
+        }
+        const rows = state.creditos.map(item => `
+            <div class="border border-gray-200 rounded p-2 flex justify-between items-center">
+                <div>
+                    <p class="font-medium text-gray-800">${item.titulo}</p>
+                    <p class="text-xs text-gray-500">Pagamento: ${item.data_pagamento_formatada || '—'}</p>
+                </div>
+                <div class="font-semibold text-green-600">${item.valor_formatado}</div>
+            </div>
+        `);
+        creditosContainer.innerHTML = rows.join('');
+    }
+
+    function renderDebitos(){
+        if(!debitosContainer){ return; }
+        if(!state.debitos.length){
+            debitosContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum débito encontrado para a data informada.</p>';
+            return;
+        }
+        const rows = state.debitos.map(item => {
+            const checked = state.selectedDebitos.has(item.id) ? 'checked' : '';
+            return `
+                <label class="flex items-start gap-3 border border-gray-200 rounded p-2 hover:bg-gray-50">
+                    <input type="checkbox" class="mt-1 seleciona-debito" value="${item.id}" ${checked}>
+                    <div class="flex-1">
+                        <p class="font-medium text-gray-800">${item.titulo}</p>
+                        <p class="text-xs text-gray-500">Vencimento: ${item.data_vencimento_formatada || '—'} | Valor pendente: ${item.valor_pendente_formatado}</p>
+                    </div>
+                </label>
+            `;
+        });
+        debitosContainer.innerHTML = rows.join('');
+        debitosContainer.querySelectorAll('.seleciona-debito').forEach(input => {
+            input.addEventListener('change', () => {
+                const id = parseInt(input.value, 10);
+                if(input.checked){
+                    state.selectedDebitos.add(id);
+                }else{
+                    state.selectedDebitos.delete(id);
+                }
+                atualizarTotais();
+            });
+        });
+    }
+
+    function renderDespesas(){
+        if(!despesasContainer){ return; }
+        if(!state.despesas.length){
+            despesasContainer.innerHTML = '<p class="text-sm text-gray-500">Nenhuma despesa extra adicionada.</p>';
+            return;
+        }
+        const rows = state.despesas.map(item => `
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border border-gray-200 rounded p-3" data-despesa-id="${item.id}">
+                <div class="md:col-span-7">
+                    <label class="form-label">Descrição</label>
+                    <input type="text" class="form-input despesa-descricao" value="${item.descricao || ''}" placeholder="Descreva a despesa">
+                </div>
+                <div class="md:col-span-3">
+                    <label class="form-label">Valor</label>
+                    <input type="text" class="form-input despesa-valor" value="${item.valor || ''}" placeholder="0,00">
+                </div>
+                <div class="md:col-span-2 flex md:justify-end">
+                    <button type="button" class="btn-secondary remover-despesa w-full md:w-auto"><i class="fas fa-trash-alt mr-2"></i>Remover</button>
+                </div>
+            </div>
+        `);
+        despesasContainer.innerHTML = rows.join('');
+        despesasContainer.querySelectorAll('.despesa-descricao').forEach(input => {
+            input.addEventListener('input', event => {
+                const wrapper = event.target.closest('[data-despesa-id]');
+                const id = wrapper ? wrapper.dataset.despesaId : null;
+                const despesa = state.despesas.find(d => d.id === id);
+                if(despesa){
+                    despesa.descricao = event.target.value;
+                }
+            });
+        });
+        despesasContainer.querySelectorAll('.despesa-valor').forEach(input => {
+            input.addEventListener('input', event => {
+                const wrapper = event.target.closest('[data-despesa-id]');
+                const id = wrapper ? wrapper.dataset.despesaId : null;
+                const despesa = state.despesas.find(d => d.id === id);
+                if(despesa){
+                    despesa.valor = event.target.value;
+                    atualizarTotais();
+                }
+            });
+        });
+        despesasContainer.querySelectorAll('.remover-despesa').forEach(button => {
+            button.addEventListener('click', event => {
+                const wrapper = event.target.closest('[data-despesa-id]');
+                const id = wrapper ? wrapper.dataset.despesaId : null;
+                state.despesas = state.despesas.filter(d => d.id !== id);
+                renderDespesas();
+                atualizarTotais();
+            });
+        });
+    }
+
+    function atualizarTotais(){
+        const totalCreditos = state.creditos.reduce((acc, item) => acc + parseValor(item.valor), 0);
+        const totalDebitos = state.debitos
+            .filter(item => state.selectedDebitos.has(item.id))
+            .reduce((acc, item) => acc + parseValor(item.valor_pendente), 0);
+        const totalDespesas = state.despesas.reduce((acc, item) => acc + parseValor(item.valor), 0);
+        const saldo = totalCreditos - totalDebitos - totalDespesas;
+
+        totalCreditosEl.textContent = formatCurrency(totalCreditos);
+        totalDebitosEl.textContent = formatCurrency(totalDebitos);
+        totalDespesasEl.textContent = formatCurrency(totalDespesas);
+        saldoFinalEl.textContent = formatCurrency(saldo);
+
+        saldoFinalEl.classList.remove('text-green-600', 'text-red-600', 'text-gray-800');
+        saldoFeedbackEl.classList.remove('text-green-600', 'text-red-600');
+        saldoFeedbackEl.textContent = '';
+
+        if(saldo > 0){
+            saldoFinalEl.classList.add('text-green-600');
+            saldoFeedbackEl.classList.add('text-green-600');
+            saldoFeedbackEl.textContent = 'Saldo positivo: deverá ser gerado um título em contas a pagar para devolver ao cliente.';
+        }else if(saldo < 0){
+            saldoFinalEl.classList.add('text-red-600');
+            saldoFeedbackEl.classList.add('text-red-600');
+            saldoFeedbackEl.textContent = 'Saldo negativo: será criado um título em contas a receber para cobrar o cliente.';
+        }else{
+            saldoFinalEl.classList.add('text-gray-800');
+            saldoFeedbackEl.textContent = 'Saldo zerado: não serão gerados novos títulos.';
+        }
+    }
+
+    function carregarDados(dataStr){
+        if(!previewUrl){ return; }
+        feedbackEl.classList.remove('hidden');
+        feedbackEl.textContent = 'Carregando informações...';
+        fetch(`${previewUrl}?data_encerramento=${dataStr}`)
+            .then(resp => {
+                if(!resp.ok){ throw new Error('Erro ao carregar dados'); }
+                return resp.json();
+            })
+            .then(data => {
+                state.creditos = data.creditos || [];
+                state.debitos = (data.debitos || []).map(item => ({
+                    ...item,
+                    id: parseInt(item.id, 10),
+                    valor: item.valor_previsto,
+                    valor_pendente: item.valor_pendente
+                }));
+                renderCreditos();
+                renderDebitos();
+                renderDespesas();
+                atualizarTotais();
+                feedbackEl.textContent = `Dados carregados para ${dataStr.split('-').reverse().join('/')}`;
+            })
+            .catch(error => {
+                console.error(error);
+                creditosContainer.innerHTML = '<p class="text-sm text-red-600">Não foi possível carregar os créditos.</p>';
+                debitosContainer.innerHTML = '<p class="text-sm text-red-600">Não foi possível carregar os débitos.</p>';
+                feedbackEl.textContent = 'Erro ao carregar dados da prestação de contas.';
+            });
+    }
+
+    if(addDespesaBtn){
+        addDespesaBtn.addEventListener('click', () => {
+            const nextIndex = state.despesas.length + 1;
+            state.despesas.push({ id: `despesa-${Date.now()}-${nextIndex}`, descricao: '', valor: '' });
+            renderDespesas();
+        });
+    }
+
+    if(dataInput){
+        dataInput.addEventListener('change', () => {
+            if(dataInput.value){
+                carregarDados(dataInput.value);
+            }
+        });
+    }
+
+    const form = document.getElementById('prestacao-form');
+    if(form){
+        form.addEventListener('submit', event => {
+            if(!dataInput.value){
+                event.preventDefault();
+                alert('Informe a data de encerramento.');
+                dataInput.focus();
+                return;
+            }
+            const despesasValidas = state.despesas
+                .map(item => ({ descricao: item.descricao.trim(), valor: item.valor }))
+                .filter(item => item.descricao && parseValor(item.valor) > 0)
+                .map(item => ({ descricao: item.descricao, valor: item.valor }));
+
+            const payload = {
+                debitos_incluir: Array.from(state.selectedDebitos),
+                despesas: despesasValidas,
+                observacoes: observacoesTextarea ? observacoesTextarea.value.trim() : ''
+            };
+            payloadInput.value = JSON.stringify(payload);
+        });
+    }
+
+    if(initialDate){
+        carregarDados(initialDate);
+    }
+})();
+</script>
+{% endblock %}
