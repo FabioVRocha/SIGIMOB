@@ -425,6 +425,156 @@ def log_user_action(acao, modulo, descricao=None, dados=None):
             conn.close()
 
 
+# --- Gerencial ---
+
+
+@app.route("/gerencial/logs")
+@login_required
+@permission_required("Administracao Sistema", "Visualizar")
+def gerencial_logs():
+    page = request.args.get("page", 1, type=int)
+    if page < 1:
+        page = 1
+    per_page = 50
+
+    username = request.args.get("username", "").strip()
+    modulo = request.args.get("modulo", "").strip()
+    acao = request.args.get("acao", "").strip()
+    data_inicio = request.args.get("data_inicio", "").strip()
+    data_fim = request.args.get("data_fim", "").strip()
+
+    filtros_sql = []
+    params = []
+
+    if username:
+        filtros_sql.append("LOWER(username) LIKE %s")
+        params.append(f"%{username.lower()}%")
+    if modulo:
+        filtros_sql.append("modulo = %s")
+        params.append(modulo)
+    if acao:
+        filtros_sql.append("acao = %s")
+        params.append(acao)
+
+    if data_inicio:
+        try:
+            filtros_sql.append("criado_em >= %s")
+            params.append(datetime.strptime(data_inicio, "%Y-%m-%d"))
+        except ValueError:
+            flash("Data inicial inválida. Utilize o formato AAAA-MM-DD.", "warning")
+
+    if data_fim:
+        try:
+            filtros_sql.append("criado_em < %s")
+            params.append(datetime.strptime(data_fim, "%Y-%m-%d") + timedelta(days=1))
+        except ValueError:
+            flash("Data final inválida. Utilize o formato AAAA-MM-DD.", "warning")
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    where_clause = ""
+    if filtros_sql:
+        where_clause = " WHERE " + " AND ".join(filtros_sql)
+
+    count_sql = "SELECT COUNT(*) FROM auditoria_logs" + where_clause
+    cur.execute(count_sql, params)
+    total = cur.fetchone()[0] or 0
+
+    total_pages = (total + per_page - 1) // per_page if total else 1
+    if page > total_pages:
+        page = total_pages if total_pages > 0 else 1
+
+    offset = (page - 1) * per_page if total else 0
+
+    select_sql = (
+        "SELECT id, user_id, username, modulo, acao, descricao, dados, ip, criado_em "
+        "FROM auditoria_logs"
+        + where_clause
+        + " ORDER BY criado_em DESC LIMIT %s OFFSET %s"
+    )
+    query_params = list(params)
+    query_params.extend([per_page, offset])
+    cur.execute(select_sql, query_params)
+    rows = cur.fetchall()
+
+    logs = []
+    for row in rows:
+        dados = row["dados"]
+        dados_pretty = ""
+        if dados is not None:
+            try:
+                dados_pretty = json.dumps(dados, ensure_ascii=False, indent=2)
+            except (TypeError, ValueError):
+                dados_pretty = str(dados)
+        logs.append(
+            {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "username": row["username"],
+                "modulo": row["modulo"],
+                "acao": row["acao"],
+                "descricao": row["descricao"],
+                "dados": dados,
+                "dados_pretty": dados_pretty,
+                "ip": row["ip"],
+                "criado_em": row["criado_em"],
+            }
+        )
+
+    cur.execute(
+        "SELECT DISTINCT modulo FROM auditoria_logs WHERE modulo IS NOT NULL AND modulo <> '' ORDER BY modulo"
+    )
+    modulos = [row[0] for row in cur.fetchall()]
+
+    cur.execute(
+        "SELECT DISTINCT acao FROM auditoria_logs WHERE acao IS NOT NULL AND acao <> '' ORDER BY acao"
+    )
+    acoes = [row[0] for row in cur.fetchall()]
+
+    cur.close()
+    conn.close()
+
+    query_args = {
+        "username": username or None,
+        "modulo": modulo or None,
+        "acao": acao or None,
+        "data_inicio": data_inicio or None,
+        "data_fim": data_fim or None,
+    }
+    query_args = {k: v for k, v in query_args.items() if v}
+
+    pagination = {
+        "page": page,
+        "pages": total_pages,
+        "per_page": per_page,
+        "total": total,
+        "has_prev": page > 1,
+        "has_next": page < total_pages and total > 0,
+        "prev_url": url_for("gerencial_logs", page=page - 1, **query_args) if page > 1 else None,
+        "next_url": url_for("gerencial_logs", page=page + 1, **query_args)
+        if page < total_pages and total > 0
+        else None,
+    }
+
+    filter_values = {
+        "username": username,
+        "modulo": modulo,
+        "acao": acao,
+        "data_inicio": data_inicio,
+        "data_fim": data_fim,
+    }
+
+    return render_template(
+        "gerencial/logs/index.html",
+        logs=logs,
+        modulos=modulos,
+        acoes=acoes,
+        filter_values=filter_values,
+        pagination=pagination,
+    )
+
+
 # Função auxiliar para verificar extensões de arquivo permitidas
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS

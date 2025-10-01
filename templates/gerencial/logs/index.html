@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Logs do Sistema{% endblock %}
+{% block page_title %}Logs do Sistema{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 shadow rounded">
+  <div class="flex flex-col gap-6">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-6 gap-4">
+      <div>
+        <label for="username" class="block text-sm font-medium text-gray-600 mb-1">Usuário</label>
+        <input type="text" id="username" name="username" class="form-input" value="{{ filter_values.username }}" placeholder="Nome de usuário">
+      </div>
+      <div>
+        <label for="modulo" class="block text-sm font-medium text-gray-600 mb-1">Módulo</label>
+        <select id="modulo" name="modulo" class="form-select">
+          <option value="">Todos</option>
+          {% for option in modulos %}
+            <option value="{{ option }}" {% if filter_values.modulo == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="acao" class="block text-sm font-medium text-gray-600 mb-1">Ação</label>
+        <select id="acao" name="acao" class="form-select">
+          <option value="">Todas</option>
+          {% for option in acoes %}
+            <option value="{{ option }}" {% if filter_values.acao == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="data_inicio" class="block text-sm font-medium text-gray-600 mb-1">Data inicial</label>
+        <input type="date" id="data_inicio" name="data_inicio" class="form-input" value="{{ filter_values.data_inicio }}">
+      </div>
+      <div>
+        <label for="data_fim" class="block text-sm font-medium text-gray-600 mb-1">Data final</label>
+        <input type="date" id="data_fim" name="data_fim" class="form-input" value="{{ filter_values.data_fim }}">
+      </div>
+      <div class="flex items-end gap-2">
+        <button type="submit" class="btn btn-primary flex items-center gap-2">
+          <i class="fas fa-search"></i>
+          <span>Filtrar</span>
+        </button>
+        <a href="{{ url_for('gerencial_logs') }}" class="btn btn-secondary flex items-center gap-2">
+          <i class="fas fa-undo"></i>
+          <span>Limpar</span>
+        </a>
+      </div>
+    </form>
+
+    <div class="overflow-x-auto">
+      <table class="min-w-full bg-white border border-gray-200 rounded">
+        <thead class="table-header-bg">
+          <tr>
+            <th class="px-4 py-2 text-left whitespace-nowrap">Data/Hora</th>
+            <th class="px-4 py-2 text-left">Usuário</th>
+            <th class="px-4 py-2 text-left">Módulo</th>
+            <th class="px-4 py-2 text-left">Ação</th>
+            <th class="px-4 py-2 text-left">Descrição</th>
+            <th class="px-4 py-2 text-left">IP</th>
+            <th class="px-4 py-2 text-left">Dados</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr class="{{ 'table-row-even' if loop.index % 2 == 0 else 'table-row-odd' }}">
+            <td class="px-4 py-2 text-sm whitespace-nowrap">{{ log.criado_em.strftime('%d/%m/%Y %H:%M:%S') if log.criado_em else '' }}</td>
+            <td class="px-4 py-2 text-sm">{{ log.username or '-' }}</td>
+            <td class="px-4 py-2 text-sm">{{ log.modulo or '-' }}</td>
+            <td class="px-4 py-2 text-sm">{{ log.acao or '-' }}</td>
+            <td class="px-4 py-2 text-sm whitespace-pre-wrap">{{ log.descricao or '-' }}</td>
+            <td class="px-4 py-2 text-sm whitespace-nowrap">{{ log.ip or '-' }}</td>
+            <td class="px-4 py-2 text-sm">
+              {% if log.dados_pretty %}
+                <pre class="whitespace-pre-wrap text-xs bg-gray-100 p-3 rounded border border-gray-200 max-h-48 overflow-auto">{{ log.dados_pretty }}</pre>
+              {% else %}
+                <span class="text-gray-500">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="7" class="px-4 py-4 text-center text-gray-500">Nenhum log encontrado para os filtros informados.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
+      <div class="text-sm text-gray-600">
+        Mostrando {{ logs|length }} de {{ pagination.total }} registros.
+      </div>
+      <div class="flex items-center gap-3 text-sm text-gray-600">
+        <span>Página {{ pagination.page }} de {{ pagination.pages }}</span>
+        <div class="flex items-center gap-2">
+          {% if pagination.prev_url %}
+            <a href="{{ pagination.prev_url }}" class="btn btn-secondary flex items-center gap-2 px-3 py-1">
+              <i class="fas fa-arrow-left"></i>
+              <span>Anterior</span>
+            </a>
+          {% else %}
+            <span class="btn btn-secondary flex items-center gap-2 px-3 py-1 opacity-50 cursor-not-allowed">
+              <i class="fas fa-arrow-left"></i>
+              <span>Anterior</span>
+            </span>
+          {% endif %}
+          {% if pagination.next_url %}
+            <a href="{{ pagination.next_url }}" class="btn btn-secondary flex items-center gap-2 px-3 py-1">
+              <span>Próxima</span>
+              <i class="fas fa-arrow-right"></i>
+            </a>
+          {% else %}
+            <span class="btn btn-secondary flex items-center gap-2 px-3 py-1 opacity-50 cursor-not-allowed">
+              <span>Próxima</span>
+              <i class="fas fa-arrow-right"></i>
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
