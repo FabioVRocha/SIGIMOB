@@ -51,6 +51,7 @@
       <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
         <tr>
           <th class="py-3 px-4 text-left text-sm font-semibold">Vencimento</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Pagamento</th>
           <th class="py-3 px-4 text-left text-sm font-semibold">Receita</th>
           <th class="py-3 px-4 text-left text-sm font-semibold">Status</th>
           <th class="py-3 px-4 text-right text-sm font-semibold">Valor Previsto</th>
@@ -64,6 +65,7 @@
         {% for linha in dados %}
           <tr class="border-b border-gray-200 hover:bg-gray-50">
             <td class="py-3 px-4 text-sm text-gray-700">{{ linha.data_vencimento.strftime('%d/%m/%Y') if linha.data_vencimento else '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ linha.data_pagamento.strftime('%d/%m/%Y') if linha.data_pagamento else '' }}</td>
             <td class="py-3 px-4 text-sm text-gray-700">{{ linha.receita or '' }}</td>
             <td class="py-3 px-4 text-sm text-gray-700">{{ linha.status_conta or '' }}</td>
             <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.valor_previsto|currency }}</td>
@@ -76,7 +78,7 @@
       </tbody>
       <tfoot>
         <tr class="bg-gray-100">
-          <td class="py-3 px-4 text-sm font-semibold text-right" colspan="3">Totais</td>
+          <td class="py-3 px-4 text-sm font-semibold text-right" colspan="4">Totais</td>
           <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.valor_previsto|currency }}</td>
           <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.multa|currency }}</td>
           <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.juros|currency }}</td>

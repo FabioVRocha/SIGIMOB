@@ -5882,6 +5882,7 @@ def consultar_relatorio_contas_receber(
     query = [
         """
         SELECT cr.data_vencimento,
+               cr.data_pagamento,
                r.descricao AS receita,
                cr.status_conta,
                COALESCE(cr.valor_previsto, 0) AS valor_previsto,
@@ -6085,6 +6086,7 @@ def relatorio_contas_a_receber_detalhado_excel():
 
     headers = [
         "Vencimento",
+        "Pagamento",
         "Receita",
         "Status",
         "Valor Previsto",
@@ -6107,66 +6109,72 @@ def relatorio_contas_a_receber_detalhado_excel():
             else ""
         )
         ws.cell(row=row_index, column=1, value=data_vencimento)
-        ws.cell(row=row_index, column=2, value=linha.get("receita") or "")
-        ws.cell(row=row_index, column=3, value=linha.get("status_conta") or "")
+        data_pagamento = (
+            linha["data_pagamento"].strftime("%d/%m/%Y")
+            if linha["data_pagamento"]
+            else ""
+        )
+        ws.cell(row=row_index, column=2, value=data_pagamento)
+        ws.cell(row=row_index, column=3, value=linha.get("receita") or "")
+        ws.cell(row=row_index, column=4, value=linha.get("status_conta") or "")
         ws.cell(
             row=row_index,
-            column=4,
+            column=5,
             value=float(linha.get("valor_previsto") or 0),
         )
         ws.cell(
             row=row_index,
-            column=5,
+            column=6,
             value=float(linha.get("valor_multa") or 0),
         )
         ws.cell(
             row=row_index,
-            column=6,
+            column=7,
             value=float(linha.get("valor_juros") or 0),
         )
         ws.cell(
             row=row_index,
-            column=7,
+            column=8,
             value=float(linha.get("valor_desconto") or 0),
         )
-        ws.cell(row=row_index, column=7, value=float(linha.get("total") or 0))
+        ws.cell(row=row_index, column=9, value=float(linha.get("total") or 0))
 
-        for col in range(4, 9):
+        for col in range(5, 10):
             ws.cell(row=row_index, column=col).number_format = "#,##0.00"
 
         row_index += 1
 
     total_row = row_index
     ws.cell(row=total_row, column=1, value="Totais")
-    ws.cell(row=total_row, column=2, value="")
-    ws.cell(row=total_row, column=3, value="")
+    for col in range(2, 5):
+        ws.cell(row=total_row, column=col, value="")
     ws.cell(
         row=total_row,
-        column=4,
+        column=5,
         value=float(resultado["totais"]["valor_previsto"]),
     ).number_format = "#,##0.00"
     ws.cell(
         row=total_row,
-        column=5,
+        column=6,
         value=float(resultado["totais"]["multa"]),
     ).number_format = "#,##0.00"
     ws.cell(
         row=total_row,
-        column=6,
+        column=7,
         value=float(resultado["totais"]["juros"]),
     ).number_format = "#,##0.00"
     ws.cell(
         row=total_row,
-        column=7,
+        column=8,
         value=float(resultado["totais"]["desconto"]),
     ).number_format = "#,##0.00"
     ws.cell(
         row=total_row,
-        column=8,
+        column=9,
         value=float(resultado["totais"]["total"]),
     ).number_format = "#,##0.00"
 
-    column_widths = [15, 45, 18, 20, 15, 15, 15, 18]
+    column_widths = [15, 15, 40, 18, 20, 15, 15, 15, 18]
     for idx, width in enumerate(column_widths, start=1):
         ws.column_dimensions[get_column_letter(idx)].width = width
 
@@ -6225,7 +6233,8 @@ def relatorio_contas_a_receber_detalhado_pdf():
 
     headers = [
         ("Vencimento", 28),
-        ("Receita", 70),
+        ("Pagamento", 28),
+        ("Receita", 65),
         ("Status", 28),
         ("Valor Previsto", 28),
         ("Multa", 22),
@@ -6271,10 +6280,16 @@ def relatorio_contas_a_receber_detalhado_pdf():
             if linha["data_vencimento"]
             else ""
         )
+        data_pag = (
+            linha["data_pagamento"].strftime("%d/%m/%Y")
+            if linha["data_pagamento"]
+            else ""
+        )
         valores = [
             data_venc,
-            truncate_text(pdf, linha.get("receita") or "", headers[1][1] - 2),
-            truncate_text(pdf, linha.get("status_conta") or "", headers[2][1] - 2),
+            data_pag,
+            truncate_text(pdf, linha.get("receita") or "", headers[2][1] - 2),
+            truncate_text(pdf, linha.get("status_conta") or "", headers[3][1] - 2),
             format_currency(linha.get("valor_previsto") or 0),
             format_currency(linha.get("valor_multa") or 0),
             format_currency(linha.get("valor_juros") or 0),
@@ -6282,16 +6297,15 @@ def relatorio_contas_a_receber_detalhado_pdf():
             format_currency(linha.get("total") or 0),
         ]
         for (titulo, largura), valor in zip(headers, valores):
-            align = "R" if titulo not in ("Vencimento", "Receita", "Status") else "L"
+            align = "R" if titulo not in ("Vencimento", "Pagamento", "Receita", "Status") else "L"
             pdf.cell(largura, 7, valor, 1, 0, align)
         pdf.ln(7)
 
     pdf.set_font("Arial", "B", 9)
-    pdf.cell(headers[0][1] + headers[1][1] + headers[2][1], 7, "Totais", 1, 0, "R")
     pdf.cell(
-        headers[3][1],
+        headers[0][1] + headers[1][1] + headers[2][1] + headers[3][1],
         7,
-        format_currency(resultado["totais"]["valor_previsto"]),
+        "Totais",
         1,
         0,
         "R",
@@ -6299,7 +6313,7 @@ def relatorio_contas_a_receber_detalhado_pdf():
     pdf.cell(
         headers[4][1],
         7,
-        format_currency(resultado["totais"]["multa"]),
+        format_currency(resultado["totais"]["valor_previsto"]),
         1,
         0,
         "R",
@@ -6307,7 +6321,7 @@ def relatorio_contas_a_receber_detalhado_pdf():
     pdf.cell(
         headers[5][1],
         7,
-        format_currency(resultado["totais"]["juros"]),
+        format_currency(resultado["totais"]["multa"]),
         1,
         0,
         "R",
@@ -6315,13 +6329,21 @@ def relatorio_contas_a_receber_detalhado_pdf():
     pdf.cell(
         headers[6][1],
         7,
-        format_currency(resultado["totais"]["desconto"]),
+        format_currency(resultado["totais"]["juros"]),
         1,
         0,
         "R",
     )
     pdf.cell(
         headers[7][1],
+        7,
+        format_currency(resultado["totais"]["desconto"]),
+        1,
+        0,
+        "R",
+    )
+    pdf.cell(
+        headers[8][1],
         7,
         format_currency(resultado["totais"]["total"]),
         1,
