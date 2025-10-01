@@ -97,6 +97,54 @@ def login_required(f):
     return decorated_function
 
 
+def permission_required(module, action):
+    """Decorador para validar se o usuário autenticado possui a permissão."""
+
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if "user_id" not in session:
+                flash("Você precisa estar logado para acessar esta página.", "info")
+                return redirect(url_for("login"))
+
+            user_id = session["user_id"]
+            conn = get_db_connection()
+            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+            # Usuários do tipo "Master" possuem todas as permissões
+            cur.execute("SELECT tipo_usuario FROM usuarios WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+            if user and user["tipo_usuario"] == "Master":
+                cur.close()
+                conn.close()
+                return f(*args, **kwargs)
+
+            # Verifica se há permissão específica para o módulo/ação
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM permissoes
+                WHERE usuario_id = %s AND modulo = %s AND acao = %s
+                """,
+                (user_id, module, action),
+            )
+            has_permission = cur.fetchone()[0] > 0
+
+            cur.close()
+            conn.close()
+
+            if not has_permission:
+                flash(
+                    f"Você não tem permissão para realizar esta ação no módulo {module}.",
+                    "danger",
+                )
+                return redirect(url_for("dashboard"))
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
+
+
 def format_currency(value):
     """Formata valores monetários no padrão brasileiro: R$ 1.234,56.
     Aceita Decimal, float, int ou string numérica.
@@ -1093,55 +1141,6 @@ def imoveis_fotos(imovel_id):
     cur.close()
     conn.close()
     return jsonify(fotos)
-
-
-# Decorador para verificar permissões
-def permission_required(module, action):
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            if "user_id" not in session:
-                flash("Você precisa estar logado para acessar esta página.", "info")
-                return redirect(url_for("login"))
-
-            user_id = session["user_id"]
-            conn = get_db_connection()
-            cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            
-            # Verifica se o usuário é Master (tem acesso total)
-            cur.execute("SELECT tipo_usuario FROM usuarios WHERE id = %s", (user_id,))
-            user = cur.fetchone()
-            if user and user["tipo_usuario"] == "Master":
-                cur.close()
-                conn.close()
-                return f(*args, **kwargs)
-
-            # Verifica permissões específicas para o módulo e ação
-            cur.execute(
-                """
-                SELECT COUNT(*) FROM permissoes
-                WHERE usuario_id = %s AND modulo = %s AND acao = %s
-            """,
-                (user_id, module, action),
-            )
-            has_permission = cur.fetchone()[0] > 0
-            
-            cur.close()
-            conn.close()
-
-            if not has_permission:
-                flash(
-                    f"Você não tem permissão para realizar esta ação no módulo {module}.",
-                    "danger",
-                )
-                return redirect(
-                    url_for("dashboard")
-                )  # Ou outra página de erro/acesso negado
-            return f(*args, **kwargs)
-
-        return decorated_function
-
-    return decorator
 
 
 # Context processor para injetar variáveis em todos os templates
