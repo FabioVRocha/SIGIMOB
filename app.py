@@ -84,6 +84,19 @@ def _normalize_key(key: str) -> str:
     return re.sub(r"\s+", "", key.strip().lower())
 
 
+def login_required(f):
+    """Decorador simples para garantir que o usuário esteja autenticado."""
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Você precisa estar logado para acessar esta página.", "info")
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 def format_currency(value):
     """Formata valores monetários no padrão brasileiro: R$ 1.234,56.
     Aceita Decimal, float, int ou string numérica.
@@ -360,13 +373,24 @@ def ensure_auditoria_table():
                 modulo VARCHAR(150),
                 acao VARCHAR(50),
                 descricao TEXT,
-                dados JSONB,
+                dados TEXT,
                 ip VARCHAR(45),
                 criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
-            """
+        """
         )
         conn.commit()
+        try:
+            # Garante que a coluna "dados" seja compatível mesmo em bancos antigos
+            cur.execute(
+                """
+                ALTER TABLE auditoria_logs
+                ALTER COLUMN dados TYPE TEXT USING dados::text
+                """
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
     except Exception as e:
         if conn:
             conn.rollback()
@@ -398,6 +422,12 @@ def log_user_action(acao, modulo, descricao=None, dados=None):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        dados_serializados = None
+        if dados is not None:
+            try:
+                dados_serializados = json.dumps(dados, ensure_ascii=False)
+            except (TypeError, ValueError):
+                dados_serializados = str(dados)
         cur.execute(
             """
             INSERT INTO auditoria_logs (user_id, username, modulo, acao, descricao, dados, ip)
@@ -409,7 +439,7 @@ def log_user_action(acao, modulo, descricao=None, dados=None):
                 modulo,
                 acao,
                 descricao,
-                extras.Json(dados) if dados is not None else None,
+                dados_serializados,
                 _get_request_ip(),
             ),
         )
@@ -500,13 +530,19 @@ def gerencial_logs():
 
     logs = []
     for row in rows:
-        dados = row["dados"]
+        dados_raw = row["dados"]
+        dados_parse = dados_raw
         dados_pretty = ""
-        if dados is not None:
-            try:
-                dados_pretty = json.dumps(dados, ensure_ascii=False, indent=2)
-            except (TypeError, ValueError):
-                dados_pretty = str(dados)
+        if dados_raw is not None:
+            if isinstance(dados_raw, str):
+                try:
+                    dados_parse = json.loads(dados_raw)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    dados_parse = dados_raw
+            if isinstance(dados_parse, (dict, list)):
+                dados_pretty = json.dumps(dados_parse, ensure_ascii=False, indent=2)
+            else:
+                dados_pretty = str(dados_parse)
         logs.append(
             {
                 "id": row["id"],
@@ -515,7 +551,7 @@ def gerencial_logs():
                 "modulo": row["modulo"],
                 "acao": row["acao"],
                 "descricao": row["descricao"],
-                "dados": dados,
+                "dados": dados_parse,
                 "dados_pretty": dados_pretty,
                 "ip": row["ip"],
                 "criado_em": row["criado_em"],
@@ -1037,18 +1073,6 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
-# Decorador para verificar se o usuário está logado
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if "user_id" not in session:
-            flash("Você precisa estar logado para acessar esta página.", "info")
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-
-    return decorated_function
-
-
 @app.route("/imoveis/fotos/<int:imovel_id>")
 @login_required
 def imoveis_fotos(imovel_id):
@@ -1069,18 +1093,6 @@ def imoveis_fotos(imovel_id):
     cur.close()
     conn.close()
     return jsonify(fotos)
-
-
-# Decorador para verificar se o usuário está logado
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if "user_id" not in session:
-            flash("Você precisa estar logado para acessar esta página.", "info")
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-
-    return decorated_function
 
 
 # Decorador para verificar permissões
