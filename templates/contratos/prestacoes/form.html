@@ -12,49 +12,23 @@
             <p class="text-sm text-gray-700"><strong>Cliente:</strong> {{ contrato.cliente_nome }} ({{ contrato.cliente_documento }})</p>
             <p class="text-sm text-gray-700"><strong>Imóvel:</strong> {{ contrato.imovel_endereco }} - {{ contrato.imovel_cidade }}/{{ contrato.imovel_estado }}</p>
             <p class="text-sm text-gray-700"><strong>Período:</strong> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} até {{ contrato.data_fim.strftime('%d/%m/%Y') }}</p>
+            {% if prestacao %}
+            <div class="mt-2">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if prestacao.status == "Aprovada" %}bg-green-100 text-green-700{% elif prestacao.status == "Pendente" %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-700{% endif %}">
+                    Status: {{ prestacao.status or 'Pendente' }}
+                </span>
+                {% if prestacao.status == "Pendente" %}
+                <p class="text-xs text-gray-600 mt-1">Ap?s salvar, aprove a presta??o para gerar as contas financeiras.</p>
+                {% else %}
+                <p class="text-xs text-gray-600 mt-1">Ao salvar altera??es, a presta??o voltar? para pendente e precisar? ser aprovada novamente.</p>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
         <div class="text-right">
-            <a href="{{ url_for('contratos_list') }}" class="btn-secondary inline-flex items-center"><i class="fas fa-arrow-left mr-2"></i>Voltar para contratos</a>
+            <a href="{{ url_for('contratos_prestacoes_list', contrato_id=contrato.id) }}" class="btn-secondary inline-flex items-center"><i class="fas fa-arrow-left mr-2"></i>Voltar para prestacoes</a>
         </div>
     </div>
-
-    {% if prestacoes %}
-    <div class="border border-gray-200 rounded-lg p-4">
-        <h3 class="text-lg font-semibold text-gray-800 mb-3">Prestações de contas registradas</h3>
-        <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="bg-gray-100 text-gray-700">
-                    <tr>
-                        <th class="py-2 px-3 text-left">Data</th>
-                        <th class="py-2 px-3 text-right">Créditos</th>
-                        <th class="py-2 px-3 text-right">Débitos</th>
-                        <th class="py-2 px-3 text-right">Despesas</th>
-                        <th class="py-2 px-3 text-right">Saldo</th>
-                        <th class="py-2 px-3 text-center">Ações</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    {% for item in prestacoes %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="py-2 px-3">{{ item.data_encerramento.strftime('%d/%m/%Y') }}</td>
-                        <td class="py-2 px-3 text-right">{{ item.total_creditos|currency }}</td>
-                        <td class="py-2 px-3 text-right">{{ item.total_debitos|currency }}</td>
-                        <td class="py-2 px-3 text-right">{{ item.total_despesas|currency }}</td>
-                        <td class="py-2 px-3 text-right font-semibold {% if item.saldo_final > 0 %}text-green-600{% elif item.saldo_final < 0 %}text-red-600{% endif %}">{{ item.saldo_final|currency }}</td>
-                        <td class="py-2 px-3 text-center space-x-2 whitespace-nowrap">
-                            <a href="{{ url_for('contratos_prestacao_editar', prestacao_id=item.id) }}" class="text-blue-600 hover:text-blue-800" title="Editar"><i class="fas fa-edit"></i></a>
-                            <a href="{{ url_for('contratos_prestacao_relatorio', prestacao_id=item.id) }}" class="text-green-600 hover:text-green-800" title="Relatório" target="_blank"><i class="fas fa-file-pdf"></i></a>
-                            <form action="{{ url_for('contratos_prestacao_excluir', prestacao_id=item.id) }}" method="POST" class="inline" onsubmit="return confirm('Deseja realmente excluir esta prestação de contas?');">
-                                <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endif %}
 
     <form id="prestacao-form" method="POST" action="{{ form_action }}" class="space-y-6">
         <input type="hidden" name="prestacao_payload" id="prestacao-payload">
@@ -409,14 +383,14 @@ if (Array.isArray(configuracao.despesas)) {
         if(saldo > 0){
             saldoFinalEl.classList.add('text-green-600');
             saldoFeedbackEl.classList.add('text-green-600');
-            saldoFeedbackEl.textContent = 'Saldo positivo: deverá ser gerado um título em contas a pagar para devolver ao cliente.';
+            saldoFeedbackEl.textContent = 'Saldo positivo: ap?s a aprova??o ser? gerado um t?tulo em contas a pagar para devolver ao cliente.';
         }else if(saldo < 0){
             saldoFinalEl.classList.add('text-red-600');
             saldoFeedbackEl.classList.add('text-red-600');
-            saldoFeedbackEl.textContent = 'Saldo negativo: será criado um título em contas a receber para cobrar o cliente.';
+            saldoFeedbackEl.textContent = 'Saldo negativo: ap?s a aprova??o ser? criado um t?tulo em contas a receber para cobrar o cliente.';
         }else{
             saldoFinalEl.classList.add('text-gray-800');
-            saldoFeedbackEl.textContent = 'Saldo zerado: não serão gerados novos títulos.';
+            saldoFeedbackEl.textContent = 'Saldo zerado: ap?s a aprova??o n?o ser?o gerados novos t?tulos.';
         }
     }
 

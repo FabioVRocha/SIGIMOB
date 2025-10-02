@@ -10,7 +10,14 @@
             <h2 class="text-2xl font-semibold text-dark-blue">Contrato #{{ contrato.id }}</h2>
             <p class="text-sm text-gray-600">{{ contrato.nome_inquilino }} &bull; {{ contrato.endereco_imovel }}</p>
         </div>
-        <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Voltar para lista</a>
+        <div class="flex flex-col sm:flex-row gap-2">
+            {% if mostrar_formulario %}
+            <a href="{{ url_for('contratos_renovar', contrato_id=contrato.id) }}" class="btn-secondary">Ver histórico de renovações</a>
+            {% else %}
+            <a href="{{ url_for('contratos_renovar', contrato_id=contrato.id, acao='novo') }}" class="btn-primary">Incluir Renovação de Contrato</a>
+            {% endif %}
+            <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Voltar para lista</a>
+        </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -35,6 +42,7 @@
         </div>
     </div>
 
+    {% if mostrar_formulario %}
     <form action="{{ url_for('contratos_renovar', contrato_id=contrato.id) }}" method="POST" class="space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="form-group">
@@ -58,9 +66,14 @@
             <button type="submit" class="btn-primary">Confirmar Renovação</button>
         </div>
     </form>
+    {% else %}
+    <div class="p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-600">
+        Consulte abaixo o histórico de renovações deste contrato. Clique em "Incluir Renovação de Contrato" para registrar uma nova renovação.
+    </div>
+    {% endif %}
 
     <div class="mt-8">
-        <h3 class="text-lg font-semibold text-gray-700 mb-3">Historico de renovacoes</h3>
+        <h3 class="text-lg font-semibold text-gray-700 mb-3">Historico de renovacoes</h3>
         {% if renovacoes %}
         <div class="overflow-x-auto">
             <table class="min-w-full bg-white rounded-lg overflow-hidden">

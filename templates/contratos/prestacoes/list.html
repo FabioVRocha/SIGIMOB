@@ -1,0 +1,82 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Prestacoes de Contas do Contrato{% endblock %}
+
+{% block page_title %}Prestacoes de Contas do Contrato{% endblock %}
+
+{% block content %}
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center flex-wrap gap-4 mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Prestacoes de Contas</h2>
+        <div class="flex flex-wrap gap-3 justify-end">
+            <a href="{{ url_for('contratos_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out inline-flex items-center justify-center">
+                <i class="fas fa-arrow-left mr-2"></i>Voltar para contratos
+            </a>
+            <a href="{{ url_for('contratos_encerrar_form', contrato_id=contrato.id) }}" class="btn-primary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out inline-flex items-center justify-center">
+                <i class="fas fa-plus mr-2"></i>Incluir prestacao de contas
+            </a>
+        </div>
+    </div>
+
+    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+        <div class="grid gap-2 text-sm text-gray-700">
+            <p><span class="font-semibold text-gray-800">Contrato:</span> #{{ contrato.id }}</p>
+            <p><span class="font-semibold text-gray-800">Cliente:</span> {{ contrato.cliente_nome }} ({{ contrato.cliente_documento }})</p>
+            <p><span class="font-semibold text-gray-800">Imovel:</span> {{ contrato.imovel_endereco }} - {{ contrato.imovel_cidade }}/{{ contrato.imovel_estado }}</p>
+            <p><span class="font-semibold text-gray-800">Periodo:</span> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} ate {{ contrato.data_fim.strftime('%d/%m/%Y') if contrato.data_fim else 'em aberto' }}</p>
+        </div>
+    </div>
+
+    {% if prestacoes %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data</th>
+                    <th class="py-3 px-4 text-right text-sm font-semibold text-white">Creditos</th>
+                    <th class="py-3 px-4 text-right text-sm font-semibold text-white">Debitos</th>
+                    <th class="py-3 px-4 text-right text-sm font-semibold text-white">Despesas</th>
+                    <th class="py-3 px-4 text-right text-sm font-semibold text-white">Saldo</th>
+                    <th class="py-3 px-4 text-center text-sm font-semibold text-white">Status</th>
+                    <th class="py-3 px-4 text-center text-sm font-semibold text-white">Acoes</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in prestacoes %}
+                <tr class="{{ loop.cycle('table-row-odd','table-row-even') }} border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ item.data_encerramento.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-3 px-4 text-sm text-right text-gray-700">{{ item.total_creditos|currency }}</td>
+                    <td class="py-3 px-4 text-sm text-right text-gray-700">{{ item.total_debitos|currency }}</td>
+                    <td class="py-3 px-4 text-sm text-right text-gray-700">{{ item.total_despesas|currency }}</td>
+                    <td class="py-3 px-4 text-sm text-right font-semibold {% if item.saldo_final > 0 %}text-green-600{% elif item.saldo_final < 0 %}text-red-600{% else %}text-gray-700{% endif %}">{{ item.saldo_final|currency }}</td>
+                    <td class="py-3 px-4 text-sm text-center">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if item.status == 'Aprovada' %}bg-green-100 text-green-700{% elif item.status == 'Pendente' %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-700{% endif %}">
+                            {{ item.status or 'Pendente' }}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-sm text-center text-gray-700">
+                        <div class="flex items-center justify-center gap-3">
+                            {% if item.status == 'Pendente' %}
+                            <form action="{{ url_for('contratos_prestacao_aprovar', prestacao_id=item.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Deseja aprovar esta prestacao de contas?');">
+                                <button type="submit" class="text-green-700 hover:text-green-900" title="Aprovar"><i class="fas fa-check"></i></button>
+                            </form>
+                            {% endif %}
+                            <a href="{{ url_for('contratos_prestacao_editar', prestacao_id=item.id) }}" class="text-blue-600 hover:text-blue-800" title="Editar"><i class="fas fa-edit"></i></a>
+                            <a href="{{ url_for('contratos_prestacao_relatorio', prestacao_id=item.id) }}" class="text-green-600 hover:text-green-800" title="Relatorio" target="_blank"><i class="fas fa-file-pdf"></i></a>
+                            <form action="{{ url_for('contratos_prestacao_excluir', prestacao_id=item.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Deseja realmente excluir esta prestacao de contas?');">
+                                <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-600">
+        Nenhuma prestacao de contas registrada para este contrato.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

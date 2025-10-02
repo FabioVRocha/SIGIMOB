@@ -58,7 +58,7 @@
                             <i class="fas fa-sync-alt"></i>
                         </a>
                         <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
-                        <a href="{{ url_for('contratos_encerrar_form', contrato_id=contrato.id) }}" class="text-yellow-600 hover:text-yellow-800 mr-3" title="Prestação de contas / Encerrar">
+                        <a href="{{ url_for('contratos_prestacoes_list', contrato_id=contrato.id) }}" class="text-yellow-600 hover:text-yellow-800 mr-3" title="Prestação de contas / Encerrar">
                             <i class="fas fa-file-invoice-dollar"></i>
                         </a>
                         <form action="{{ url_for('contratos_delete', id=contrato.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este contrato e todos os seus anexos?');">
