@@ -54,6 +54,9 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.status_contrato }}</td>
                     <td class="py-3 px-4 text-sm">
                         <a href="#" onclick="openModeloModal({{ contrato.id }}); return false;" class="text-green-600 hover:text-green-800 mr-3" title="Gerar Contrato"><i class="fas fa-file-signature"></i></a>
+                        <a href="{{ url_for('contratos_renovar', contrato_id=contrato.id) }}" class="text-indigo-600 hover:text-indigo-800 mr-3" title="Renovar Contrato">
+                            <i class="fas fa-sync-alt"></i>
+                        </a>
                         <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
                         <a href="{{ url_for('contratos_encerrar_form', contrato_id=contrato.id) }}" class="text-yellow-600 hover:text-yellow-800 mr-3" title="Prestação de contas / Encerrar">
                             <i class="fas fa-file-invoice-dollar"></i>

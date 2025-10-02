@@ -13,6 +13,7 @@ from flask import (
     jsonify,
     send_file,
     has_request_context,
+    g,
 )
 import psycopg2
 from psycopg2 import extras, sql
@@ -26,6 +27,7 @@ from functools import wraps
 import subprocess
 import json
 import re
+from collections import OrderedDict
 from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
 from decimal import Decimal, InvalidOperation
 import io
@@ -111,27 +113,26 @@ def permission_required(module, action):
             user_id = session["user_id"]
             conn = get_db_connection()
             cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            try:
+                # Usuários do tipo "Master" possuem todas as permissões
+                cur.execute("SELECT tipo_usuario FROM usuarios WHERE id = %s", (user_id,))
+                user = cur.fetchone()
+                is_master = bool(user and user["tipo_usuario"] == "Master")
 
-            # Usuários do tipo "Master" possuem todas as permissões
-            cur.execute("SELECT tipo_usuario FROM usuarios WHERE id = %s", (user_id,))
-            user = cur.fetchone()
-            if user and user["tipo_usuario"] == "Master":
+                has_permission = True
+                if not is_master:
+                    # Verifica se há permissão específica para o módulo/ação
+                    cur.execute(
+                        """
+                        SELECT COUNT(*) FROM permissoes
+                        WHERE usuario_id = %s AND modulo = %s AND acao = %s
+                        """,
+                        (user_id, module, action),
+                    )
+                    has_permission = cur.fetchone()[0] > 0
+            finally:
                 cur.close()
                 conn.close()
-                return f(*args, **kwargs)
-
-            # Verifica se há permissão específica para o módulo/ação
-            cur.execute(
-                """
-                SELECT COUNT(*) FROM permissoes
-                WHERE usuario_id = %s AND modulo = %s AND acao = %s
-                """,
-                (user_id, module, action),
-            )
-            has_permission = cur.fetchone()[0] > 0
-
-            cur.close()
-            conn.close()
 
             if not has_permission:
                 flash(
@@ -139,7 +140,31 @@ def permission_required(module, action):
                     "danger",
                 )
                 return redirect(url_for("dashboard"))
-            return f(*args, **kwargs)
+
+            error = None
+            try:
+                response = f(*args, **kwargs)
+                return response
+            except Exception as exc:
+                error = exc
+                raise
+            finally:
+                if (
+                    error is None
+                    and has_request_context()
+                    and session.get("user_id")
+                    and not getattr(g, "_user_action_logged", False)
+                    and request.method not in ("GET", "HEAD", "OPTIONS")
+                    and action.lower() not in {"consultar", "visualizar"}
+                ):
+                    payload = _collect_audit_payload()
+                    descricao_auto = _build_auto_log_description(
+                        module,
+                        action,
+                        request.view_args or {},
+                        payload,
+                    )
+                    log_user_action(action, module, descricao_auto)
 
         return decorated_function
 
@@ -390,14 +415,15 @@ def get_db_connection():
     return conn
 
 
-def ensure_status_contrato_enum_finalizado():
+def ensure_status_contrato_enum_values():
     conn = None
     cur = None
     try:
         conn = get_db_connection()
         conn.autocommit = True
         cur = conn.cursor()
-        cur.execute("ALTER TYPE status_contrato_enum ADD VALUE IF NOT EXISTS 'Finalizado'")
+        for value in ("Finalizado", "Renovar"):
+            cur.execute(f"ALTER TYPE status_contrato_enum ADD VALUE IF NOT EXISTS '{value}'")
     except Exception:
         pass
     finally:
@@ -407,7 +433,7 @@ def ensure_status_contrato_enum_finalizado():
             conn.close()
 
 
-ensure_status_contrato_enum_finalizado()
+ensure_status_contrato_enum_values()
 
 
 def ensure_auditoria_table():
@@ -425,24 +451,15 @@ def ensure_auditoria_table():
                 modulo VARCHAR(150),
                 acao VARCHAR(50),
                 descricao TEXT,
-                dados TEXT,
                 ip VARCHAR(45),
                 criado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             )
         """
         )
         conn.commit()
-        try:
-            # Garante que a coluna "dados" seja compatível mesmo em bancos antigos
-            cur.execute(
-                """
-                ALTER TABLE auditoria_logs
-                ALTER COLUMN dados TYPE TEXT USING dados::text
-                """
-            )
-            conn.commit()
-        except Exception:
-            conn.rollback()
+        # Remove coluna "dados" de instalações antigas
+        cur.execute("ALTER TABLE auditoria_logs DROP COLUMN IF EXISTS dados")
+        conn.commit()
     except Exception as e:
         if conn:
             conn.rollback()
@@ -466,32 +483,356 @@ def _get_request_ip():
     return request.remote_addr
 
 
+def _sanitize_audit_value(value, *, max_length=200):
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if len(cleaned) > max_length:
+            return cleaned[: max_length - 3] + "..."
+        return cleaned
+    if isinstance(value, (int, float, Decimal)):
+        return value
+    if isinstance(value, (list, tuple, set)):
+        sanitized = [
+            _sanitize_audit_value(v, max_length=max_length)
+            for v in value
+        ]
+        sanitized = [v for v in sanitized if v is not None]
+        if not sanitized:
+            return None
+        return sanitized
+    if value is None:
+        return None
+    return _sanitize_audit_value(str(value), max_length=max_length)
+
+
+def _collect_audit_payload():
+    payload = OrderedDict()
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return payload
+
+    sensitive_keys = {"senha", "password", "password_confirm", "confirm_password"}
+
+    json_payload = request.get_json(silent=True) if request.is_json else None
+    if isinstance(json_payload, dict):
+        for key, value in json_payload.items():
+            if not isinstance(key, str):
+                continue
+            sanitized = _sanitize_audit_value(value)
+            if sanitized is not None:
+                payload[key] = sanitized
+    elif json_payload is not None:
+        sanitized = _sanitize_audit_value(json_payload)
+        if sanitized is not None:
+            payload["_json"] = sanitized
+
+    if request.form:
+        for key in request.form:
+            key_lower = key.lower()
+            if key_lower in sensitive_keys or "senha" in key_lower:
+                continue
+            if key_lower == "csrf_token":
+                continue
+            values = request.form.getlist(key)
+            sanitized_values = [
+                _sanitize_audit_value(v)
+                for v in values
+            ]
+            sanitized_values = [v for v in sanitized_values if v is not None]
+            if not sanitized_values:
+                continue
+            payload[key] = (
+                sanitized_values[0]
+                if len(sanitized_values) == 1
+                else sanitized_values
+            )
+
+    if request.files:
+        for key in request.files:
+            arquivos = request.files.getlist(key)
+            nomes = [
+                getattr(arquivo, "filename", "")
+                for arquivo in arquivos
+            ]
+            nomes = [nome for nome in nomes if nome]
+            if not nomes:
+                continue
+            payload[f"arquivo:{key}"] = nomes[0] if len(nomes) == 1 else nomes
+
+    return payload
+
+
+def _stringify_audit_value(value, max_length=200):
+    if isinstance(value, list):
+        parts = [
+            _stringify_audit_value(item, max_length=max_length)
+            for item in value
+            if item is not None
+        ]
+        parts = [part for part in parts if part]
+        return ", ".join(parts)
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "Sim" if value else "Não"
+    text = str(value).strip()
+    if len(text) > max_length:
+        text = text[: max_length - 3] + "..."
+    return text
+
+
+def _format_audit_label(key: str) -> str:
+    base = key
+    lower = base.lower()
+    for prefix in ("old_", "anterior_", "novo_", "new_"):
+        if lower.startswith(prefix):
+            base = base[len(prefix) :]
+            lower = base.lower()
+            break
+    for suffix in ("_old", "_anterior", "_novo", "_new"):
+        if lower.endswith(suffix):
+            base = base[: -len(suffix)]
+            lower = base.lower()
+            break
+    label = re.sub(r"[_\-]+", " ", base).strip()
+    if not label:
+        label = key
+    lowered = label.lower()
+    if lowered in {"cpf", "cnpj"}:
+        return label.upper()
+    return label.title()
+
+
+def _split_audit_key_role(key: str):
+    key_lower = key.lower()
+    for prefix in ("old_", "anterior_"):
+        if key_lower.startswith(prefix):
+            return key[len(prefix) :], "old"
+    for suffix in ("_old", "_anterior"):
+        if key_lower.endswith(suffix):
+            return key[: -len(suffix)], "old"
+    for prefix in ("novo_", "new_"):
+        if key_lower.startswith(prefix):
+            return key[len(prefix) :], "new"
+    for suffix in ("_novo", "_new"):
+        if key_lower.endswith(suffix):
+            return key[: -len(suffix)], "new"
+    return key, "value"
+
+
+def _summarize_audit_payload(payload: OrderedDict):
+    if not payload:
+        return ""
+
+    groups = {}
+    for key, value in payload.items():
+        base, role = _split_audit_key_role(key)
+        groups.setdefault(base, {})[role] = {"key": key, "value": value}
+
+    handled = set()
+    summaries = []
+
+    for base, info in groups.items():
+        if "old" in info and "new" in info:
+            old_value = _stringify_audit_value(info["old"]["value"])
+            new_value = _stringify_audit_value(info["new"]["value"])
+            if old_value or new_value:
+                label = _format_audit_label(base)
+                old_repr = json.dumps(old_value, ensure_ascii=False)
+                new_repr = json.dumps(new_value, ensure_ascii=False)
+                summaries.append(f"{label}: {old_repr} -> {new_repr}")
+            handled.add(info["old"]["key"])
+            handled.add(info["new"]["key"])
+
+    for base, info in groups.items():
+        for entry in info.values():
+            key = entry["key"]
+            if key in handled:
+                continue
+            key_lower = key.lower()
+            if key_lower in {"csrf_token", "submit"}:
+                continue
+            if "senha" in key_lower or "password" in key_lower:
+                continue
+            value_text = _stringify_audit_value(entry["value"])
+            if not value_text:
+                continue
+            label = _format_audit_label(key)
+            value_repr = json.dumps(value_text, ensure_ascii=False)
+            summaries.append(f"{label} = {value_repr}")
+            handled.add(key)
+
+    return "; ".join(summaries)
+
+
+def _find_matching_value(source: OrderedDict, keywords):
+    if not source:
+        return None
+    for key, value in source.items():
+        key_lower = key.lower()
+        if any(keyword in key_lower for keyword in keywords):
+            if isinstance(value, list):
+                for item in value:
+                    if item is not None:
+                        text = _stringify_audit_value(item)
+                        if text:
+                            return text
+            else:
+                text = _stringify_audit_value(value)
+                if text:
+                    return text
+    return None
+
+
+def _extract_audit_identifier(view_args, payload):
+    candidates = []
+    if view_args:
+        candidates.append(view_args.items())
+    if payload:
+        candidates.append(payload.items())
+    for items in candidates:
+        for key, value in items:
+            if not isinstance(key, str):
+                continue
+            key_lower = key.lower()
+            if "id" in key_lower or "codigo" in key_lower or "código" in key_lower or key_lower.endswith("numero") or key_lower.endswith("número"):
+                if isinstance(value, list):
+                    for item in value:
+                        text = _stringify_audit_value(item)
+                        if text:
+                            return text
+                else:
+                    text = _stringify_audit_value(value)
+                    if text:
+                        return text
+    return None
+
+
+ACTION_VERB_MAP = {
+    "incluir": "adicionado",
+    "inclusao": "adicionado",
+    "adicionar": "adicionado",
+    "cadastrar": "cadastrado",
+    "criar": "criado",
+    "editar": "editado",
+    "alterar": "alterado",
+    "atualizar": "atualizado",
+    "ajustar": "ajustado",
+    "excluir": "excluído",
+    "remover": "removido",
+    "deletar": "deletado",
+    "apagar": "apagado",
+    "bloquear": "bloqueado",
+    "desbloquear": "desbloqueado",
+    "aprovar": "aprovado",
+    "reprovar": "reprovado",
+    "gerar": "gerado",
+}
+
+
+def _build_auto_log_description(module, action, view_args, payload):
+    action_lower = (action or "").strip().lower()
+    verbo = ACTION_VERB_MAP.get(action_lower, action or "Ação executada")
+    modulo_nome = module or "Recurso"
+
+    identificador = _extract_audit_identifier(view_args, payload)
+    nome_principal = _find_matching_value(
+        payload,
+        [
+            "nome",
+            "razao",
+            "descr",
+            "titulo",
+            "pessoa",
+            "cliente",
+            "fornecedor",
+            "contrat",
+        ],
+    )
+    documento = _find_matching_value(payload, ["cpf", "cnpj", "documento"])
+
+    partes = [f"{modulo_nome} {verbo}".strip()]
+    if identificador:
+        partes[-1] += f" ID {identificador}"
+    if nome_principal:
+        if documento:
+            partes[-1] += f" para {nome_principal} ({documento})"
+        else:
+            partes[-1] += f" para {nome_principal}"
+    elif documento:
+        partes[-1] += f" ({documento})"
+
+    resumo_campos = _summarize_audit_payload(payload)
+    detalhes_tecnicos = []
+
+    if resumo_campos:
+        partes.append(f"Campos: {resumo_campos}")
+
+    if request.endpoint:
+        detalhes_tecnicos.append(f"endpoint={request.endpoint}")
+    if request.path:
+        detalhes_tecnicos.append(f"path={request.path}")
+    if request.view_args:
+        args_resumo = {
+            chave: _stringify_audit_value(valor)
+            for chave, valor in request.view_args.items()
+        }
+        detalhes_tecnicos.append(
+            "parâmetros="
+            + json.dumps(args_resumo, ensure_ascii=False)
+        )
+    if request.args:
+        query_resumo = {
+            chave: request.args.getlist(chave)
+            if len(request.args.getlist(chave)) > 1
+            else request.args.get(chave)
+            for chave in request.args
+        }
+        detalhes_tecnicos.append(
+            "query=" + json.dumps(query_resumo, ensure_ascii=False)
+        )
+
+    descricao = ". ".join(partes)
+    if detalhes_tecnicos:
+        descricao += ". Contexto: " + "; ".join(detalhes_tecnicos)
+    return descricao
+
+
 def log_user_action(acao, modulo, descricao=None, dados=None):
+    if not has_request_context():
+        return
     if "user_id" not in session:
         return
+    setattr(g, "_user_action_logged", True)
     conn = None
     cur = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        dados_serializados = None
+        descricao_final = descricao or ""
         if dados is not None:
             try:
                 dados_serializados = json.dumps(dados, ensure_ascii=False)
             except (TypeError, ValueError):
                 dados_serializados = str(dados)
+            if descricao_final:
+                descricao_final = f"{descricao_final}\nDados: {dados_serializados}"
+            else:
+                descricao_final = f"Dados: {dados_serializados}"
+        if not descricao_final:
+            descricao_final = None
         cur.execute(
             """
-            INSERT INTO auditoria_logs (user_id, username, modulo, acao, descricao, dados, ip)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO auditoria_logs (user_id, username, modulo, acao, descricao, ip)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
             (
                 session.get("user_id"),
                 session.get("username"),
                 modulo,
                 acao,
-                descricao,
-                dados_serializados,
+                descricao_final,
                 _get_request_ip(),
             ),
         )
@@ -570,7 +911,7 @@ def gerencial_logs():
     offset = (page - 1) * per_page if total else 0
 
     select_sql = (
-        "SELECT id, user_id, username, modulo, acao, descricao, dados, ip, criado_em "
+        "SELECT id, user_id, username, modulo, acao, descricao, ip, criado_em "
         "FROM auditoria_logs"
         + where_clause
         + " ORDER BY criado_em DESC LIMIT %s OFFSET %s"
@@ -582,19 +923,6 @@ def gerencial_logs():
 
     logs = []
     for row in rows:
-        dados_raw = row["dados"]
-        dados_parse = dados_raw
-        dados_pretty = ""
-        if dados_raw is not None:
-            if isinstance(dados_raw, str):
-                try:
-                    dados_parse = json.loads(dados_raw)
-                except (TypeError, ValueError, json.JSONDecodeError):
-                    dados_parse = dados_raw
-            if isinstance(dados_parse, (dict, list)):
-                dados_pretty = json.dumps(dados_parse, ensure_ascii=False, indent=2)
-            else:
-                dados_pretty = str(dados_parse)
         logs.append(
             {
                 "id": row["id"],
@@ -603,8 +931,6 @@ def gerencial_logs():
                 "modulo": row["modulo"],
                 "acao": row["acao"],
                 "descricao": row["descricao"],
-                "dados": dados_parse,
-                "dados_pretty": dados_pretty,
                 "ip": row["ip"],
                 "criado_em": row["criado_em"],
             }
@@ -1218,7 +1544,7 @@ def calcular_status_conta(data_vencimento, data_pagamento, contrato_id, cur):
         contrato = cur.fetchone()
         if (
             contrato
-            and contrato.get("status_contrato") in {"Encerrado", "Finalizado"}
+            and contrato.get("status_contrato") in {"Encerrado", "Finalizado", "Renovar"}
             and status == "Aberta"
         ):
             status = "Cancelada"
@@ -1260,7 +1586,7 @@ def atualizar_status_contratos(cur):
     cur.execute(
         """
         UPDATE contratos_aluguel
-           SET status_contrato = 'Finalizado'::status_contrato_enum
+           SET status_contrato = 'Renovar'::status_contrato_enum
          WHERE data_fim < CURRENT_DATE
            AND status_contrato IN ('Ativo', 'Pendente')
         """
@@ -1368,6 +1694,32 @@ def ensure_calcao_columns():
     conn.close()
 
 
+def ensure_contrato_renovacoes_table():
+    """Cria a tabela de histórico de renovações de contrato, se necessário."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS contrato_renovacoes (
+            id SERIAL PRIMARY KEY,
+            contrato_id INTEGER NOT NULL REFERENCES contratos_aluguel(id) ON DELETE CASCADE,
+            data_inicio_anterior DATE,
+            data_fim_anterior DATE,
+            valor_parcela_anterior NUMERIC(10,2),
+            data_inicio_novo DATE NOT NULL,
+            data_fim_novo DATE NOT NULL,
+            valor_parcela_novo NUMERIC(10,2) NOT NULL,
+            observacao TEXT,
+            usuario_id INTEGER REFERENCES usuarios(id),
+            data_renovacao TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
 def ensure_tipo_pessoa_enum():
     """Garante que o enum tipo_pessoa_enum contenha 'Cliente/Fornecedor'."""
     conn = get_db_connection()
@@ -1390,6 +1742,7 @@ def ensure_tipo_pessoa_enum():
 # Assegura colunas necessárias no banco de dados
 ensure_max_contratos_column()
 ensure_calcao_columns()
+ensure_contrato_renovacoes_table()
 ensure_tipo_pessoa_enum()
  
 
@@ -3744,6 +4097,187 @@ def contratos_edit(id):
         clientes=clientes,
         anexos=anexos,
     )
+
+
+@app.route("/contratos/<int:contrato_id>/renovar", methods=["GET", "POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_renovar(contrato_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    form_data = {}
+    try:
+        cur.execute(
+            """
+            SELECT c.*, i.endereco || ', ' || i.bairro AS endereco_imovel
+            FROM contratos_aluguel c
+            JOIN imoveis i ON c.imovel_id = i.id
+            WHERE c.id = %s
+            """,
+            (contrato_id,),
+        )
+        contrato = cur.fetchone()
+        if contrato is None:
+            flash("Contrato não encontrado.", "danger")
+            return redirect(url_for("contratos_list"))
+
+        if request.method == "POST":
+            form_data = {
+                "nova_data_inicio": (request.form.get("nova_data_inicio") or "").strip(),
+                "nova_data_fim": (request.form.get("nova_data_fim") or "").strip(),
+                "novo_valor": (request.form.get("novo_valor") or "").strip(),
+                "observacao": (request.form.get("observacao") or "").strip(),
+            }
+            erros = []
+
+            try:
+                nova_data_inicio = datetime.strptime(form_data["nova_data_inicio"], "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                erros.append("Informe uma data inicial válida.")
+                nova_data_inicio = None
+
+            try:
+                nova_data_fim = datetime.strptime(form_data["nova_data_fim"], "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                erros.append("Informe uma data final válida.")
+                nova_data_fim = None
+
+            if nova_data_inicio and nova_data_fim and nova_data_fim < nova_data_inicio:
+                erros.append("A data final do contrato deve ser igual ou posterior à data inicial.")
+
+            try:
+                valor_raw = form_data["novo_valor"].replace(" ", "")
+                if "," in valor_raw and "." in valor_raw:
+                    if valor_raw.rfind(",") > valor_raw.rfind("."):
+                        valor_str = valor_raw.replace(".", "").replace(",", ".")
+                    else:
+                        valor_str = valor_raw.replace(",", "")
+                else:
+                    valor_str = valor_raw.replace(",", ".")
+                novo_valor = Decimal(valor_str)
+                if novo_valor <= 0:
+                    erros.append("O valor do contrato deve ser maior que zero.")
+            except (InvalidOperation, AttributeError):
+                novo_valor = None
+                erros.append("Informe um valor válido para o contrato.")
+
+            if erros:
+                for mensagem in erros:
+                    flash(mensagem, "warning")
+                cur.execute(
+                    """
+                    SELECT r.*, u.nome_usuario AS usuario_nome
+                    FROM contrato_renovacoes r
+                    LEFT JOIN usuarios u ON u.id = r.usuario_id
+                    WHERE r.contrato_id = %s
+                    ORDER BY r.data_renovacao DESC
+                    """,
+                    (contrato_id,),
+                )
+                renovacoes = cur.fetchall()
+                return render_template(
+                    "contratos/renovar.html",
+                    contrato=contrato,
+                    renovacoes=renovacoes,
+                    form_data=form_data,
+                )
+
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO contrato_renovacoes (
+                        contrato_id,
+                        data_inicio_anterior,
+                        data_fim_anterior,
+                        valor_parcela_anterior,
+                        data_inicio_novo,
+                        data_fim_novo,
+                        valor_parcela_novo,
+                        observacao,
+                        usuario_id
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        contrato_id,
+                        contrato["data_inicio"],
+                        contrato["data_fim"],
+                        contrato["valor_parcela"],
+                        nova_data_inicio,
+                        nova_data_fim,
+                        novo_valor,
+                        form_data["observacao"] or None,
+                        session.get("user_id"),
+                    ),
+                )
+
+                cur.execute(
+                    """
+                    UPDATE contratos_aluguel
+                    SET data_inicio = %s,
+                        data_fim = %s,
+                        valor_parcela = %s,
+                        status_contrato = 'Ativo'
+                    WHERE id = %s
+                    """,
+                    (nova_data_inicio, nova_data_fim, novo_valor, contrato_id),
+                )
+
+                conn.commit()
+                flash("Contrato renovado com sucesso!", "success")
+                return redirect(url_for("contratos_list"))
+            except Exception as exc:
+                conn.rollback()
+                flash(f"Erro ao renovar contrato: {exc}", "danger")
+                cur.execute(
+                    """
+                    SELECT r.*, u.nome_usuario AS usuario_nome
+                    FROM contrato_renovacoes r
+                    LEFT JOIN usuarios u ON u.id = r.usuario_id
+                    WHERE r.contrato_id = %s
+                    ORDER BY r.data_renovacao DESC
+                    """,
+                    (contrato_id,),
+                )
+                renovacoes = cur.fetchall()
+                return render_template(
+                    "contratos/renovar.html",
+                    contrato=contrato,
+                    renovacoes=renovacoes,
+                    form_data=form_data,
+                )
+
+        form_data = {
+            "nova_data_inicio": contrato["data_inicio"].isoformat() if contrato["data_inicio"] else "",
+            "nova_data_fim": contrato["data_fim"].isoformat() if contrato["data_fim"] else "",
+            "novo_valor": (
+                format(contrato["valor_parcela"], ".2f")
+                if contrato["valor_parcela"] is not None
+                else ""
+            ),
+            "observacao": "",
+        }
+
+        cur.execute(
+            """
+            SELECT r.*, u.nome_usuario AS usuario_nome
+            FROM contrato_renovacoes r
+            LEFT JOIN usuarios u ON u.id = r.usuario_id
+            WHERE r.contrato_id = %s
+            ORDER BY r.data_renovacao DESC
+            """,
+            (contrato_id,),
+        )
+        renovacoes = cur.fetchall()
+
+        return render_template(
+            "contratos/renovar.html",
+            contrato=contrato,
+            renovacoes=renovacoes,
+            form_data=form_data,
+        )
+    finally:
+        cur.close()
+        conn.close()
 
 
 @app.route("/contratos/<int:id>/titulos", methods=["GET"])
@@ -9997,10 +10531,3 @@ if __name__ == "__main__":
     # rede, permitindo acesso por outras máquinas da rede local.
     # Altere debug para False em produção.
     app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-
-
-
-
-

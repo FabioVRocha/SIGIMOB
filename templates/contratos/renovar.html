@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Renovar Contrato{% endblock %}
+{% block page_title %}Renovar Contrato{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl content-section space-y-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-semibold text-dark-blue">Contrato #{{ contrato.id }}</h2>
+            <p class="text-sm text-gray-600">{{ contrato.nome_inquilino }} &bull; {{ contrato.endereco_imovel }}</p>
+        </div>
+        <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Voltar para lista</a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="p-4 border border-gray-200 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-700 mb-3">Dados atuais do contrato</h3>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><strong>Período:</strong> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} a {{ contrato.data_fim.strftime('%d/%m/%Y') }}</li>
+                <li><strong>Valor vigente:</strong> R$ {{ '%.2f'|format(contrato.valor_parcela) }}</li>
+                <li><strong>Status:</strong> {{ contrato.status_contrato }}</li>
+                {% if contrato.observacao %}
+                <li><strong>Observações:</strong> {{ contrato.observacao }}</li>
+                {% endif %}
+            </ul>
+        </div>
+        <div class="p-4 border border-gray-200 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-700 mb-3">Informações do Imóvel</h3>
+            <ul class="text-sm text-gray-700 space-y-2">
+                <li><strong>Endereço:</strong> {{ contrato.endereco_imovel }}</li>
+                <li><strong>Finalidade:</strong> {{ contrato.finalidade }}</li>
+                <li><strong>Quantidade de parcelas:</strong> {{ contrato.quantidade_parcelas }}</li>
+            </ul>
+        </div>
+    </div>
+
+    <form action="{{ url_for('contratos_renovar', contrato_id=contrato.id) }}" method="POST" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="form-group">
+                <label for="nova_data_inicio" class="form-label">Nova data inicial</label>
+                <input type="date" id="nova_data_inicio" name="nova_data_inicio" class="form-input" value="{{ form_data.nova_data_inicio }}" required>
+            </div>
+            <div class="form-group">
+                <label for="nova_data_fim" class="form-label">Nova data final</label>
+                <input type="date" id="nova_data_fim" name="nova_data_fim" class="form-input" value="{{ form_data.nova_data_fim }}" required>
+            </div>
+            <div class="form-group">
+                <label for="novo_valor" class="form-label">Novo valor do contrato</label>
+                <input type="number" step="0.01" min="0" id="novo_valor" name="novo_valor" class="form-input" value="{{ form_data.novo_valor }}" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="observacao" class="form-label">Observações da renovação (opcional)</label>
+            <textarea id="observacao" name="observacao" class="form-textarea" rows="3" placeholder="Registre algum detalhe adicional, se necessário.">{{ form_data.observacao }}</textarea>
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" class="btn-primary">Confirmar Renovação</button>
+        </div>
+    </form>
+
+    <div class="mt-8">
+        <h3 class="text-lg font-semibold text-gray-700 mb-3">Histórico de renovações</h3>
+        {% if renovacoes %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Data</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Período anterior</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Período renovado</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Valor anterior</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Novo valor</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Observação</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Usuário</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for renovacao in renovacoes %}
+                    <tr class="{{ loop.cycle('table-row-odd','table-row-even') }} border-b border-gray-200">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ renovacao.data_renovacao.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">
+                            {% if renovacao.data_inicio_anterior and renovacao.data_fim_anterior %}
+                            {{ renovacao.data_inicio_anterior.strftime('%d/%m/%Y') }} &rarr; {{ renovacao.data_fim_anterior.strftime('%d/%m/%Y') }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="py-2 px-3 text-sm text-gray-700">
+                            {{ renovacao.data_inicio_novo.strftime('%d/%m/%Y') }}
+                            &rarr;
+                            {{ renovacao.data_fim_novo.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="py-2 px-3 text-sm text-gray-700">
+                            {% if renovacao.valor_parcela_anterior is not none %}
+                            R$ {{ '%.2f'|format(renovacao.valor_parcela_anterior) }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="py-2 px-3 text-sm text-gray-700">R$ {{ '%.2f'|format(renovacao.valor_parcela_novo) }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ renovacao.observacao or '-' }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ renovacao.usuario_nome or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-600">Nenhuma renovação registrada para este contrato.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -110,6 +110,7 @@
                     <option value="Ativo" {% if contrato.status_contrato == 'Ativo' %}selected{% endif %}>Ativo</option>
                     <option value="Encerrado" {% if contrato.status_contrato == 'Encerrado' %}selected{% endif %}>Encerrado</option>
                     <option value="Finalizado" {% if contrato.status_contrato == 'Finalizado' %}selected{% endif %}>Finalizado</option>
+                    <option value="Renovar" {% if contrato.status_contrato == 'Renovar' %}selected{% endif %}>Renovar</option>
                     <option value="Pendente" {% if contrato.status_contrato == 'Pendente' %}selected{% endif %}>Pendente</option>
                 </select>
             </div>
@@ -373,3 +374,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
+
