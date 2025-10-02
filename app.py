@@ -16,6 +16,7 @@ from flask import (
 )
 import psycopg2
 from psycopg2 import extras, sql
+from psycopg2.errors import DuplicateObject
 import os
 import posixpath
 from datetime import datetime, timedelta, date
@@ -840,8 +841,11 @@ def listar_debitos_para_prestacao(cur, contrato_id: int, data_encerramento: date
     return debitos
 
 
-def calcular_totais_prestacao(creditos, debitos, despesas):
-    total_creditos = sum(item["valor"] for item in creditos)
+def calcular_totais_prestacao(creditos, debitos, despesas, creditos_extras=None):
+    creditos_extras = creditos_extras or []
+    total_creditos_base = sum(item["valor"] for item in creditos)
+    total_creditos_extras = sum(item["valor"] for item in creditos_extras)
+    total_creditos = total_creditos_base + total_creditos_extras
     total_debitos = sum(item["valor_pendente"] for item in debitos)
     total_despesas = sum(item["valor"] for item in despesas)
     saldo_final = total_creditos - total_debitos - total_despesas
@@ -851,6 +855,27 @@ def calcular_totais_prestacao(creditos, debitos, despesas):
         "total_despesas": total_despesas,
         "saldo_final": saldo_final,
     }
+
+
+def preparar_creditos_extras(payload):
+    creditos = []
+    if not payload:
+        return creditos
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        descricao = str(item.get("descricao", "")).strip()
+        valor = parse_decimal(item.get("valor"))
+        if not descricao or valor is None:
+            continue
+        try:
+            valor = valor.quantize(Decimal("0.01"))
+        except InvalidOperation:
+            continue
+        if valor <= 0:
+            continue
+        creditos.append({"descricao": descricao, "valor": valor})
+    return creditos
 
 
 def preparar_despesas(payload):
@@ -949,9 +974,10 @@ def processar_prestacao(
         debitos.append(debito)
 
     despesas = preparar_despesas(payload.get("despesas"))
+    creditos_extras = preparar_creditos_extras(payload.get("creditos_extras"))
     observacoes = (payload.get("observacoes") or "").strip()
 
-    totais = calcular_totais_prestacao(creditos, debitos, despesas)
+    totais = calcular_totais_prestacao(creditos, debitos, despesas, creditos_extras)
     total_creditos = totais["total_creditos"].quantize(Decimal("0.01"))
     total_debitos = totais["total_debitos"].quantize(Decimal("0.01"))
     total_despesas = totais["total_despesas"].quantize(Decimal("0.01"))
@@ -1021,6 +1047,21 @@ def processar_prestacao(
                 credito["id"],
                 credito["titulo"],
                 credito["valor"].quantize(Decimal("0.01")),
+            ),
+        )
+
+    for credito_extra in creditos_extras:
+        cur.execute(
+            """
+            INSERT INTO prestacoes_contas_itens (
+                prestacao_id, conta_receber_id, tipo, descricao, valor
+            ) VALUES (%s, %s, 'credito_extra', %s, %s)
+            """,
+            (
+                prestacao_id,
+                None,
+                credito_extra["descricao"],
+                credito_extra["valor"].quantize(Decimal("0.01")),
             ),
         )
 
@@ -1568,6 +1609,40 @@ def ensure_column_exists(cur, table_name, column_name, definition_sql):
     )
 
 
+
+def ensure_prestacao_enum_credito_extra(conn):
+    """Ensure the enum prestacao_item_tipo includes the credito_extra value."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_type WHERE typname = 'prestacao_item_tipo'")
+        type_exists = cur.fetchone() is not None
+    if not type_exists:
+        return
+
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT 1
+            FROM pg_enum e
+            JOIN pg_type t ON e.enumtypid = t.oid
+            WHERE t.typname = 'prestacao_item_tipo'
+              AND e.enumlabel = 'credito_extra'
+        """)
+        if cur.fetchone():
+            return
+
+    conn.commit()
+    previous_autocommit = conn.autocommit
+    try:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            try:
+                cur.execute("ALTER TYPE prestacao_item_tipo ADD VALUE 'credito_extra'")
+            except DuplicateObject:
+                pass
+    finally:
+        conn.autocommit = previous_autocommit
+
+
+
 def ensure_prestacao_contas_tables():
     conn = None
     cur = None
@@ -1586,6 +1661,10 @@ def ensure_prestacao_contas_tables():
             END$$;
             """
         )
+        cur.close()
+        # Ensure new enum value exists outside transactional context
+        ensure_prestacao_enum_credito_extra(conn)
+        cur = conn.cursor()
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS prestacoes_contas (
@@ -5803,6 +5882,7 @@ def contratos_encerrar_form(contrato_id):
     configuracao = {
         "selectedDebitos": [],
         "despesas": [],
+        "creditosExtras": [],
         "observacoes": "",
     }
     return render_template(
@@ -5883,9 +5963,18 @@ def contratos_prestacao_editar(prestacao_id):
         for item in itens
         if item["tipo"] == "despesa"
     ]
+    creditos_extras = [
+        {
+            "descricao": item["descricao"],
+            "valor": decimal_to_string(item["valor"]),
+        }
+        for item in itens
+        if item["tipo"] == "credito_extra"
+    ]
     configuracao = {
         "selectedDebitos": selected_debitos,
         "despesas": despesas,
+        "creditosExtras": creditos_extras,
         "observacoes": prestacao["observacoes"] or "",
     }
     data_encerramento = prestacao["data_encerramento"].strftime("%Y-%m-%d")
@@ -6038,8 +6127,10 @@ def contratos_prestacao_relatorio(prestacao_id):
         conn.close()
 
     creditos = [item for item in itens if item["tipo"] == "credito"]
+    creditos_extras = [item for item in itens if item["tipo"] == "credito_extra"]
     debitos = [item for item in itens if item["tipo"] == "debito"]
     despesas = [item for item in itens if item["tipo"] == "despesa"]
+    total_creditos_extras = sum((Decimal(str(item["valor"])) for item in creditos_extras), Decimal("0"))
 
     pdf = FPDF()
     pdf.add_page()
@@ -6084,6 +6175,7 @@ def contratos_prestacao_relatorio(prestacao_id):
             pdf.cell(0, 6, f"- {descricao}: {format_currency(valor)}", ln=True)
 
     add_section("Créditos (Calção)", creditos)
+    add_section("Creditos Extras", creditos_extras)
     add_section("Débitos", debitos)
     add_section("Despesas Extras", despesas)
 
@@ -6092,6 +6184,8 @@ def contratos_prestacao_relatorio(prestacao_id):
     pdf.cell(0, 6, "Totais", ln=True)
     pdf.set_font("Arial", "", 10)
     pdf.cell(0, 6, f"Total de créditos: {format_currency(prestacao['total_creditos'])}", ln=True)
+    if total_creditos_extras > 0:
+        pdf.cell(0, 6, f"Creditos extras: {format_currency(total_creditos_extras)}", ln=True)
     pdf.cell(0, 6, f"Total de débitos: {format_currency(prestacao['total_debitos'])}", ln=True)
     pdf.cell(0, 6, f"Despesas extras: {format_currency(prestacao['total_despesas'])}", ln=True)
     pdf.cell(0, 6, f"Saldo final: {format_currency(prestacao['saldo_final'])}", ln=True)

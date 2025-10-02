@@ -84,6 +84,15 @@
 
         <div class="border border-gray-200 rounded-lg p-4">
             <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-gray-800">Creditos extras</h3>
+                <button type="button" id="add-credito-extra" class="btn-secondary text-sm"><i class="fas fa-plus mr-2"></i>Adicionar credito</button>
+            </div>
+            <p class="text-xs text-gray-500 mb-3">Valores positivos adicionados manualmente serao somados aos creditos do resumo.</p>
+            <div id="creditos-extras-container" class="space-y-3 text-sm"></div>
+        </div>
+
+        <div class="border border-gray-200 rounded-lg p-4">
+            <div class="flex items-center justify-between mb-3">
                 <h3 class="text-lg font-semibold text-gray-800">Despesas extras</h3>
                 <button type="button" id="add-despesa" class="btn-secondary text-sm"><i class="fas fa-plus mr-2"></i>Adicionar despesa</button>
             </div>
@@ -97,10 +106,14 @@
 
         <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h3 class="text-lg font-semibold text-gray-800 mb-3">Resumo</h3>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-700">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm text-gray-700">
                 <div>
                     <p class="font-medium">Total de créditos</p>
                     <p id="total-creditos" class="text-lg font-semibold text-green-600">R$ 0,00</p>
+                </div>
+                <div>
+                    <p class="font-medium">Creditos extras</p>
+                    <p id="total-creditos-extras" class="text-lg font-semibold text-green-600">R$ 0,00</p>
                 </div>
                 <div>
                     <p class="font-medium">Total de débitos</p>
@@ -137,12 +150,15 @@
 
     const dataInput = document.getElementById('prestacao-data');
     const creditosContainer = document.getElementById('creditos-container');
+    const creditosExtrasContainer = document.getElementById('creditos-extras-container');
     const debitosContainer = document.getElementById('debitos-container');
     const despesasContainer = document.getElementById('despesas-container');
     const addDespesaBtn = document.getElementById('add-despesa');
+    const addCreditoExtraBtn = document.getElementById('add-credito-extra');
     const observacoesTextarea = document.getElementById('prestacao-observacoes');
     const payloadInput = document.getElementById('prestacao-payload');
     const totalCreditosEl = document.getElementById('total-creditos');
+    const totalCreditosExtrasEl = document.getElementById('total-creditos-extras');
     const totalDebitosEl = document.getElementById('total-debitos');
     const totalDespesasEl = document.getElementById('total-despesas');
     const saldoFinalEl = document.getElementById('saldo-final');
@@ -153,10 +169,19 @@
         creditos: [],
         debitos: [],
         selectedDebitos: new Set(configuracao.selectedDebitos || []),
+        creditosExtras: [],
         despesas: [],
     };
 
-    if (Array.isArray(configuracao.despesas)) {
+    if (Array.isArray(configuracao.creditosExtras)) {
+        state.creditosExtras = configuracao.creditosExtras.map((item, index) => ({
+            id: `credito-extra-${index + 1}`,
+            descricao: item.descricao || '',
+            valor: item.valor || ''
+        }));
+    }
+
+if (Array.isArray(configuracao.despesas)) {
         state.despesas = configuracao.despesas.map((item, index) => ({
             id: `despesa-${index + 1}`,
             descricao: item.descricao || '',
@@ -251,6 +276,60 @@
         });
     }
 
+    function renderCreditosExtras(){
+        if(!creditosExtrasContainer){ return; }
+        if(!state.creditosExtras.length){
+            creditosExtrasContainer.innerHTML = '<p class="text-sm text-gray-500">Nenhum credito extra adicionado.</p>';
+            return;
+        }
+        const rows = state.creditosExtras.map(item => `
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border border-gray-200 rounded p-3" data-credito-extra-id="${item.id}">
+                <div class="md:col-span-7">
+                    <label class="form-label">Descricao</label>
+                    <input type="text" class="form-input credito-extra-descricao" value="${item.descricao || ''}" placeholder="Descreva o credito">
+                </div>
+                <div class="md:col-span-3">
+                    <label class="form-label">Valor</label>
+                    <input type="text" class="form-input credito-extra-valor" value="${item.valor || ''}" placeholder="0,00">
+                </div>
+                <div class="md:col-span-2 flex md:justify-end">
+                    <button type="button" class="btn-secondary remover-credito-extra w-full md:w-auto"><i class="fas fa-trash-alt mr-2"></i>Remover</button>
+                </div>
+            </div>
+        `);
+        creditosExtrasContainer.innerHTML = rows.join('');
+        creditosExtrasContainer.querySelectorAll('.credito-extra-descricao').forEach(input => {
+            input.addEventListener('input', event => {
+                const wrapper = event.target.closest('[data-credito-extra-id]');
+                const id = wrapper ? wrapper.dataset.creditoExtraId : null;
+                const registro = state.creditosExtras.find(item => item.id === id);
+                if(registro){
+                    registro.descricao = event.target.value;
+                }
+            });
+        });
+        creditosExtrasContainer.querySelectorAll('.credito-extra-valor').forEach(input => {
+            input.addEventListener('input', event => {
+                const wrapper = event.target.closest('[data-credito-extra-id]');
+                const id = wrapper ? wrapper.dataset.creditoExtraId : null;
+                const registro = state.creditosExtras.find(item => item.id === id);
+                if(registro){
+                    registro.valor = event.target.value;
+                    atualizarTotais();
+                }
+            });
+        });
+        creditosExtrasContainer.querySelectorAll('.remover-credito-extra').forEach(button => {
+            button.addEventListener('click', event => {
+                const wrapper = event.target.closest('[data-credito-extra-id]');
+                const id = wrapper ? wrapper.dataset.creditoExtraId : null;
+                state.creditosExtras = state.creditosExtras.filter(item => item.id !== id);
+                renderCreditosExtras();
+                atualizarTotais();
+            });
+        });
+    }
+
     function renderDespesas(){
         if(!despesasContainer){ return; }
         if(!state.despesas.length){
@@ -306,7 +385,9 @@
     }
 
     function atualizarTotais(){
-        const totalCreditos = state.creditos.reduce((acc, item) => acc + parseValor(item.valor), 0);
+        const totalCreditosBase = state.creditos.reduce((acc, item) => acc + parseValor(item.valor), 0);
+        const totalCreditosExtras = state.creditosExtras.reduce((acc, item) => acc + parseValor(item.valor), 0);
+        const totalCreditos = totalCreditosBase + totalCreditosExtras;
         const totalDebitos = state.debitos
             .filter(item => state.selectedDebitos.has(item.id))
             .reduce((acc, item) => acc + parseValor(item.valor_pendente), 0);
@@ -314,6 +395,9 @@
         const saldo = totalCreditos - totalDebitos - totalDespesas;
 
         totalCreditosEl.textContent = formatCurrency(totalCreditos);
+        if(totalCreditosExtrasEl){
+            totalCreditosExtrasEl.textContent = formatCurrency(totalCreditosExtras);
+        }
         totalDebitosEl.textContent = formatCurrency(totalDebitos);
         totalDespesasEl.textContent = formatCurrency(totalDespesas);
         saldoFinalEl.textContent = formatCurrency(saldo);
@@ -355,6 +439,7 @@
                 }));
                 renderCreditos();
                 renderDebitos();
+                renderCreditosExtras();
                 renderDespesas();
                 atualizarTotais();
                 feedbackEl.textContent = `Dados carregados para ${dataStr.split('-').reverse().join('/')}`;
@@ -367,6 +452,15 @@
             });
     }
 
+    renderCreditosExtras();
+    if(addCreditoExtraBtn){
+        addCreditoExtraBtn.addEventListener('click', () => {
+            const nextIndex = state.creditosExtras.length + 1;
+            state.creditosExtras.push({ id: `credito-extra-${Date.now()}-${nextIndex}`, descricao: '', valor: '' });
+            renderCreditosExtras();
+            atualizarTotais();
+        });
+    }
     if(addDespesaBtn){
         addDespesaBtn.addEventListener('click', () => {
             const nextIndex = state.despesas.length + 1;
@@ -392,6 +486,10 @@
                 dataInput.focus();
                 return;
             }
+            const creditosExtrasValidos = state.creditosExtras
+                .map(item => ({ descricao: item.descricao.trim(), valor: item.valor }))
+                .filter(item => item.descricao && parseValor(item.valor) > 0)
+                .map(item => ({ descricao: item.descricao, valor: item.valor }));
             const despesasValidas = state.despesas
                 .map(item => ({ descricao: item.descricao.trim(), valor: item.valor }))
                 .filter(item => item.descricao && parseValor(item.valor) > 0)
@@ -400,6 +498,7 @@
             const payload = {
                 debitos_incluir: Array.from(state.selectedDebitos),
                 despesas: despesasValidas,
+                creditos_extras: creditosExtrasValidos,
                 observacoes: observacoesTextarea ? observacoesTextarea.value.trim() : ''
             };
             payloadInput.value = JSON.stringify(payload);
