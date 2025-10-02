@@ -3641,6 +3641,208 @@ def contratos_imovel_disponibilidade(imovel_id):
     return jsonify({"disponivel": True})
 
 
+def gerar_contas_a_receber_contrato(
+    cur,
+    *,
+    contrato_id,
+    cliente_id,
+    finalidade,
+    data_inicio,
+    quantidade_parcelas,
+    valor_parcela,
+    vencimento_mesmo_dia=None,
+    dias_intervalo=None,
+    quantidade_calcao=0,
+    valor_calcao=None,
+    incluir_calcao=True,
+    titulo_prefix="",
+):
+    """Create contas_a_receber rows for a contract using the existing rules."""
+    if finalidade == "Comodato":
+        return
+    try:
+        total_parcelas = int(quantidade_parcelas or 0)
+    except (TypeError, ValueError):
+        total_parcelas = 0
+    if total_parcelas <= 0:
+        return
+    try:
+        valor_decimal = (
+            valor_parcela
+            if isinstance(valor_parcela, Decimal)
+            else Decimal(str(valor_parcela).replace(",", "."))
+        )
+    except (InvalidOperation, ValueError, TypeError):
+        return
+    if valor_decimal <= 0:
+        return
+    if isinstance(data_inicio, datetime):
+        data_base = data_inicio.date()
+    elif isinstance(data_inicio, date):
+        data_base = data_inicio
+    else:
+        try:
+            data_base = datetime.strptime(str(data_inicio), "%Y-%m-%d").date()
+        except ValueError:
+            return
+
+    due_day = None
+    interval_days = None
+    if vencimento_mesmo_dia:
+        try:
+            due_day = max(1, min(31, int(vencimento_mesmo_dia)))
+        except (TypeError, ValueError):
+            due_day = None
+    if due_day is None and dias_intervalo:
+        try:
+            interval_days = int(dias_intervalo)
+        except (TypeError, ValueError):
+            interval_days = None
+    if due_day is None and interval_days is None:
+        due_day = data_base.day
+
+    def ensure_receita(descricao, aliases=None):
+        candidatos = [descricao]
+        if aliases:
+            candidatos.extend(aliases)
+        for candidato in candidatos:
+            cur.execute(
+                "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+                (candidato,),
+            )
+            resultado = cur.fetchone()
+            if resultado:
+                return resultado[0]
+        cur.execute(
+            "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
+            (descricao,),
+        )
+        return cur.fetchone()[0]
+
+    receita_id = ensure_receita("ALUGUEL")
+
+    def build_titulo(numero):
+        if titulo_prefix:
+            return f"{contrato_id}-{titulo_prefix}{numero}/{total_parcelas}"
+        return f"{contrato_id}-{numero}/{total_parcelas}"
+
+    def add_months(start, months):
+        month = start.month - 1 + months
+        year = start.year + month // 12
+        month = month % 12 + 1
+        day = min(start.day, calendar.monthrange(year, month)[1])
+        return date(year, month, day)
+
+    if due_day is not None:
+        for numero in range(1, total_parcelas + 1):
+            target_month = add_months(data_base, numero)
+            ultimo_dia = calendar.monthrange(target_month.year, target_month.month)[1]
+            vencimento = target_month.replace(day=min(due_day, ultimo_dia))
+            cur.execute(
+                """
+                INSERT INTO contas_a_receber (
+                    contrato_id,
+                    receita_id,
+                    cliente_id,
+                    titulo,
+                    data_vencimento,
+                    valor_previsto,
+                    valor_pendente
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    contrato_id,
+                    receita_id,
+                    cliente_id,
+                    build_titulo(numero),
+                    vencimento,
+                    valor_decimal,
+                    valor_decimal,
+                ),
+            )
+    else:
+        if not interval_days or interval_days <= 0:
+            interval_days = 30
+        vencimento = data_base
+        for numero in range(1, total_parcelas + 1):
+            vencimento = vencimento + timedelta(days=interval_days)
+            cur.execute(
+                """
+                INSERT INTO contas_a_receber (
+                    contrato_id,
+                    receita_id,
+                    cliente_id,
+                    titulo,
+                    data_vencimento,
+                    valor_previsto,
+                    valor_pendente
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    contrato_id,
+                    receita_id,
+                    cliente_id,
+                    build_titulo(numero),
+                    vencimento,
+                    valor_decimal,
+                    valor_decimal,
+                ),
+            )
+
+    if not incluir_calcao:
+        return
+    try:
+        qtd_calcao = int(quantidade_calcao or 0)
+    except (TypeError, ValueError):
+        qtd_calcao = 0
+    if qtd_calcao <= 0:
+        return
+    try:
+        valor_calcao_decimal = (
+            valor_calcao
+            if isinstance(valor_calcao, Decimal)
+            else Decimal(str(valor_calcao).replace(",", "."))
+        )
+    except (InvalidOperation, ValueError, TypeError):
+        return
+    if valor_calcao_decimal <= 0:
+        return
+
+    calcao_receita_id = ensure_receita(
+        "CALCOES",
+        aliases=['CALÇÕES', 'CAL�OES'],
+    )
+    for numero in range(1, qtd_calcao + 1):
+        titulo_calcao = (
+            f"C{contrato_id}-{titulo_prefix}{numero}/{qtd_calcao}"
+            if titulo_prefix
+            else f"C{contrato_id}-{numero}/{qtd_calcao}"
+        )
+        venc_calcao = data_base + timedelta(days=30 * (numero - 1))
+        cur.execute(
+            """
+            INSERT INTO contas_a_receber (
+                contrato_id,
+                receita_id,
+                cliente_id,
+                titulo,
+                data_vencimento,
+                valor_previsto,
+                valor_pendente
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                contrato_id,
+                calcao_receita_id,
+                cliente_id,
+                titulo_calcao,
+                venc_calcao,
+                valor_calcao_decimal,
+                valor_calcao_decimal,
+            ),
+        )
+
+
 @app.route("/contratos/add", methods=["GET", "POST"])
 @login_required
 @permission_required("Gestao Contratos", "Incluir")
@@ -3761,118 +3963,19 @@ def contratos_add():
             )
             contrato_id = cur.fetchone()[0]
 
-            # Criar contas a receber somente se não for Comodato
-            if finalidade != "Comodato":
-                # Receitas de aluguel (parcelas)
-                cur.execute(
-                    "SELECT id FROM receitas_cadastro WHERE descricao = %s",
-                    ("ALUGUEL",),
-                )
-                result = cur.fetchone()
-                if result:
-                    receita_id = result[0]
-                else:
-                    cur.execute(
-                        "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
-                        ("ALUGUEL",),
-                    )
-                    receita_id = cur.fetchone()[0]
-
-                total_parcelas = int(quantidade_parcelas)
-                if vencimento_mesmo_dia:
-                    due_day = int(vencimento_mesmo_dia)
-
-                    def add_months(start_date, months):
-                        month = start_date.month - 1 + months
-                        year = start_date.year + month // 12
-                        month = month % 12 + 1
-                        day = min(start_date.day, calendar.monthrange(year, month)[1])
-                        return date(year, month, day)
-
-                    for numero in range(1, total_parcelas + 1):
-                        titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
-                        target_month = add_months(data_inicio, numero)
-                        last_day = calendar.monthrange(target_month.year, target_month.month)[1]
-                        day = min(due_day, last_day)
-                        vencimento = target_month.replace(day=day)
-                        cur.execute(
-                            """
-                            INSERT INTO contas_a_receber (
-                                contrato_id, receita_id, cliente_id, titulo,
-                                data_vencimento, valor_previsto, valor_pendente
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            """,
-                            (
-                                contrato_id,
-                                receita_id,
-                                cliente_id,
-                                titulo_parcela,
-                                vencimento,
-                                valor_parcela,
-                                valor_parcela,
-                            ),
-                        )
-                else:
-                    intervalo = int(dias_intervalo)
-                    vencimento = data_inicio
-                    for numero in range(1, total_parcelas + 1):
-                        titulo_parcela = f"{contrato_id}-{numero}/{total_parcelas}"
-                        vencimento = vencimento + timedelta(days=intervalo)
-                        cur.execute(
-                            """
-                            INSERT INTO contas_a_receber (
-                                contrato_id, receita_id, cliente_id, titulo,
-                                data_vencimento, valor_previsto, valor_pendente
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            """,
-                            (
-                                contrato_id,
-                                receita_id,
-                                cliente_id,
-                                titulo_parcela,
-                                vencimento,
-                                valor_parcela,
-                                valor_parcela,
-                            ),
-                        )
-
-                # Receitas de calção (quando houver)
-                if quantidade_calcao > 0 and valor_calcao:
-                    cur.execute(
-                        "SELECT id FROM receitas_cadastro WHERE descricao = %s",
-                        ("CALÇOES",),
-                    )
-                    calcao_result = cur.fetchone()
-                    if calcao_result:
-                        calcao_receita_id = calcao_result[0]
-                    else:
-                        cur.execute(
-                            "INSERT INTO receitas_cadastro (descricao) VALUES (%s) RETURNING id",
-                            ("CALÇOES",),
-                        )
-                        calcao_receita_id = cur.fetchone()[0]
-
-                    for numero in range(1, quantidade_calcao + 1):
-                        titulo_calcao = f"C{contrato_id}-{numero}/{quantidade_calcao}"
-                        venc_calcao = data_inicio + timedelta(days=30 * (numero - 1))
-                        cur.execute(
-                            """
-                            INSERT INTO contas_a_receber (
-                                contrato_id, receita_id, cliente_id, titulo,
-                                data_vencimento, valor_previsto, valor_pendente
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            """,
-                            (
-                                contrato_id,
-                                calcao_receita_id,
-                                cliente_id,
-                                titulo_calcao,
-                                venc_calcao,
-                                valor_calcao,
-                                valor_calcao,
-                            ),
-                        )
-
+            gerar_contas_a_receber_contrato(
+                cur,
+                contrato_id=contrato_id,
+                cliente_id=cliente_id,
+                finalidade=finalidade,
+                data_inicio=data_inicio,
+                quantidade_parcelas=quantidade_parcelas,
+                valor_parcela=valor_parcela,
+                vencimento_mesmo_dia=vencimento_mesmo_dia,
+                dias_intervalo=dias_intervalo,
+                quantidade_calcao=quantidade_calcao,
+                valor_calcao=valor_calcao,
+            )
             if "anexos" in request.files:
                 files = request.files.getlist("anexos")
                 for file in files:
@@ -4196,6 +4299,7 @@ def contratos_renovar(contrato_id):
                         observacao,
                         usuario_id
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
                     """,
                     (
                         contrato_id,
@@ -4209,6 +4313,22 @@ def contratos_renovar(contrato_id):
                         session.get("user_id"),
                     ),
                 )
+                renovacao_id = cur.fetchone()[0]
+
+                quantidade_parcelas_atual = contrato.get("quantidade_parcelas")
+                try:
+                    quantidade_parcelas_int = int(quantidade_parcelas_atual or 0)
+                except (TypeError, ValueError):
+                    quantidade_parcelas_int = 0
+                if quantidade_parcelas_int <= 0 and nova_data_inicio and nova_data_fim:
+                    quantidade_parcelas_int = max(
+                        1,
+                        (nova_data_fim.year - nova_data_inicio.year) * 12
+                        + (nova_data_fim.month - nova_data_inicio.month)
+                        + 1,
+                    )
+                elif quantidade_parcelas_int <= 0:
+                    quantidade_parcelas_int = 1
 
                 cur.execute(
                     """
@@ -4216,10 +4336,59 @@ def contratos_renovar(contrato_id):
                     SET data_inicio = %s,
                         data_fim = %s,
                         valor_parcela = %s,
+                        quantidade_parcelas = %s,
                         status_contrato = 'Ativo'
                     WHERE id = %s
                     """,
-                    (nova_data_inicio, nova_data_fim, novo_valor, contrato_id),
+                    (
+                        nova_data_inicio,
+                        nova_data_fim,
+                        novo_valor,
+                        quantidade_parcelas_int,
+                        contrato_id,
+                    ),
+                )
+
+                vencimento_mesmo_dia_param = None
+                dias_intervalo_param = None
+                cur.execute(
+                    """
+                    SELECT data_vencimento
+                    FROM contas_a_receber
+                    WHERE contrato_id = %s
+                      AND (titulo IS NULL OR titulo NOT LIKE 'C%%')
+                    ORDER BY data_vencimento ASC
+                    LIMIT 2
+                    """,
+                    (contrato_id,),
+                )
+                datas_vencimento = [row[0] for row in cur.fetchall() if row[0]]
+                if len(datas_vencimento) >= 2:
+                    if datas_vencimento[0].day == datas_vencimento[1].day:
+                        vencimento_mesmo_dia_param = datas_vencimento[0].day
+                    else:
+                        diff_days = (datas_vencimento[1] - datas_vencimento[0]).days
+                        if diff_days > 0:
+                            dias_intervalo_param = diff_days
+                elif len(datas_vencimento) == 1:
+                    vencimento_mesmo_dia_param = datas_vencimento[0].day
+                if not vencimento_mesmo_dia_param and not dias_intervalo_param:
+                    vencimento_mesmo_dia_param = nova_data_inicio.day
+
+                titulo_prefix = f"R{renovacao_id}-" if renovacao_id else ""
+
+                gerar_contas_a_receber_contrato(
+                    cur,
+                    contrato_id=contrato_id,
+                    cliente_id=contrato["cliente_id"],
+                    finalidade=contrato["finalidade"],
+                    data_inicio=nova_data_inicio,
+                    quantidade_parcelas=quantidade_parcelas_int,
+                    valor_parcela=novo_valor,
+                    vencimento_mesmo_dia=vencimento_mesmo_dia_param,
+                    dias_intervalo=dias_intervalo_param,
+                    incluir_calcao=False,
+                    titulo_prefix=titulo_prefix,
                 )
 
                 conn.commit()
@@ -4279,6 +4448,76 @@ def contratos_renovar(contrato_id):
         cur.close()
         conn.close()
 
+
+
+
+@app.route("/contratos/<int:contrato_id>/renovacoes/<int:renovacao_id>/excluir", methods=["POST"])
+@login_required
+@permission_required("Gestao Contratos", "Editar")
+def contratos_renovacao_excluir(contrato_id, renovacao_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            """
+            SELECT *
+            FROM contrato_renovacoes
+            WHERE id = %s AND contrato_id = %s
+            """,
+            (renovacao_id, contrato_id),
+        )
+        renovacao = cur.fetchone()
+        if renovacao is None:
+            flash("Renovacao nao encontrada.", "warning")
+            return redirect(url_for("contratos_renovar", contrato_id=contrato_id))
+
+        cur.execute(
+            """
+            SELECT id
+            FROM contrato_renovacoes
+            WHERE contrato_id = %s
+            ORDER BY data_renovacao DESC, id DESC
+            LIMIT 1
+            """,
+            (contrato_id,),
+        )
+        ultima = cur.fetchone()
+        if not ultima or ultima["id"] != renovacao_id:
+            flash("So e possivel excluir a ultima renovacao registrada.", "warning")
+            return redirect(url_for("contratos_renovar", contrato_id=contrato_id))
+
+        cur.execute(
+            """
+            UPDATE contratos_aluguel
+            SET data_inicio = %s,
+                data_fim = %s,
+                valor_parcela = %s,
+                status_contrato = 'Ativo'
+            WHERE id = %s
+            """,
+            (
+                renovacao["data_inicio_anterior"],
+                renovacao["data_fim_anterior"],
+                renovacao["valor_parcela_anterior"],
+                contrato_id,
+            ),
+        )
+
+        cur.execute(
+            "DELETE FROM contrato_renovacoes WHERE id = %s",
+            (renovacao_id,),
+        )
+
+        conn.commit()
+        flash("Renovacao excluida e dados do contrato restaurados.", "success")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Erro ao excluir renovacao: {exc}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for("contratos_renovar", contrato_id=contrato_id))
 
 @app.route("/contratos/<int:id>/titulos", methods=["GET"])
 @login_required
@@ -10531,3 +10770,4 @@ if __name__ == "__main__":
     # rede, permitindo acesso por outras máquinas da rede local.
     # Altere debug para False em produção.
     app.run(host="0.0.0.0", port=5000, debug=True)
+
