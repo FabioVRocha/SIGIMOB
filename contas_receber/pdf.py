@@ -1,73 +1,651 @@
-"""Geração simplificada de boletos em PDF.
+"""Geração de boletos em PDF reaproveitando o template HTML."""
 
-Esta rotina produz um boleto bancário em formato PDF sem depender de
-bibliotecas externas. Todo o layout é desenhado "na mão" por meio de
-comandos PDF diretos (``re`` para retângulos, ``m``/``l`` para linhas e
-``Tj`` para textos), o que garante portabilidade do arquivo para qualquer
-leitor de PDF.
+from __future__ import annotations
 
-O desenho foi ajustado para seguir o padrão visual de um boleto bancário
-com "Recibo do Pagador" (parte superior) e "Ficha de Compensação"
-(inferior), tomando como referência os modelos anexos (por exemplo,
-``Temporario/boleto/Modelo Boleto2.pdf``). Mantém-se os rótulos que já
-eram usados nos testes automatizados para não quebrar integrações
-existentes, mas as posições e blocos foram alinhados ao layout padrão.
-"""
+import base64
+import os
+import shutil
+import subprocess
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Iterable
 
-from datetime import datetime, date
-import re
+from flask import current_app, render_template
+
+from .boleto_utils import (
+    codigo_barras_html,
+    codigo_barras_numero,
+    linha_digitavel,
+    digits,
+)
+
+from fpdf import FPDF
+
+PT_TO_MM = 0.352777778
+
+try:  # WeasyPrint usa dependências nativas; pode estar ausente.
+    from weasyprint import HTML  # type: ignore
+except Exception as exc:  # pragma: no cover - depende do SO
+    HTML = None  # type: ignore
+    _WEASYPRINT_ERROR = exc
+else:
+    _WEASYPRINT_ERROR = None
+
+try:
+    from xhtml2pdf import pisa  # type: ignore
+except Exception:  # pragma: no cover - mantemos fallback manual
+    pisa = None  # type: ignore
 
 
-def _num(x: str) -> str:
-    """Extrai apenas dígitos de uma string."""
-    return re.sub(r"\D", "", x or "")
+def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
+    """Gera o PDF do boleto.
 
-
-def _linha_digitavel(conta, nosso_numero: str, vencimento, valor: float) -> str:
-    """Gera uma linha digitável com 47 dígitos no formato visual padrão.
-
-    Obs.: Não calcula os dígitos verificadores oficiais. O objetivo aqui é
-    produzir um placeholder com o agrupamento típico para uso visual no PDF.
+    Tenta primeiro renderizar o HTML existente com o WeasyPrint. Caso a
+    biblioteca não esteja instalada (ou falhe), cai automaticamente para o
+    gerador manual que já era utilizado anteriormente.
     """
-    banco = (_num(conta.banco) or "000").rjust(3, "0")[:3]
-    moeda = "9"  # Real
-    # aceita date ou datetime para o vencimento
-    if isinstance(vencimento, datetime):
-        venc_date = vencimento.date()
+
+    nosso_numero = titulo.nosso_numero or ""
+    valor_float = float(titulo.valor_previsto)
+    documento = str(titulo.id)
+
+    linha = linha_digitavel(conta, nosso_numero, titulo.data_vencimento, valor_float)
+    barcode_num = codigo_barras_numero(conta, nosso_numero, documento, valor_float)
+
+    contexto = dict(
+        titulo=titulo,
+        empresa=empresa,
+        conta=conta,
+        cliente=cliente,
+        linha_digitavel=linha,
+        barcode=codigo_barras_html(barcode_num),
+        is_pdf=True,
+    )
+
+    html = render_template("financeiro/contas_a_receber/boleto.html", **contexto)
+
+    if HTML is not None:
+        try:
+            HTML(string=html, base_url=current_app.root_path).write_pdf(target=filepath)
+            return
+        except Exception as exc:  # pragma: no cover
+            current_app.logger.warning(
+                "WeasyPrint falhou (%s). Tentando Chromium headless.",
+                exc,
+            )
     else:
-        venc_date = vencimento  # assume date
-    fator = (venc_date - date(1997, 10, 7)).days
-    fator_str = str(max(fator, 0)).rjust(4, "0")[:4]
-    valor_str = ("%010d" % int(round(float(valor) * 100)))[:10]
-    ag = _num(conta.agencia)[:4].ljust(4, "0")
-    cc = _num(conta.conta).replace("-", "")[:8].ljust(8, "0")
-    nn = _num(nosso_numero)[:11].rjust(11, "0")
-    carteira = _num(getattr(conta, "carteira", "17") or "17")[:2].rjust(2, "0")
+        current_app.logger.info(
+            "WeasyPrint indisponível (%s). Tentando Chromium headless.",
+            _WEASYPRINT_ERROR,
+        )
 
-    # Monta 47 dígitos (placeholder):
-    base = (banco + moeda + carteira + ag + nn + cc + fator_str + valor_str)
-    base = (base + ("0" * 47))[:47]
-    # Agrupamento visual: 5.5  5.6  5.6  1  14
-    c1 = f"{base[0:5]}.{base[5:10]}"
-    c2 = f"{base[10:15]}.{base[15:21]}"
-    c3 = f"{base[21:26]}.{base[26:32]}"
-    dv = base[32]
-    c5 = base[33:47]
-    return f"{c1} {c2} {c3} {dv} {c5}"
+    if _render_with_chromium(html, filepath):
+        return
+
+    if pisa is None:
+        current_app.logger.warning(
+            "xhtml2pdf indisponível. Voltando ao gerador PDF manual.",
+        )
+        _gerar_pdf_manual(
+            titulo=titulo,
+            empresa=empresa,
+            conta=conta,
+            cliente=cliente,
+            filepath=filepath,
+            linha_digitavel_texto=linha,
+            barcode_numero=barcode_num,
+            valor_formatado=f"{valor_float:.2f}",
+        )
+        return
+
+    try:
+        _render_with_pisa(html, filepath)
+        return
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.warning(
+            "xhtml2pdf falhou (%s). Voltando ao gerador PDF manual.",
+            exc,
+        )
+
+    _gerar_pdf_manual(
+        titulo=titulo,
+        empresa=empresa,
+        conta=conta,
+        cliente=cliente,
+        filepath=filepath,
+        linha_digitavel_texto=linha,
+        barcode_numero=barcode_num,
+        valor_formatado=f"{valor_float:.2f}",
+    )
 
 
-def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: int) -> list[str]:
-    """Gera comandos PDF para um código de barras *Interleaved 2 of 5*.
+def _link_callback(uri: str, rel: str) -> str:
+    """Permite que o xhtml2pdf resolva caminhos estáticos."""
 
-    O padrão ``Interleaved 2 of 5`` é utilizado nos boletos bancários e
-    codifica números em pares de dígitos. Cada par é convertido em cinco
-    barras e cinco espaços intercalados, combinando larguras finas (``n``)
-    e largas (``w``). Este algoritmo replica a mesma lógica empregada na
-    visualização HTML, permitindo que o código seja lido por scanners
-    compatíveis. A margem em branco necessária (*quiet zone*) deve ser
-    provida pelo layout do PDF que incorporar este código.
-    """
+    if uri.startswith("data:"):
+        return uri
+    root = Path(current_app.root_path)
+    static = root / "static"
+    target = Path(uri)
+    if target.is_file():
+        return str(target)
+    candidate = (root / uri.lstrip("/\\")).resolve()
+    if candidate.is_file():
+        return str(candidate)
+    static_candidate = (static / uri.lstrip("/\\")).resolve()
+    if static_candidate.is_file():
+        return str(static_candidate)
+    return uri
 
+
+def _render_with_pisa(html: str, filepath: str) -> None:
+    directory = os.path.dirname(filepath)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(filepath, "wb") as arquivo:
+        resultado = pisa.CreatePDF(
+            html,
+            dest=arquivo,
+            link_callback=_link_callback,
+            encoding="utf-8",
+        )
+    if getattr(resultado, "err", 0):
+        raise RuntimeError("Falha ao gerar boleto com xhtml2pdf.")
+
+
+def _render_with_chromium(html: str, filepath: str) -> bool:
+    comando = _chromium_executable()
+    if not comando:
+        return False
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            html_path = Path(tmpdir) / "boleto.html"
+            html_path.write_text(html, encoding="utf-8")
+            cmd = comando + [
+                "--headless",
+                "--disable-gpu",
+                "--no-sandbox",
+                f"--print-to-pdf={Path(filepath).resolve()}",
+                html_path.as_uri(),
+            ]
+            resultado = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=60,
+            )
+            if resultado.returncode == 0 and Path(filepath).exists():
+                return True
+            current_app.logger.warning(
+                "Chromium headless falhou (ret=%s, stderr=%s)",
+                resultado.returncode,
+                resultado.stderr.decode("utf-8", errors="ignore"),
+            )
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.warning("Chromium headless não pôde gerar PDF: %s", exc)
+    return False
+
+
+def _chromium_executable() -> list[str] | None:
+    candidatos = [
+        Path(os.environ.get("PROGRAMFILES", "")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft/Edge/Application/msedge.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft/Edge/Application/msedge.exe",
+        Path(os.environ.get("PROGRAMFILES", "")) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+    ]
+    for caminho in candidatos:
+        if caminho and caminho.exists():
+            return [str(caminho)]
+    for nome in ("msedge", "chrome", "chromium", "brave"):
+        executavel = shutil.which(nome)
+        if executavel:
+            return [executavel]
+    return None
+
+
+def _gerar_pdf_manual(
+    *,
+    titulo,
+    empresa,
+    conta,
+    cliente,
+    filepath: str,
+    linha_digitavel_texto: str,
+    barcode_numero: str,
+    valor_formatado: str,
+) -> None:
+    """Gera o boleto com FPDF replicando o layout HTML."""
+
+    due_date = titulo.data_vencimento.strftime("%d/%m/%Y")
+    doc_num = str(titulo.id)
+    beneficiario = empresa.razao_social_nome or ""
+    agencia_conta = f"{conta.agencia} / {conta.conta}".strip()
+    banco_nome = conta.nome_banco or conta.banco or ""
+    cnpj = empresa.documento or ""
+
+    pagador_nome = cliente.razao_social_nome or ""
+    pagador_doc = cliente.documento or ""
+
+    pdf = FPDF("P", "mm", "A4")
+    pdf.set_auto_page_break(False)
+    pdf.add_page()
+    pdf.set_margins(0, 0, 0)
+    pdf.set_text_color(0, 0, 0)
+
+    content_width = 190.0
+    margin_left = (pdf.w - content_width) / 2
+    scale = content_width / 750.0
+
+    def px(value: float) -> float:
+        return value * scale
+
+    y = 12.0
+
+    banco_codigo = (digits(conta.banco) or "000")[:3]
+
+    header_height = _draw_header(
+        pdf,
+        margin_left,
+        y,
+        content_width,
+        px,
+        banco_codigo,
+        banco_nome,
+        linha_digitavel_texto,
+    )
+    y += header_height + px(8)
+
+    endereco_cedente = _format_endereco(empresa)
+    sacado_ident = _compose_identificacao(pagador_nome, pagador_doc)
+    sacado_endereco = _format_endereco(cliente)
+
+    col_widths_recibo = [px(390), px(130), px(130), px(100)]
+    rows_recibo = [
+        [
+            {"label": "Cedente", "value": beneficiario},
+            {"label": "Agência/Código Cedente", "value": agencia_conta},
+            {"label": "CPF/CNPJ Cedente", "value": cnpj},
+            {"label": "Vencimento", "value": due_date},
+        ],
+        [
+            {"label": "Sacado", "value": sacado_ident},
+            {"label": "Nosso Número", "value": titulo.nosso_numero or ""},
+            {"label": "N. do documento", "value": doc_num},
+            {"label": "Data Documento", "value": due_date},
+        ],
+        [
+            {"label": "Endereço Cedente", "value": endereco_cedente, "span": 3},
+            {"label": "Valor Documento", "value": valor_formatado},
+        ],
+    ]
+
+    y += _draw_table(pdf, margin_left, y, col_widths_recibo, rows_recibo, px) + px(8)
+
+    y += _draw_box(pdf, margin_left, y, content_width, px(190), "Demonstrativo") + px(6)
+    y += _draw_box(pdf, margin_left, y, content_width, px(80), "Autenticação Mecânica") + px(10)
+
+    y += _draw_hr(pdf, margin_left, y, content_width) + px(6)
+
+    header_height = _draw_header(
+        pdf,
+        margin_left,
+        y,
+        content_width,
+        px,
+        banco_codigo,
+        banco_nome,
+        linha_digitavel_texto,
+    )
+    y += header_height + px(8)
+
+    col_widths_baixa = [px(180), px(120), px(120), px(70), px(70), px(90), px(100)]
+    rows_baixa = [
+        [
+            {
+                "label": "Local de pagamento",
+                "value": "Pagável em qualquer banco até o vencimento. Após, atualize o boleto no site bb.com.br",
+                "span": 6,
+            },
+            {"label": "Vencimento", "value": due_date},
+        ],
+        [
+            {"label": "Cedente", "value": beneficiario, "span": 6},
+            {"label": "Agência/Código cedente", "value": agencia_conta},
+        ],
+        [
+            {"label": "Data do documento", "value": due_date},
+            {"label": "N. do documento", "value": doc_num, "span": 2},
+            {"label": "Espécie doc", "value": getattr(conta, "especie_documento", "") or ""},
+            {"label": "Aceite", "value": "N"},
+            {"label": "Data processamento", "value": due_date},
+            {"label": "Nosso número", "value": titulo.nosso_numero or ""},
+        ],
+        [
+            {"label": "Uso do banco", "value": ""},
+            {"label": "Carteira", "value": getattr(conta, "carteira", "") or ""},
+            {"label": "Espécie", "value": "R$"},
+            {"label": "Quantidade", "value": "", "span": 2},
+            {"label": "Valor", "value": ""},
+            {"label": "(=) Valor documento", "value": valor_formatado},
+        ],
+    ]
+
+    y += _draw_table(pdf, margin_left, y, col_widths_baixa, rows_baixa, px)
+    y += _draw_instrucoes(pdf, margin_left, y, col_widths_baixa, px)
+    y += _draw_rodape(pdf, margin_left, y, col_widths_baixa, px, cliente, barcode_numero)
+
+    directory = os.path.dirname(filepath)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    pdf.output(filepath)
+
+
+def _draw_header(pdf: FPDF, x: float, y: float, width: float, px, banco_codigo: str, banco_nome: str, linha_digitavel: str) -> float:
+    header_height = px(60)
+    logo_width = px(170)
+    codigo_width = px(70)
+    linha_width = width - logo_width - codigo_width
+
+    pdf.set_line_width(0.8)
+    pdf.line(x, y + header_height, x + width, y + header_height)
+    pdf.set_line_width(0.2)
+
+    logo_path = _bank_logo_path()
+    if logo_path:
+        pdf.image(logo_path, x + px(10), y + px(6), w=logo_width - px(20))
+
+    pdf.set_font("Helvetica", "B", 22)
+    pdf.set_xy(x + logo_width, y + header_height / 2 - 7)
+    pdf.cell(codigo_width, 10, banco_codigo, align="C")
+
+    pdf.set_font("Helvetica", "", 10)
+    pdf.set_xy(x + logo_width, y + header_height - px(18))
+    pdf.cell(codigo_width, 6, banco_nome, align="C")
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_xy(x + logo_width + codigo_width, y + header_height / 2 - 5)
+    pdf.cell(linha_width, 8, linha_digitavel, align="R")
+
+    return header_height
+
+
+def _draw_box(pdf: FPDF, x: float, y: float, width: float, height: float, title: str) -> float:
+    pdf.rect(x, y, width, height)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_xy(x + 1.5, y + 4)
+    pdf.cell(width - 3, 4, title)
+    return height
+
+
+def _draw_hr(pdf: FPDF, x: float, y: float, width: float) -> float:
+    dash = 3.0
+    gap = 1.5
+    current = x
+    while current < x + width:
+        end = min(current + dash, x + width)
+        pdf.line(current, y, end, y)
+        current = end + gap
+    return 0.2
+
+
+def _draw_table(pdf: FPDF, x: float, y: float, col_widths: list[float], rows: list[list[dict]], px) -> float:
+    label_font = 7
+    value_font = 10
+    current_y = y
+    for row in rows:
+        col_index = 0
+        heights: list[float] = []
+        for cell in row:
+            span = cell.get("span", 1)
+            width = sum(col_widths[col_index:col_index + span])
+            label = cell.get("label", "")
+            value = cell.get("value", "")
+            label_size = cell.get("label_font_size", label_font)
+            value_size = cell.get("value_font_size", value_font)
+            min_height = cell.get("min_height", px(27))
+            heights.append(
+                _cell_height(pdf, width, label, value, label_size, value_size, min_height)
+            )
+            col_index += span
+        row_height = max(heights) if heights else px(27)
+
+        col_index = 0
+        current_x = x
+        for cell in row:
+            span = cell.get("span", 1)
+            width = sum(col_widths[col_index:col_index + span])
+            pdf.rect(current_x, current_y, width, row_height)
+            draw_callback = cell.get("draw")
+            if draw_callback:
+                draw_callback(pdf, current_x, current_y, width, row_height)
+            else:
+                label = cell.get("label", "")
+                value = cell.get("value", "")
+                label_size = cell.get("label_font_size", label_font)
+                value_size = cell.get("value_font_size", value_font)
+                _render_cell_content(pdf, current_x, current_y, width, row_height, label, value, label_size, value_size)
+            current_x += width
+            col_index += span
+        current_y += row_height
+    return current_y - y
+
+
+def _cell_height(pdf: FPDF, width: float, label: str, value: str, label_size: int, value_size: int, min_height: float) -> float:
+    height = 2.4  # paddings
+    if label:
+        height += label_size * PT_TO_MM * 1.1
+    if value:
+        pdf.set_font("Helvetica", "", value_size)
+        lines = _wrap_text(pdf, value, width - 2.4)
+        line_height = value_size * PT_TO_MM * 1.2
+        if not lines:
+            height += line_height
+        else:
+            height += line_height * len(lines)
+    return max(height, min_height)
+
+
+def _render_cell_content(
+    pdf: FPDF,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    label: str,
+    value: str,
+    label_size: int,
+    value_size: int,
+) -> None:
+    padding = 1.2
+    cursor_y = y + padding
+    if label:
+        pdf.set_font("Helvetica", "B", label_size)
+        pdf.set_xy(x + padding, cursor_y)
+        line_height = label_size * PT_TO_MM * 1.2
+        pdf.cell(width - padding * 2, line_height, label)
+        cursor_y += line_height
+    if value:
+        pdf.set_font("Helvetica", "", value_size)
+        lines = _wrap_text(pdf, value, width - padding * 2)
+        line_height = value_size * PT_TO_MM * 1.2
+        if not lines:
+            lines = [""]
+        for line in lines:
+            pdf.set_xy(x + padding, cursor_y)
+            pdf.cell(width - padding * 2, line_height, line)
+            cursor_y += line_height
+
+
+def _draw_instrucoes(pdf: FPDF, x: float, y: float, col_widths: list[float], px) -> float:
+    left_width = sum(col_widths[:-1])
+    right_width = col_widths[-1]
+    instruction_height = px(27) * 5
+
+    pdf.rect(x, y, left_width, instruction_height)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_xy(x + 1.5, y + 4)
+    pdf.multi_cell(
+        left_width - 3,
+        4,
+        "Instruções\n(Todas as informações deste bloqueto são de exclusiva responsabilidade do cedente)",
+    )
+
+    etiquetas = [
+        "(-) Descontos/Abatimentos",
+        "(-) Outras deduções",
+        "(+) Mora/Multa",
+        "(+) Outros acréscimos",
+        "(=) Valor cobrado",
+    ]
+    item_height = instruction_height / len(etiquetas)
+    for idx, etiqueta in enumerate(etiquetas):
+        top = y + idx * item_height
+        pdf.rect(x + left_width, top, right_width, item_height)
+        pdf.set_font("Helvetica", "B" if idx == len(etiquetas) - 1 else "", 8)
+        pdf.set_xy(x + left_width + 1.5, top + 3)
+        pdf.multi_cell(right_width - 3, 4, etiqueta)
+    return instruction_height
+
+
+def _draw_rodape(
+    pdf: FPDF,
+    x: float,
+    y: float,
+    col_widths: list[float],
+    px,
+    cliente,
+    barcode_numero: str,
+) -> float:
+    w_label = px(40)
+    w_code = col_widths[-1]
+    left_total = sum(col_widths[:-1])
+    w_middle = left_total - w_label
+    rodape_cols = [w_label, w_middle, w_code]
+
+    sacado_linhas = [
+        _compose_identificacao(cliente.razao_social_nome or "", cliente.documento or ""),
+        cliente.endereco or "",
+        _join_nonempty([cliente.bairro, cliente.cidade, cliente.estado, cliente.cep]),
+    ]
+    sacado_texto = "\n".join([linha for linha in sacado_linhas if linha])
+
+    rows = [
+        [
+            {"label": "Sacado", "value": "", "min_height": px(27)},
+            {"label": "", "value": sacado_texto, "span": 2, "value_font_size": 9, "min_height": px(27)},
+        ],
+        [
+            {"label": "Sacador / Avalista", "value": "", "span": 2},
+            {"label": "Código de baixa", "value": ""},
+        ],
+    ]
+
+    consumed = _draw_table(pdf, x, y, rodape_cols, rows, px)
+    y += consumed
+
+    barcode_height = px(70)
+    left_width = rodape_cols[0] + rodape_cols[1]
+    pdf.rect(x, y, left_width, barcode_height)
+    _draw_barcode(
+        pdf,
+        barcode_numero,
+        x + px(12),
+        y + px(10),
+        left_width - px(24),
+        barcode_height - px(20),
+    )
+
+    pdf.rect(x + left_width, y, rodape_cols[2], barcode_height)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_xy(x + left_width + 1.5, y + 4)
+    pdf.multi_cell(rodape_cols[2] - 3, 4, "Autenticação Mecânica / Ficha de Compensação")
+
+    return consumed + barcode_height
+
+
+def _wrap_text(pdf: FPDF, text: str, width: float) -> list[str]:
+    if not text:
+        return []
+    lines: list[str] = []
+    for paragraph in text.split("\n"):
+        words = paragraph.split()
+        if not words:
+            lines.append("")
+            continue
+        current = words[0]
+        for word in words[1:]:
+            candidate = f"{current} {word}"
+            if pdf.get_string_width(candidate) <= width:
+                current = candidate
+            else:
+                lines.append(current)
+                if pdf.get_string_width(word) <= width:
+                    current = word
+                else:
+                    buffer = ""
+                    for ch in word:
+                        candidate = buffer + ch
+                        if pdf.get_string_width(candidate) <= width:
+                            buffer = candidate
+                        else:
+                            if buffer:
+                                lines.append(buffer)
+                            buffer = ch
+                    current = buffer
+        lines.append(current)
+    return lines
+
+
+def _compose_identificacao(nome: str, documento: str) -> str:
+    if nome and documento:
+        return f"{nome} - CPF/CNPJ: {documento}"
+    if nome:
+        return nome
+    if documento:
+        return f"CPF/CNPJ: {documento}"
+    return ""
+
+
+def _format_endereco(entidade) -> str:
+    if entidade is None:
+        return ""
+    partes = [
+        getattr(entidade, "endereco", ""),
+        _join_nonempty(
+            [getattr(entidade, "bairro", ""), getattr(entidade, "cidade", ""), getattr(entidade, "estado", "")]
+        ),
+        getattr(entidade, "cep", ""),
+    ]
+    return _join_nonempty(partes)
+
+
+def _join_nonempty(items: Iterable[str], sep: str = " - ") -> str:
+    return sep.join([item for item in items if item])
+
+
+def _draw_barcode(pdf: FPDF, numero: str, x: float, y: float, width: float, height: float) -> None:
+    sequencia = _codigo_barras_itf_sequence(numero)
+    total_unidades = sum(unidades for _, unidades in sequencia)
+    if not total_unidades:
+        return
+    modulo = width / total_unidades
+
+    pdf.set_fill_color(255, 255, 255)
+    pdf.rect(x, y, width, height, style="F")
+    pdf.set_fill_color(0, 0, 0)
+    pos = x
+    for is_bar, unidades in sequencia:
+        largura = unidades * modulo
+        if is_bar:
+            pdf.rect(pos, y, largura, height, style="F")
+        pos += largura
+
+
+def _codigo_barras_itf_sequence(numero: str) -> list[tuple[bool, int]]:
     padroes = {
         "0": "nnwwn",
         "1": "wnnnw",
@@ -81,309 +659,62 @@ def _codigo_barras_itf(numero: str, x: int, y: int, largura_total: int, altura: 
         "9": "nwnwn",
     }
 
-    numero = _num(numero)
+    numero = digits(numero)
     if len(numero) % 2:
         numero = "0" + numero
 
-    sequencia = []  # lista de tuplas (is_bar, unidades)
+    sequencia: list[tuple[bool, int]] = []
 
-    def add_padroes(barras: str, espacos: str) -> None:
+    def adicionar(barras: str, espacos: str) -> None:
         for b, e in zip(barras, espacos):
             sequencia.append((True, 3 if b == "w" else 1))
             sequencia.append((False, 3 if e == "w" else 1))
 
-    # Guarda inicial: barra/espaco/barra/espaco finos
-    add_padroes("nn", "nn")
-
-    # Dígitos codificados em pares
+    adicionar("nn", "nn")
     for i in range(0, len(numero), 2):
         barras = padroes[numero[i]]
         espacos = padroes[numero[i + 1]]
-        add_padroes(barras, espacos)
-
-    # Guarda final: barra larga, espaço fino, barra fina
+        adicionar(barras, espacos)
     sequencia.extend([(True, 3), (False, 1), (True, 1)])
-
-    total_unidades = sum(u for _, u in sequencia)
-
-    modulo = max(int(largura_total / total_unidades), 1)
-
-    # Preenche o retângulo destinado ao código com branco e, em seguida,
-    # desenha as barras pretas na sequência calculada.
-    comandos = [
-        "1 g",
-        f"{x} {y} {largura_total} {altura} re f",
-        "0 g",
-    ]
-
-    pos = x
-    for is_bar, unidades in sequencia:
-        largura = unidades * modulo
-        if is_bar:
-            comandos.append(f"{pos} {y} {largura} {altura} re f")
-        pos += largura
-    return comandos
+    return sequencia
 
 
-def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
-    """Gera um PDF de boleto com layout semelhante ao modelo fornecido.
+_BANK_LOGO_BYTES: bytes | None = None
+_BANK_LOGO_FILE: Path | None = None
 
-    Os dados do beneficiário, da conta bancária e do sacado (cliente) são
-    preenchidos de acordo com os registros ``Empresa Licenciada``,
-    ``Contas Bancárias`` e ``Pessoas`` cadastrados no sistema.
-    """
 
-    due_date = titulo.data_vencimento.strftime('%d/%m/%Y')
-    valor = f"{float(titulo.valor_previsto):.2f}"
-    nosso_numero = titulo.nosso_numero or ""
-    doc_num = str(titulo.id)
-    beneficiario = empresa.razao_social_nome
-    agencia_conta = f"{conta.agencia}/{conta.conta}"
-    banco_nome = conta.nome_banco or conta.banco
-    linha_digitavel = _linha_digitavel(conta, nosso_numero, titulo.data_vencimento, float(titulo.valor_previsto))
-    cnpj = empresa.documento or ""
-    data_doc = datetime.now().strftime('%d/%m/%Y')
-    pagador_nome = cliente.razao_social_nome or ""
-    pagador_doc = cliente.documento or ""
-    pagador_endereco = " ".join(
-        filter(
-            None,
-            [
-                cliente.endereco,
-                cliente.bairro,
-                f"{cliente.cidade}/{cliente.estado}" if cliente.cidade and cliente.estado else None,
-                cliente.cep,
-            ],
-        )
-    )
+def _bank_logo_path() -> str | None:
+    global _BANK_LOGO_BYTES, _BANK_LOGO_FILE
+    if _BANK_LOGO_FILE and _BANK_LOGO_FILE.exists():
+        return str(_BANK_LOGO_FILE)
+    if _BANK_LOGO_BYTES is None:
+        _BANK_LOGO_BYTES = _extract_logo_bytes()
+    if not _BANK_LOGO_BYTES:
+        return None
+    fd, caminho = tempfile.mkstemp(suffix=".jpg")
+    os.close(fd)
+    Path(caminho).write_bytes(_BANK_LOGO_BYTES)
+    _BANK_LOGO_FILE = Path(caminho)
+    return caminho
 
-    # Dimensões de página A4
-    width, height = 595, 842
 
-    # Construção do layout padrão
-    conteudo_pdf = [
-        "0.5 w",  # espessura das linhas
-        # --- Recibo do Pagador (topo) ---
-        "BT /F1 12 Tf 60 800 Td (Recibo do Pagador) Tj ET",
-        # Cabeçalho com banco e linha digitável
-        "50 780 495 28 re S",
-        "50 780 m 140 808 l S",  # espaço p/ logo
-        "140 780 m 140 808 l S",
-        f"BT /F1 12 Tf 60 792 Td ({banco_nome}) Tj ET",
-        "BT /F1 8 Tf 330 806 Td (Linha Digitavel) Tj ET",
-        f"BT /F1 12 Tf 330 792 Td ({linha_digitavel}) Tj ET",
-
-        # Moldura principal do recibo
-        "50 590 495 180 re S",
-        # Linhas horizontais
-        "50 740 m 545 740 l S",  # local pagto / vencimento
-        "50 710 m 545 710 l S",  # cedente / ag codigo
-        "50 680 m 545 680 l S",  # nosso número / num doc / valor doc
-        "50 650 m 545 650 l S",  # cnpj / ... / nosso numero
-        "50 620 m 545 620 l S",  # uso do banco / datas / carteira / especie / quantidade / valor
-        # Colunas
-        "370 740 m 370 768 l S",
-        "320 710 m 320 740 l S",
-        "240 680 m 240 710 l S",
-        "420 680 m 420 740 l S",
-        "120 650 m 120 680 l S",
-        "200 650 m 200 680 l S",
-        "280 650 m 280 680 l S",
-        "360 650 m 360 680 l S",
-        "440 650 m 440 680 l S",
-        "140 620 m 140 650 l S",
-        "240 620 m 240 650 l S",
-        "320 620 m 320 650 l S",
-        "400 620 m 400 650 l S",
-        "480 620 m 480 650 l S",
-
-        # Rótulos
-        "BT /F1 8 Tf 60 748 Td (Local do Pagamento) Tj ET",
-        "BT /F1 8 Tf 380 748 Td (Data de Vencimento) Tj ET",
-        "BT /F1 8 Tf 60 718 Td (Nome do Beneficiario) Tj ET",
-        "BT /F1 8 Tf 330 718 Td (Agencia/Codigo do Beneficiario) Tj ET",
-        "BT /F1 8 Tf 60 688 Td (Nosso numero) Tj ET",
-        "BT /F1 8 Tf 250 688 Td (Numero do documento) Tj ET",
-        "BT /F1 8 Tf 430 688 Td (Valor do Documento) Tj ET",
-        "BT /F1 8 Tf 60 658 Td (CNPJ) Tj ET",
-        "BT /F1 8 Tf 130 658 Td (Nr. do documento) Tj ET",
-        "BT /F1 8 Tf 210 658 Td (Esp. Doc) Tj ET",
-        "BT /F1 8 Tf 290 658 Td (Aceite) Tj ET",
-        "BT /F1 8 Tf 370 658 Td (Data Proces.) Tj ET",
-        "BT /F1 8 Tf 450 658 Td (Nosso numero) Tj ET",
-        "BT /F1 8 Tf 60 628 Td (Uso do Banco) Tj ET",
-        "BT /F1 8 Tf 150 628 Td (Data Documento) Tj ET",
-        "BT /F1 8 Tf 250 628 Td (Carteira) Tj ET",
-        "BT /F1 8 Tf 330 628 Td (Especie) Tj ET",
-        "BT /F1 8 Tf 410 628 Td (Quantidade) Tj ET",
-        "BT /F1 8 Tf 490 628 Td ((x) Valor) Tj ET",
-
-        # Valores
-        "BT /F1 14 Tf 60 755 Td (Boleto Bancario) Tj ET",
-        "BT /F1 10 Tf 60 735 Td (Pagavel em qualquer banco ate o vencimento.) Tj ET",
-        f"BT /F1 10 Tf 380 735 Td ({due_date}) Tj ET",
-        f"BT /F1 10 Tf 60 705 Td ({beneficiario}) Tj ET",
-        f"BT /F1 10 Tf 330 705 Td ({agencia_conta}) Tj ET",
-        f"BT /F1 10 Tf 60 675 Td ({nosso_numero}) Tj ET",
-        f"BT /F1 10 Tf 250 675 Td ({doc_num}) Tj ET",
-        f"BT /F1 10 Tf 430 675 Td ({valor}) Tj ET",
-        f"BT /F1 10 Tf 60 645 Td ({cnpj}) Tj ET",
-        f"BT /F1 10 Tf 130 645 Td ({doc_num}) Tj ET",
-        "BT /F1 10 Tf 210 645 Td (DM) Tj ET",
-        "BT /F1 10 Tf 290 645 Td (N) Tj ET",
-        f"BT /F1 10 Tf 370 645 Td ({data_doc}) Tj ET",
-        f"BT /F1 10 Tf 450 645 Td ({nosso_numero}) Tj ET",
-        f"BT /F1 10 Tf 150 615 Td ({data_doc}) Tj ET",
-        f"BT /F1 10 Tf 250 615 Td ({getattr(conta, 'carteira', '17') or '17'}) Tj ET",
-        "BT /F1 10 Tf 330 615 Td (R$) Tj ET",
-        f"BT /F1 10 Tf 490 615 Td ({valor}) Tj ET",
-
-        # Sacado
-        "50 590 m 545 590 l S",
-        "BT /F1 8 Tf 60 598 Td (Nome do Pagador / Endereco) Tj ET",
-        "BT /F1 8 Tf 490 598 Td (CPF/CNPJ) Tj ET",
-        f"BT /F1 10 Tf 60 582 Td ({pagador_nome}) Tj ET",
-        f"BT /F1 10 Tf 60 567 Td ({pagador_endereco}) Tj ET",
-        f"BT /F1 10 Tf 490 582 Td ({pagador_doc}) Tj ET",
-
-        # --- Ficha de Compensação (base) ---
-        "50 80 495 460 re S",
-        # Cabeçalho banco + linha digitável (repete)
-        "50 512 495 28 re S",
-        "50 512 m 140 540 l S",
-        "140 512 m 140 540 l S",
-        f"BT /F1 12 Tf 60 524 Td ({banco_nome}) Tj ET",
-        "BT /F1 8 Tf 330 538 Td (Linha Digitavel) Tj ET",
-        f"BT /F1 12 Tf 330 524 Td ({linha_digitavel}) Tj ET",
-
-        # Campos principais
-        "50 500 m 545 500 l S",
-        "50 470 m 545 470 l S",
-        "50 440 m 545 440 l S",
-        "50 410 m 545 410 l S",
-        "50 380 m 545 380 l S",
-        "50 350 m 545 350 l S",
-        "50 320 m 545 320 l S",
-
-        # Colunas
-        "370 500 m 370 540 l S",
-        "320 470 m 320 500 l S",
-        "240 440 m 240 470 l S",
-        "420 440 m 420 500 l S",
-        "120 410 m 120 440 l S",
-        "200 410 m 200 440 l S",
-        "280 410 m 280 440 l S",
-        "360 410 m 360 440 l S",
-        "440 410 m 440 440 l S",
-        "140 380 m 140 410 l S",
-        "240 380 m 240 410 l S",
-        "320 380 m 320 410 l S",
-        "400 380 m 400 410 l S",
-        "480 380 m 480 410 l S",
-
-        # Títulos
-        "BT /F1 12 Tf 60 540 Td (Ficha de Compensacao) Tj ET",
-        "BT /F1 8 Tf 60 508 Td (Local do Pagamento) Tj ET",
-        "BT /F1 8 Tf 380 508 Td (Data de Vencimento) Tj ET",
-        "BT /F1 8 Tf 60 478 Td (Nome do Beneficiario) Tj ET",
-        "BT /F1 8 Tf 330 478 Td (Agencia/Codigo do Beneficiario) Tj ET",
-        "BT /F1 8 Tf 60 448 Td (Nosso numero) Tj ET",
-        "BT /F1 8 Tf 250 448 Td (Numero do documento) Tj ET",
-        "BT /F1 8 Tf 430 448 Td (Valor do Documento) Tj ET",
-        "BT /F1 8 Tf 60 418 Td (CNPJ) Tj ET",
-        "BT /F1 8 Tf 130 418 Td (Nr. do documento) Tj ET",
-        "BT /F1 8 Tf 210 418 Td (Esp. Doc) Tj ET",
-        "BT /F1 8 Tf 290 418 Td (Aceite) Tj ET",
-        "BT /F1 8 Tf 370 418 Td (Data Proces.) Tj ET",
-        "BT /F1 8 Tf 450 418 Td (Nosso numero) Tj ET",
-        "BT /F1 8 Tf 60 388 Td (Uso do Banco) Tj ET",
-        "BT /F1 8 Tf 150 388 Td (Data Documento) Tj ET",
-        "BT /F1 8 Tf 250 388 Td (Carteira) Tj ET",
-        "BT /F1 8 Tf 330 388 Td (Especie) Tj ET",
-        "BT /F1 8 Tf 410 388 Td (Quantidade) Tj ET",
-        "BT /F1 8 Tf 490 388 Td ((x) Valor) Tj ET",
-
-        # Valores
-        f"BT /F1 10 Tf 380 495 Td ({due_date}) Tj ET",
-        "BT /F1 10 Tf 60 495 Td (Pagavel em qualquer banco ate o vencimento.) Tj ET",
-        f"BT /F1 10 Tf 60 465 Td ({beneficiario}) Tj ET",
-        f"BT /F1 10 Tf 330 465 Td ({agencia_conta}) Tj ET",
-        f"BT /F1 10 Tf 60 435 Td ({nosso_numero}) Tj ET",
-        f"BT /F1 10 Tf 250 435 Td ({doc_num}) Tj ET",
-        f"BT /F1 10 Tf 430 435 Td ({valor}) Tj ET",
-        f"BT /F1 10 Tf 60 405 Td ({cnpj}) Tj ET",
-        f"BT /F1 10 Tf 130 405 Td ({doc_num}) Tj ET",
-        "BT /F1 10 Tf 210 405 Td (DM) Tj ET",
-        "BT /F1 10 Tf 290 405 Td (N) Tj ET",
-        f"BT /F1 10 Tf 370 405 Td ({data_doc}) Tj ET",
-        f"BT /F1 10 Tf 450 405 Td ({nosso_numero}) Tj ET",
-        f"BT /F1 10 Tf 150 375 Td ({data_doc}) Tj ET",
-        f"BT /F1 10 Tf 250 375 Td ({getattr(conta, 'carteira', '17') or '17'}) Tj ET",
-        "BT /F1 10 Tf 330 375 Td (R$) Tj ET",
-        f"BT /F1 10 Tf 490 375 Td ({valor}) Tj ET",
-
-        # Sacado / CPF
-        "50 350 m 545 350 l S",
-        "BT /F1 8 Tf 60 358 Td (Pagador) Tj ET",
-        "BT /F1 8 Tf 490 358 Td (CPF/CNPJ) Tj ET",
-        f"BT /F1 10 Tf 60 342 Td ({pagador_nome}) Tj ET",
-        f"BT /F1 10 Tf 60 327 Td ({pagador_endereco}) Tj ET",
-        f"BT /F1 10 Tf 490 342 Td ({pagador_doc}) Tj ET",
-
-        # Código de barras
-        "BT /F1 8 Tf 60 100 Td (Codigo de Barras) Tj ET",
-    ]
-    # Código de barras: posição inferior e tamanho ajustado ao espaço
-    BARCODE_X = 55
-    BARCODE_Y = 92
-    BARCODE_W = 490
-    BARCODE_H = 70
-    barcode_num = _num(conta.banco) + _num(nosso_numero or doc_num) + _num(valor)
-    conteudo_pdf.extend(
-        _codigo_barras_itf(
-            barcode_num[:44].ljust(44, "0"),
-            BARCODE_X,
-            BARCODE_Y,
-            BARCODE_W,
-            BARCODE_H,
-        )
-    )
-    conteudo_bytes = "\n".join(conteudo_pdf).encode("latin-1")
-
-    header = b"%PDF-1.4\n"
-    objs = []
-    offsets = []
-
-    def add_obj(data: bytes) -> None:
-        offsets.append(len(header) + sum(len(o) for o in objs))
-        objs.append(data)
-
-    add_obj(b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n")
-    add_obj(b"2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n")
-    add_obj(
-        b"3 0 obj << /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> "
-        b"/MediaBox [0 0 595 842] /Contents 5 0 R >> endobj\n"
-    )
-    add_obj(b"4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n")
-    add_obj(
-        b"5 0 obj << /Length "
-        + str(len(conteudo_bytes)).encode("latin-1")
-        + b" >> stream\n"
-        + conteudo_bytes
-        + b"\nendstream endobj\n"
-    )
-    
-    xref_inicio = len(header) + sum(len(o) for o in objs)
-    xref = ["xref", "0 6", "0000000000 65535 f "]
-    for off in offsets:
-        xref.append(f"{off:010d} 00000 n ")
-    xref_bytes = "\n".join(xref).encode("latin-1") + b"\n"
-    trailer = (
-        "trailer<< /Size 6 /Root 1 0 R >>\nstartxref\n"
-        + str(xref_inicio)
-        + "\n%%EOF"
-    ).encode("latin-1")
-
-    with open(filepath, "wb") as f:
-        # Escreve o conteúdo completo do PDF no caminho indicado.
-        f.write(header + b"".join(objs) + xref_bytes + trailer)
+def _extract_logo_bytes() -> bytes:
+    template_rel = Path("templates") / "financeiro" / "contas_a_receber" / "boleto.html"
+    template_path = Path(current_app.root_path) / template_rel
+    try:
+        conteudo = template_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return b""
+    marcador = "data:image/jpeg;base64,"
+    inicio = conteudo.find(marcador)
+    if inicio == -1:
+        return b""
+    inicio += len(marcador)
+    fim = conteudo.find('"', inicio)
+    if fim == -1:
+        return b""
+    encoded = conteudo[inicio:fim]
+    try:
+        return base64.b64decode(encoded)
+    except Exception:
+        return b""

@@ -3,7 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <title>Boleto Bancário</title>
+    {% if not is_pdf %}
     <script src="{{ url_for('static', filename='boleto.js') }}"></script>
+    {% endif %}
     <style>
       html,body {margin:0;padding:0}
       hr {border:1px dashed #000}
@@ -51,9 +53,11 @@
     </style>
   </head>
   <body>
+    {% if not is_pdf %}
     <div class="no-print">
       <button onclick="gerarBoleto({{ titulo.id }})">Gerar PDF</button>
     </div>
+    {% endif %}
     <div class="pagina">
 <div class="recibo-sacado">
   <table class="cabecalho">
@@ -65,7 +69,7 @@
         <td class="banco-codigo">
           <div class="linhas-v">{{ conta.banco }}</div>
         </td>
-        <td class="bol-linha-digitavel">Recibo do Sacado</td>
+        <td class="bol-linha-digitavel">{{ linha_digitavel or '' }}</td>
       </tr>
     </tbody>
   </table>
@@ -130,7 +134,7 @@
         <td class="banco-codigo">
           <div class="linhas-v">{{ conta.banco }}</div>
         </td>
-        <td class="bol-linha-digitavel">00190.00009 07777.777009 00087.654182 6 49000000295295</td>
+        <td class="bol-linha-digitavel">{{ linha_digitavel or '' }}</td>
       </tr>
     </tbody>
   </table>

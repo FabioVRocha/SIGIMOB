@@ -1,75 +1,13 @@
 from flask import Blueprint, request, jsonify, render_template
 from caixa_banco import db
 from caixa_banco.models import ContaBanco
+from .boleto_utils import (
+    linha_digitavel,
+    codigo_barras_numero,
+    codigo_barras_html,
+)
 from .models import ContaReceber, EmpresaLicenciada, Pessoa
 from .services import gerar_boletos, importar_retorno
-import re
-
-
-def _num(x: str) -> str:
-    """Extrai apenas dígitos de uma string."""
-    return re.sub(r"\D", "", x or "")
-
-
-def _barcode_html(numero: str) -> str:
-    """Gera um código de barras Interleaved 2 of 5 em HTML.
-
-    A implementação a seguir converte a ``numero`` (string numérica) no
-    padrão *Interleaved 2 of 5*, gerando uma sequência de ``<span>`` que
-    alternam barras pretas e espaços em branco com larguras finas (``n``)
-    e largas (``w``). Esse formato é compatível com leitores de código de
-    barras utilizados em boletos bancários.
-
-    O algoritmo baseia‑se nos pares de dígitos: cada par é transformado
-    em cinco barras e cinco espaços intercalados, conforme a tabela do
-    padrão ITF. Começa‑se com o padrão de guarda ``nnnn`` e termina com
-    ``wnn``. A margem em branco necessária (*quiet zone*) deve ser
-    garantida externamente pelo layout que receberá o código.
-    """
-
-    # Tabela de padrões (fino = n, largo = w)
-    padroes = {
-        "0": "nnwwn",
-        "1": "wnnnw",
-        "2": "nwnnw",
-        "3": "wwnnn",
-        "4": "nnwnw",
-        "5": "wnwnn",
-        "6": "nwwnn",
-        "7": "nnnww",
-        "8": "wnnwn",
-        "9": "nwnwn",
-    }
-
-    # O ITF exige quantidade par de dígitos; caso contrário prefixamos 0
-    numero = _num(numero)
-    if len(numero) % 2:
-        numero = "0" + numero
-
-    def span_bar(largura: str, espaco: bool = False) -> str:
-        classe = largura
-        if espaco:
-            classe += " s"
-        return f"<span class='{classe}'></span>"
-
-    partes = []
-    # Padrão inicial: barra e espaço finos alternados
-    for i, ch in enumerate("nnnn"):
-        partes.append(span_bar(ch, espaco=bool(i % 2)))
-
-    # Converte cada par de dígitos
-    for i in range(0, len(numero), 2):
-        barras = padroes[numero[i]]
-        espacos = padroes[numero[i + 1]]
-        for b, e in zip(barras, espacos):
-            partes.append(span_bar(b))
-            partes.append(span_bar(e, espaco=True))
-
-    # Padrão final
-    for i, ch in enumerate("wnn"):
-        partes.append(span_bar(ch, espaco=bool(i % 2)))
-
-    return "".join(partes)
 
 bp = Blueprint('contas_receber', __name__)
 
@@ -82,9 +20,10 @@ def visualizar_boleto(conta_id):
     cliente = Pessoa.query.get(titulo.cliente_id)
     if not all([empresa, conta, cliente]):
         return 'Dados incompletos para gerar o boleto', 400
-    valor_str = _num(str(titulo.valor_previsto))
-    barcode_num = (_num(conta.banco) + _num(titulo.nosso_numero or str(titulo.id)) + valor_str)[:44].ljust(44, "0")
-    barcode = _barcode_html(barcode_num)
+    documento = str(titulo.id)
+    barcode_num = codigo_barras_numero(conta, titulo.nosso_numero or '', documento, float(titulo.valor_previsto))
+    barcode = codigo_barras_html(barcode_num)
+    linha = linha_digitavel(conta, titulo.nosso_numero or '', titulo.data_vencimento, float(titulo.valor_previsto))
     return render_template(
         'financeiro/contas_a_receber/boleto.html',
         titulo=titulo,
@@ -92,6 +31,7 @@ def visualizar_boleto(conta_id):
         conta=conta,
         cliente=cliente,
         barcode=barcode,
+        linha_digitavel=linha,
     )
 
 

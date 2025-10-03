@@ -1,8 +1,8 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
-{% block title %}Prestação de Contas do Contrato{% endblock %}
+{% block title %}PrestaÃ§Ã£o de Contas do Contrato{% endblock %}
 
-{% block page_title %}Prestação de Contas do Contrato{% endblock %}
+{% block page_title %}PrestaÃ§Ã£o de Contas do Contrato{% endblock %}
 
 {% block content %}
 <div class="content-section bg-white p-6 rounded-lg shadow-xl space-y-6">
@@ -10,8 +10,8 @@
         <div>
             <h2 class="text-2xl font-semibold text-dark-blue mb-2">Contrato #{{ contrato.id }}</h2>
             <p class="text-sm text-gray-700"><strong>Cliente:</strong> {{ contrato.cliente_nome }} ({{ contrato.cliente_documento }})</p>
-            <p class="text-sm text-gray-700"><strong>Imóvel:</strong> {{ contrato.imovel_endereco }} - {{ contrato.imovel_cidade }}/{{ contrato.imovel_estado }}</p>
-            <p class="text-sm text-gray-700"><strong>Período:</strong> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} até {{ contrato.data_fim.strftime('%d/%m/%Y') }}</p>
+            <p class="text-sm text-gray-700"><strong>ImÃ³vel:</strong> {{ contrato.imovel_endereco }} - {{ contrato.imovel_cidade }}/{{ contrato.imovel_estado }}</p>
+            <p class="text-sm text-gray-700"><strong>PerÃ­odo:</strong> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} atÃ© {{ contrato.data_fim.strftime('%d/%m/%Y') }}</p>
             {% if prestacao %}
             <div class="mt-2">
                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if prestacao.status == "Aprovada" %}bg-green-100 text-green-700{% elif prestacao.status == "Pendente" %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-700{% endif %}">
@@ -44,13 +44,13 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="border border-gray-200 rounded-lg p-4">
-                <h3 class="text-lg font-semibold text-gray-800 mb-3">Créditos (Calção)</h3>
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">CrÃ©ditos (CalÃ§Ã£o)</h3>
                 <div id="creditos-container" class="space-y-2 text-sm"></div>
             </div>
             <div class="border border-gray-200 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-lg font-semibold text-gray-800">Débitos pendentes</h3>
-                    <span class="text-xs text-gray-500">Selecione as parcelas incluídas</span>
+                    <h3 class="text-lg font-semibold text-gray-800">DÃ©bitos pendentes</h3>
+                    <span class="text-xs text-gray-500">Selecione as parcelas a incluir ou marque as que deseja desconsiderar</span>
                 </div>
                 <div id="debitos-container" class="space-y-2 text-sm"></div>
             </div>
@@ -74,15 +74,15 @@
         </div>
 
         <div>
-            <label for="prestacao-observacoes" class="form-label">Observações</label>
-            <textarea id="prestacao-observacoes" name="observacoes" rows="4" class="form-input" placeholder="Anotações gerais para a prestação de contas"></textarea>
+            <label for="prestacao-observacoes" class="form-label">ObservaÃ§Ãµes</label>
+            <textarea id="prestacao-observacoes" name="observacoes" rows="4" class="form-input" placeholder="AnotaÃ§Ãµes gerais para a prestaÃ§Ã£o de contas"></textarea>
         </div>
 
         <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
             <h3 class="text-lg font-semibold text-gray-800 mb-3">Resumo</h3>
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm text-gray-700">
                 <div>
-                    <p class="font-medium">Total de créditos</p>
+                    <p class="font-medium">Total de crÃ©ditos</p>
                     <p id="total-creditos" class="text-lg font-semibold text-green-600">R$ 0,00</p>
                 </div>
                 <div>
@@ -90,7 +90,7 @@
                     <p id="total-creditos-extras" class="text-lg font-semibold text-green-600">R$ 0,00</p>
                 </div>
                 <div>
-                    <p class="font-medium">Total de débitos</p>
+                    <p class="font-medium">Total de dÃ©bitos</p>
                     <p id="total-debitos" class="text-lg font-semibold text-red-600">R$ 0,00</p>
                 </div>
                 <div>
@@ -108,7 +108,7 @@
         <div class="flex items-center justify-end gap-3">
             <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Cancelar</a>
             <button type="submit" class="btn-primary text-white">
-                {% if is_edit %}Atualizar prestação de contas{% else %}Gerar prestação de contas{% endif %}
+                {% if is_edit %}Atualizar prestaÃ§Ã£o de contas{% else %}Gerar prestaÃ§Ã£o de contas{% endif %}
             </button>
         </div>
     </form>
@@ -142,10 +142,30 @@
     const state = {
         creditos: [],
         debitos: [],
-        selectedDebitos: new Set(configuracao.selectedDebitos || []),
+        selectedDebitos: new Set(),
+        cancelledDebitos: new Set(),
         creditosExtras: [],
         despesas: [],
     };
+
+    if (Array.isArray(configuracao.selectedDebitos)) {
+        configuracao.selectedDebitos.forEach(id => {
+            const numericId = parseInt(id, 10);
+            if (!Number.isNaN(numericId)) {
+                state.selectedDebitos.add(numericId);
+            }
+        });
+    }
+
+    if (Array.isArray(configuracao.cancelledDebitos)) {
+        configuracao.cancelledDebitos.forEach(id => {
+            const numericId = parseInt(id, 10);
+            if (!Number.isNaN(numericId)) {
+                state.cancelledDebitos.add(numericId);
+                state.selectedDebitos.delete(numericId);
+            }
+        });
+    }
 
     if (Array.isArray(configuracao.creditosExtras)) {
         state.creditosExtras = configuracao.creditosExtras.map((item, index) => ({
@@ -203,14 +223,14 @@ if (Array.isArray(configuracao.despesas)) {
     function renderCreditos(){
         if(!creditosContainer){ return; }
         if(!state.creditos.length){
-            creditosContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum crédito encontrado.</p>';
+            creditosContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum crÃ©dito encontrado.</p>';
             return;
         }
         const rows = state.creditos.map(item => `
             <div class="border border-gray-200 rounded p-2 flex justify-between items-center">
                 <div>
                     <p class="font-medium text-gray-800">${item.titulo}</p>
-                    <p class="text-xs text-gray-500">Pagamento: ${item.data_pagamento_formatada || '—'}</p>
+                    <p class="text-xs text-gray-500">Pagamento: ${item.data_pagamento_formatada || 'â€”'}</p>
                 </div>
                 <div class="font-semibold text-green-600">${item.valor_formatado}</div>
             </div>
@@ -224,31 +244,68 @@ if (Array.isArray(configuracao.despesas)) {
             debitosContainer.innerHTML = '<p class="text-gray-500 text-sm">Nenhum débito encontrado para a data informada.</p>';
             return;
         }
+        const idsDisponiveis = new Set(state.debitos.map(item => item.id));
+        state.selectedDebitos = new Set([...state.selectedDebitos].filter(id => idsDisponiveis.has(id)));
+        state.cancelledDebitos = new Set([...state.cancelledDebitos].filter(id => idsDisponiveis.has(id)));
+
         const rows = state.debitos.map(item => {
-            const checked = state.selectedDebitos.has(item.id) ? 'checked' : '';
+            const isCancelled = state.cancelledDebitos.has(item.id);
+            const isSelected = !isCancelled && state.selectedDebitos.has(item.id);
             return `
-                <label class="flex items-start gap-3 border border-gray-200 rounded p-2 hover:bg-gray-50">
-                    <input type="checkbox" class="mt-1 seleciona-debito" value="${item.id}" ${checked}>
-                    <div class="flex-1">
-                        <p class="font-medium text-gray-800">${item.titulo}</p>
-                        <p class="text-xs text-gray-500">Vencimento: ${item.data_vencimento_formatada || '—'} | Valor pendente: ${item.valor_pendente_formatado}</p>
+                <div class="border border-gray-200 rounded p-3 hover:bg-gray-50 transition" data-debito-id="${item.id}">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <label class="flex items-start gap-3 flex-1 cursor-pointer">
+                            <input type="checkbox" class="mt-1 seleciona-debito" value="${item.id}" ${isSelected ? 'checked' : ''}>
+                            <div class="flex-1">
+                                <p class="font-medium text-gray-800">${item.titulo}</p>
+                                <p class="text-xs text-gray-500">Vencimento: ${item.data_vencimento_formatada || '-'} | Valor pendente: ${item.valor_pendente_formatado}</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2 text-xs text-gray-600">
+                            <input type="checkbox" class="ignora-debito" value="${item.id}" ${isCancelled ? 'checked' : ''}>
+                            Desconsiderar
+                        </label>
                     </div>
-                </label>
+                </div>
             `;
         });
         debitosContainer.innerHTML = rows.join('');
         debitosContainer.querySelectorAll('.seleciona-debito').forEach(input => {
             input.addEventListener('change', () => {
                 const id = parseInt(input.value, 10);
+                if(Number.isNaN(id)){ return; }
                 if(input.checked){
                     state.selectedDebitos.add(id);
+                    if(state.cancelledDebitos.has(id)){
+                        state.cancelledDebitos.delete(id);
+                        const cancelInput = input.closest('[data-debito-id]').querySelector('.ignora-debito');
+                        if(cancelInput){ cancelInput.checked = false; }
+                    }
                 }else{
                     state.selectedDebitos.delete(id);
                 }
                 atualizarTotais();
             });
         });
+        debitosContainer.querySelectorAll('.ignora-debito').forEach(input => {
+            input.addEventListener('change', () => {
+                const id = parseInt(input.value, 10);
+                if(Number.isNaN(id)){ return; }
+                const includeInput = input.closest('[data-debito-id]').querySelector('.seleciona-debito');
+                if(input.checked){
+                    state.cancelledDebitos.add(id);
+                    state.selectedDebitos.delete(id);
+                    if(includeInput){
+                        includeInput.checked = false;
+                    }
+                }else{
+                    state.cancelledDebitos.delete(id);
+                }
+                atualizarTotais();
+            });
+        });
     }
+
 
     function renderCreditosExtras(){
         if(!creditosExtrasContainer){ return; }
@@ -313,7 +370,7 @@ if (Array.isArray(configuracao.despesas)) {
         const rows = state.despesas.map(item => `
             <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end border border-gray-200 rounded p-3" data-despesa-id="${item.id}">
                 <div class="md:col-span-7">
-                    <label class="form-label">Descrição</label>
+                    <label class="form-label">DescriÃ§Ã£o</label>
                     <input type="text" class="form-input despesa-descricao" value="${item.descricao || ''}" placeholder="Descreva a despesa">
                 </div>
                 <div class="md:col-span-3">
@@ -397,7 +454,7 @@ if (Array.isArray(configuracao.despesas)) {
     function carregarDados(dataStr){
         if(!previewUrl){ return; }
         feedbackEl.classList.remove('hidden');
-        feedbackEl.textContent = 'Carregando informações...';
+        feedbackEl.textContent = 'Carregando informaÃ§Ãµes...';
         fetch(`${previewUrl}?data_encerramento=${dataStr}`)
             .then(resp => {
                 if(!resp.ok){ throw new Error('Erro ao carregar dados'); }
@@ -420,9 +477,9 @@ if (Array.isArray(configuracao.despesas)) {
             })
             .catch(error => {
                 console.error(error);
-                creditosContainer.innerHTML = '<p class="text-sm text-red-600">Não foi possível carregar os créditos.</p>';
-                debitosContainer.innerHTML = '<p class="text-sm text-red-600">Não foi possível carregar os débitos.</p>';
-                feedbackEl.textContent = 'Erro ao carregar dados da prestação de contas.';
+                creditosContainer.innerHTML = '<p class="text-sm text-red-600">NÃ£o foi possÃ­vel carregar os crÃ©ditos.</p>';
+                debitosContainer.innerHTML = '<p class="text-sm text-red-600">NÃ£o foi possÃ­vel carregar os dÃ©bitos.</p>';
+                feedbackEl.textContent = 'Erro ao carregar dados da prestaÃ§Ã£o de contas.';
             });
     }
 
@@ -471,6 +528,7 @@ if (Array.isArray(configuracao.despesas)) {
 
             const payload = {
                 debitos_incluir: Array.from(state.selectedDebitos),
+                debitos_desconsiderar: Array.from(state.cancelledDebitos),
                 despesas: despesasValidas,
                 creditos_extras: creditosExtrasValidos,
                 observacoes: observacoesTextarea ? observacoesTextarea.value.trim() : ''
@@ -485,3 +543,6 @@ if (Array.isArray(configuracao.despesas)) {
 })();
 </script>
 {% endblock %}
+
+
+

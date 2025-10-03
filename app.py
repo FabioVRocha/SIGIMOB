@@ -1239,7 +1239,7 @@ def reverter_prestacao(cur, prestacao_id: int):
         """
         SELECT conta_receber_id, status_original, valor_pago_original, valor_pendente_original, data_pagamento_original
         FROM prestacoes_contas_itens
-        WHERE prestacao_id = %s AND tipo = 'debito'
+        WHERE prestacao_id = %s AND tipo IN ('debito', 'debito_cancelado')
         """,
         (prestacao_id,),
     )
@@ -1306,6 +1306,17 @@ def processar_prestacao(
         except (TypeError, ValueError):
             raise ValueError("Identificador de parcela inválido.")
 
+    debitos_cancelados_ids = set()
+    for conta_id in payload.get("debitos_desconsiderar", []):
+        try:
+            debitos_cancelados_ids.add(int(conta_id))
+        except (TypeError, ValueError):
+            raise ValueError("Identificador de parcela inválido para desconsideração.")
+
+    conflitos = debitos_ids.intersection(debitos_cancelados_ids)
+    if conflitos:
+        raise ValueError("Uma parcela não pode ser incluída e desconsiderada ao mesmo tempo.")
+
     debitos = []
     for conta_id in debitos_ids:
         debito = debitos_map.get(conta_id)
@@ -1313,6 +1324,12 @@ def processar_prestacao(
             raise ValueError("Parcela selecionada não é válida para a prestação de contas.")
         debitos.append(debito)
 
+    debitos_cancelados = []
+    for conta_id in debitos_cancelados_ids:
+        debito = debitos_map.get(conta_id)
+        if not debito:
+            raise ValueError("Parcela marcada para desconsideração não é válida para a prestação de contas.")
+        debitos_cancelados.append(debito)
     despesas = preparar_despesas(payload.get("despesas"))
     creditos_extras = preparar_creditos_extras(payload.get("creditos_extras"))
     observacoes = (payload.get("observacoes") or "").strip()
@@ -1442,6 +1459,44 @@ def processar_prestacao(
             ),
         )
 
+    for debito in debitos_cancelados:
+        cur.execute(
+            """
+            INSERT INTO prestacoes_contas_itens (
+                prestacao_id, conta_receber_id, tipo, descricao, valor,
+                status_original, valor_pago_original, valor_pendente_original, data_pagamento_original
+            ) VALUES (%s, %s, 'debito_cancelado', %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                prestacao_id,
+                debito["id"],
+                debito["titulo"],
+                debito["valor_pendente"].quantize(Decimal("0.01")),
+                debito["status"],
+                debito["valor_pago"],
+                debito["valor_pendente"],
+                debito["data_pagamento"],
+            ),
+        )
+        valor_pago_atual = (
+            debito["valor_pago"].quantize(Decimal("0.01"))
+            if isinstance(debito["valor_pago"], Decimal)
+            else debito["valor_pago"]
+        )
+        cur.execute(
+            """
+            UPDATE contas_a_receber
+            SET status_conta = 'Cancelada',
+                valor_pago = %s,
+                valor_pendente = 0,
+                data_pagamento = NULL
+            WHERE id = %s
+            """,
+            (
+                valor_pago_atual,
+                debito["id"],
+            ),
+        )
     for despesa in despesas:
         cur.execute(
             """
@@ -2004,37 +2059,39 @@ def ensure_column_exists(cur, table_name, column_name, definition_sql):
 
 
 def ensure_prestacao_enum_credito_extra(conn):
-    """Ensure the enum prestacao_item_tipo includes the credito_extra value."""
+    """Ensure the enum prestacao_item_tipo includes required values for prestacao de contas."""
     with conn.cursor() as cur:
         cur.execute("SELECT 1 FROM pg_type WHERE typname = 'prestacao_item_tipo'")
         type_exists = cur.fetchone() is not None
     if not type_exists:
         return
 
+    required_values = {"credito_extra", "debito_cancelado"}
+    existing_values = set()
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT 1
+            SELECT e.enumlabel
             FROM pg_enum e
             JOIN pg_type t ON e.enumtypid = t.oid
             WHERE t.typname = 'prestacao_item_tipo'
-              AND e.enumlabel = 'credito_extra'
         """)
-        if cur.fetchone():
-            return
+        existing_values = {row[0] for row in cur.fetchall()}
+    missing = sorted(required_values - existing_values)
+    if not missing:
+        return
 
     conn.commit()
     previous_autocommit = conn.autocommit
     try:
         conn.autocommit = True
         with conn.cursor() as cur:
-            try:
-                cur.execute("ALTER TYPE prestacao_item_tipo ADD VALUE 'credito_extra'")
-            except DuplicateObject:
-                pass
+            for value in missing:
+                try:
+                    cur.execute(f"ALTER TYPE prestacao_item_tipo ADD VALUE '{value}'")
+                except DuplicateObject:
+                    pass
     finally:
         conn.autocommit = previous_autocommit
-
-
 
 def ensure_prestacao_contas_tables():
     conn = None
@@ -6761,6 +6818,7 @@ def contratos_encerrar_form(contrato_id):
     data_sugerida = contrato.get("data_fim") or date.today()
     configuracao = {
         "selectedDebitos": [],
+        "cancelledDebitos": [],
         "despesas": [],
         "creditosExtras": [],
         "observacoes": "",
@@ -6835,6 +6893,7 @@ def contratos_prestacao_editar(prestacao_id):
         conn.close()
 
     selected_debitos = [item["conta_receber_id"] for item in itens if item["tipo"] == "debito"]
+    cancelled_debitos = [item["conta_receber_id"] for item in itens if item["tipo"] == "debito_cancelado"]
     despesas = [
         {
             "descricao": item["descricao"],
@@ -6853,6 +6912,7 @@ def contratos_prestacao_editar(prestacao_id):
     ]
     configuracao = {
         "selectedDebitos": selected_debitos,
+        "cancelledDebitos": cancelled_debitos,
         "despesas": despesas,
         "creditosExtras": creditos_extras,
         "observacoes": prestacao["observacoes"] or "",
@@ -7070,6 +7130,7 @@ def contratos_prestacao_relatorio(prestacao_id):
     creditos = [item for item in itens if item["tipo"] == "credito"]
     creditos_extras = [item for item in itens if item["tipo"] == "credito_extra"]
     debitos = [item for item in itens if item["tipo"] == "debito"]
+    debitos_cancelados = [item for item in itens if item["tipo"] == "debito_cancelado"]
     despesas = [item for item in itens if item["tipo"] == "despesa"]
     total_creditos_extras = sum((Decimal(str(item["valor"])) for item in creditos_extras), Decimal("0"))
 
@@ -7118,6 +7179,7 @@ def contratos_prestacao_relatorio(prestacao_id):
     add_section("Créditos (Calção)", creditos)
     add_section("Creditos Extras", creditos_extras)
     add_section("Débitos", debitos)
+    add_section("Débitos cancelados", debitos_cancelados)
     add_section("Despesas Extras", despesas)
 
     pdf.ln(8)
@@ -10938,4 +11000,12 @@ if __name__ == "__main__":
     # rede, permitindo acesso por outras máquinas da rede local.
     # Altere debug para False em produção.
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
+
+
+
+
+
+
 
