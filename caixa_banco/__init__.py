@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from db_utils import decode_psycopg_unicode_error
 
 # Instância compartilhada do ORM
 # Será inicializada pelo aplicativo principal
@@ -17,4 +18,8 @@ def init_app(app):
 
     # Garante que as tabelas existam
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+        except UnicodeDecodeError as exc:
+            message = decode_psycopg_unicode_error(exc)
+            raise RuntimeError(f'Database initialization failed: {message}') from exc

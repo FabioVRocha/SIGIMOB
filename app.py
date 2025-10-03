@@ -57,6 +57,7 @@ from caixa_banco.services import (
     deletar_movimento,
     recalcular_posicoes,
 )
+from db_utils import decode_psycopg_unicode_error
 from sqlalchemy import func
 from sqlalchemy.orm import load_only
 
@@ -411,7 +412,11 @@ PRESTACAO_DESPESA_DESCR = "PRESTACAO ENCERRAMENTO CONTRATO"
 
 # Função para conectar ao banco de dados
 def get_db_connection():
-    conn = psycopg2.connect(DATABASE_URL)
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+    except UnicodeDecodeError as exc:
+        message = decode_psycopg_unicode_error(exc)
+        raise RuntimeError(f'Database connection failed: {message}') from exc
     return conn
 
 

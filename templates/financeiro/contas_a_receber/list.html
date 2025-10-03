@@ -1,4 +1,4 @@
-<!-- templates/financeiro/contas_a_receber/list.html -->
+﻿<!-- templates/financeiro/contas_a_receber/list.html -->
 {% extends "base.html" %}
 
 {% block title %}Contas a Receber{% endblock %}
@@ -12,6 +12,9 @@
         <div class="flex items-center space-x-2">
             <button type="button" class="btn-secondary flex items-center" onclick="openFiltroModal()">
                 <i class="fas fa-filter mr-2"></i> Filtros
+            </button>
+            <button type="button" class="btn-primary flex items-center" onclick="openLoteModal()">
+                <i class="fas fa-layer-group mr-2"></i> Gerar Boletos em Lote
             </button>
             <a href="{{ url_for('contas_a_receber_add') }}" class="btn-primary flex items-center">
                 <i class="fas fa-plus mr-2"></i> Nova Conta
@@ -31,7 +34,7 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Pendente</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">AÃ§Ãµes</th>
                 </tr>
                 <tr>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
@@ -116,7 +119,7 @@
                     <input type="date" id="data_movimento_{{ conta.id }}" name="data_movimento" class="form-input" value="{{ conta.data_pagamento or '' }}">
                 </div>
                 <div class="form-group md:col-span-2">
-                    <label for="historico_{{ conta.id }}" class="form-label">Histórico:</label>
+                    <label for="historico_{{ conta.id }}" class="form-label">HistÃ³rico:</label>
                     <textarea id="historico_{{ conta.id }}" name="historico" class="form-input">{{ (conta.titulo ~ ' - ' if conta.titulo else '') ~ conta.cliente }}</textarea>
                 </div>
                 <div class="form-group">
@@ -184,7 +187,7 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="imovel_id" class="form-label">Imóvel:</label>
+                    <label for="imovel_id" class="form-label">ImÃ³vel:</label>
                     <select id="imovel_id" name="imovel_id" class="form-input">
                         <option value="">Todos</option>
                         {% for imovel in imoveis %}
@@ -212,6 +215,66 @@
             </div>
         </form>
     </div>
+</div>
+
+<div id="lote-modal" class="modal" style="display:none;">
+    <div class="modal-content max-w-4xl">
+        <span class="close-button" onclick="closeLoteModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Gerar boletos em lote</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-group">
+                <label for="lote-cliente" class="form-label">Cliente:</label>
+                <select id="lote-cliente" class="form-input">
+                    <option value="">Selecione</option>
+                    {% for c in clientes %}
+                    <option value="{{ c.id }}">{{ c.razao_social_nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="lote-contrato" class="form-label">Contrato:</label>
+                <select id="lote-contrato" class="form-input" disabled>
+                    <option value="">Todos</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex items-center justify-between mt-5">
+            <div id="lote-feedback" class="text-sm text-red-600"></div>
+            <div class="space-x-3">
+                <button type="button" class="btn-secondary" onclick="closeLoteModal()">Fechar</button>
+                <button type="button" class="btn-primary" onclick="buscarTitulosLote()">Buscar titulos</button>
+            </div>
+        </div>
+        <div id="lote-result" class="mt-6" style="display:none;">
+            <div class="flex items-center justify-between mb-3">
+                <label class="flex items-center space-x-2 text-sm text-gray-700">
+                    <input type="checkbox" id="lote-select-all" class="form-checkbox" onchange="toggleSelectAllLote(this)" />
+                    <span>Selecionar todos</span>
+                </label>
+                <div id="lote-total" class="text-sm font-semibold text-dark-blue"></div>
+            </div>
+            <div class="overflow-y-auto max-h-80 border border-gray-200 rounded-lg">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-100 text-gray-700">
+                        <tr>
+                            <th class="px-3 py-2 text-left">#</th>
+                            <th class="px-3 py-2 text-left">Titulo</th>
+                            <th class="px-3 py-2 text-left">Vencimento</th>
+                            <th class="px-3 py-2 text-left">Valor</th>
+                            <th class="px-3 py-2 text-left">Status</th>
+                            <th class="px-3 py-2 text-left">Contrato</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lote-tbody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button type="button" class="btn-primary" onclick="abrirPreviewLote()">Visualizar boletos</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 </div>
 {% endblock %}
 
@@ -243,7 +306,7 @@ function filterPayAccounts(id){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
-    // Máscara BRL para campos monetários
+    // MÃ¡scara BRL para campos monetÃ¡rios
     const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     function formatCurrencyInput(el){
         const digits = (el.value || '').toString().replace(/\D/g,'');
@@ -278,3 +341,4 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 {% endblock %}
+

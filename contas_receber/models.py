@@ -20,6 +20,7 @@ class EmpresaLicenciada(db.Model):
     status = db.Column(db.String(10), default='Ativo')
     data_cadastro = db.Column(db.DateTime, default=db.func.now())
 
+
 class Pessoa(db.Model):
     __tablename__ = 'pessoas'
 
@@ -33,20 +34,27 @@ class Pessoa(db.Model):
     cep = db.Column(db.String(10))
 
 
-
 class ContaReceber(db.Model):
     __tablename__ = 'contas_a_receber'
 
     id = db.Column(db.Integer, primary_key=True)
-    cliente_id = db.Column(db.Integer, nullable=False)
+    contrato_id = db.Column(db.Integer, db.ForeignKey('contratos_aluguel.id'))
+    receita_id = db.Column(db.Integer, db.ForeignKey('receitas_cadastro.id'), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('pessoas.id'), nullable=False)
     titulo = db.Column(db.String(255))
     data_vencimento = db.Column(db.Date, nullable=False)
     valor_previsto = db.Column(db.Numeric(10, 2), nullable=False)
     data_pagamento = db.Column(db.Date)
     valor_pago = db.Column(db.Numeric(10, 2))
     valor_pendente = db.Column(db.Numeric(10, 2), default=0)
+    valor_desconto = db.Column(db.Numeric(10, 2), default=0)
+    valor_multa = db.Column(db.Numeric(10, 2), default=0)
+    valor_juros = db.Column(db.Numeric(10, 2), default=0)
+    observacao = db.Column(db.Text)
     status_conta = db.Column(db.String(20), default='Aberta')
+    origem_id = db.Column(db.Integer, db.ForeignKey('origens_cadastro.id'))
     nosso_numero = db.Column(db.String(20))
+    data_cadastro = db.Column(db.DateTime, server_default=db.func.now())
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
