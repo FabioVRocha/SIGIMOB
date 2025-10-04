@@ -1,198 +1,273 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8" />
-<title>Boletos em Lote</title>
-<style>
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Segoe UI", Tahoma, sans-serif; background: #f1f5f9; color: #1f2933; }
-  header { background: #1e3a8a; color: #fff; padding: 20px 24px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.35); }
-  .summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
-  .summary-section { max-width: 60%; }
-  .summary-section h1 { margin: 0 0 8px 0; font-size: 26px; letter-spacing: 0.5px; }
-  .meta { margin: 4px 0; font-size: 14px; opacity: 0.9; }
-  .nav-controls { display: flex; align-items: center; gap: 12px; }
-  .btn { padding: 10px 18px; border-radius: 8px; border: 1px solid transparent; font-weight: 600; cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease; }
-  .btn:disabled { cursor: not-allowed; opacity: 0.65; box-shadow: none; transform: none; }
-  .btn-primary { background: #2563eb; color: #fff; box-shadow: 0 10px 18px rgba(37, 99, 235, 0.35); }
-  .btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
-  .btn-outline { background: transparent; color: #e0e7ff; border-color: rgba(255,255,255,0.5); }
-  main { display: flex; gap: 18px; padding: 22px; }
-  .list-panel { width: 280px; min-width: 240px; background: #fff; border-radius: 14px; box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12); padding: 18px; max-height: calc(100vh - 180px); overflow-y: auto; }
-  .list-panel h2 { margin: 0 0 12px 0; font-size: 18px; color: #1e3a8a; }
-  .titulo-item { padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; margin-bottom: 10px; background: #f8fafc; cursor: pointer; transition: border 0.15s ease, background 0.15s ease, transform 0.1s ease; }
-  .titulo-item:hover { transform: translateX(2px); border-color: #c7d2fe; }
-  .titulo-item.active { background: #e0e7ff; border-color: #1e3a8a; box-shadow: 0 10px 18px rgba(37, 99, 235, 0.25); }
-  .titulo-item strong { display: block; font-size: 15px; margin-bottom: 4px; color: #1f2937; }
-  .meta-line { display: block; font-size: 13px; color: #475569; }
-  .viewer { flex: 1; background: #fff; border-radius: 14px; box-shadow: 0 16px 34px rgba(15, 23, 42, 0.12); padding: 12px; position: relative; }
-  .viewer iframe { width: 100%; min-height: 84vh; border: none; border-radius: 12px; background: #fff; }
-  #pageIndicator { font-weight: 600; font-size: 16px; }
-  #feedback { margin-top: 12px; font-size: 14px; }
-  .downloads { margin: 0 24px 24px 24px; background: #fff; border-radius: 14px; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1); padding: 18px; }
-  .downloads.hidden { display: none; }
-  .downloads h2 { margin: 0 0 12px 0; font-size: 18px; color: #1e3a8a; }
-  .downloads ul { list-style: none; padding: 0; margin: 0; }
-  .downloads li { margin: 8px 0; }
-  .downloads a { color: #2563eb; text-decoration: none; font-weight: 600; }
-  .downloads a:hover { text-decoration: underline; }
-</style>
-</head>
-<body>
-<header>
-  <div class="summary">
-    <div class="summary-section">
-      <h1>Boletos em Lote</h1>
-      <p class="meta"><strong>Titulos selecionados:</strong> {{ titulos|length }}</p>
-      <p class="meta"><strong>Clientes:</strong> {{ cliente_labels|join(', ') if cliente_labels else 'Nao informado' }}</p>
-      <p class="meta"><strong>Contratos:</strong> {{ contrato_labels|join(', ') if contrato_labels else 'Nao informado' }}</p>
+{% extends "base.html" %}
+
+{% block title %}Boletos em Lote{% endblock %}
+
+{% block page_title %}Boletos em Lote{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+        <div>
+            <div class="flex items-center gap-3">
+                <i class="fas fa-layer-group text-2xl text-indigo-500"></i>
+                <h2 class="text-2xl font-semibold text-dark-blue">Visualizacao dos boletos</h2>
+            </div>
+            <dl class="mt-4 space-y-1 text-sm text-gray-600">
+                <div class="flex flex-wrap gap-2">
+                    <dt class="font-semibold text-gray-700">Titulos selecionados:</dt>
+                    <dd>{{ titulos|length }}</dd>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <dt class="font-semibold text-gray-700">Clientes:</dt>
+                    <dd>{{ cliente_labels|join(', ') if cliente_labels else 'Nao informado' }}</dd>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <dt class="font-semibold text-gray-700">Contratos:</dt>
+                    <dd>{{ contrato_labels|join(', ') if contrato_labels else 'Nao informado' }}</dd>
+                </div>
+            </dl>
+            <div id="feedback" class="mt-4 text-sm font-medium text-gray-700"></div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button class="btn-secondary flex items-center gap-2" id="btnPrev" type="button">
+                <i class="fas fa-arrow-left"></i>
+                <span>Anterior</span>
+            </button>
+            <span id="pageIndicator" class="text-sm font-semibold text-dark-blue">
+                {{ 1 if titulos|length else 0 }} / {{ titulos|length }}
+            </span>
+            <button class="btn-secondary flex items-center gap-2" id="btnNext" type="button">
+                <span>Proximo</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+            <button class="btn-primary flex items-center gap-2" id="btnGenerate" type="button">
+                <i class="fas fa-file-download"></i>
+                <span>Gerar PDFs e Remessa</span>
+            </button>
+        </div>
     </div>
-    <div class="nav-controls">
-      <button class="btn btn-outline" id="btnPrev" type="button">Anterior</button>
-      <span id="pageIndicator">1 / {{ titulos|length }}</span>
-      <button class="btn btn-outline" id="btnNext" type="button">Proximo</button>
-      <button class="btn btn-primary" id="btnGenerate" type="button">Gerar PDFs e Remessa</button>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
+        <aside class="lg:col-span-1 bg-slate-50 border border-gray-200 rounded-lg">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-dark-blue">Titulos</h3>
+                <span class="text-xs font-medium text-gray-500">{{ titulos|length }} itens</span>
+            </div>
+            <div id="titulosList" class="max-h-96 overflow-y-auto p-3 space-y-3">
+                {% for titulo in titulos_data %}
+                <div class="titulo-item flex flex-col gap-1 p-3 rounded-lg border border-gray-200 bg-white hover:border-indigo-300 hover:shadow-sm transition cursor-pointer" data-index="{{ loop.index0 }}">
+                    <div class="text-sm font-semibold text-gray-800">#{{ titulo.id }} - {{ titulo.label }}</div>
+                    {% if titulo.cliente_nome %}
+                    <div class="text-xs text-gray-500">{{ titulo.cliente_nome }}</div>
+                    {% endif %}
+                    {% if titulo.contrato_label %}
+                    <div class="text-xs text-gray-500">Contrato: {{ titulo.contrato_label }}</div>
+                    {% endif %}
+                    {% if titulo.data_vencimento %}
+                    <div class="text-xs text-gray-500">Vencimento: {{ titulo.data_vencimento }}</div>
+                    {% endif %}
+                    <div class="text-xs text-gray-500">Valor: {{ 'R$ %.2f' % titulo.valor_previsto }}</div>
+                    <div class="text-xs text-gray-500">Status: {{ titulo.status }}</div>
+                </div>
+                {% endfor %}
+                {% if titulos_data|length == 0 %}
+                <div class="text-sm text-gray-500 text-center py-6">Nenhum titulo selecionado.</div>
+                {% endif %}
+            </div>
+        </aside>
+        <section class="lg:col-span-3">
+            <div class="h-full rounded-lg border border-gray-200 bg-slate-50 p-2">
+                {% if titulos %}
+                    {% for titulo in titulos %}
+                    <iframe
+                        class="boleto-frame w-full h-[70vh] rounded-md border border-gray-200 bg-white {% if not loop.first %}hidden{% endif %}"
+                        data-index="{{ loop.index0 }}"
+                        src="{{ url_for('contas_receber.visualizar_boleto', conta_id=titulo.id) }}"
+                        title="Boleto #{{ titulo.id }}"
+                        loading="lazy"
+                    ></iframe>
+                    {% endfor %}
+                {% else %}
+                <div class="flex flex-col items-center justify-center text-center text-gray-500 h-full py-16">
+                    <i class="fas fa-barcode text-5xl mb-4"></i>
+                    <p>Nenhum boleto disponivel para exibir.</p>
+                </div>
+                {% endif %}
+            </div>
+        </section>
     </div>
-  </div>
-  <div id="feedback"></div>
-</header>
-<main>
-  <aside class="list-panel">
-    <h2>Visualizar boleto</h2>
-    <div id="titulosList">
-      {% for titulo in titulos_data %}
-      <div class="titulo-item" data-index="{{ loop.index0 }}">
-        <strong>#{{ titulo.id }} - {{ titulo.label }}</strong>
-        {% if titulo.cliente_nome %}
-        <span class="meta-line">{{ titulo.cliente_nome }}</span>
-        {% endif %}
-        {% if titulo.contrato_label %}
-        <span class="meta-line">Contrato: {{ titulo.contrato_label }}</span>
-        {% endif %}
-        {% if titulo.data_vencimento %}
-        <span class="meta-line">Vencimento: {{ titulo.data_vencimento }}</span>
-        {% endif %}
-        <span class="meta-line">Valor: {{ 'R$ %.2f' % titulo.valor_previsto }}</span>
-        <span class="meta-line">Status: {{ titulo.status }}</span>
-      </div>
-      {% endfor %}
+
+    <div id="downloads" class="mt-6 hidden">
+        <div class="border border-gray-200 bg-slate-50 rounded-lg p-4">
+            <h3 class="text-lg font-semibold text-dark-blue mb-2">Arquivos gerados</h3>
+            <ul id="downloadList" class="space-y-2 text-sm"></ul>
+        </div>
     </div>
-  </aside>
-  <section class="viewer">
-    {% for titulo in titulos %}
-    <iframe
-      class="boleto-frame"
-      data-index="{{ loop.index0 }}"
-      src="{{ url_for('contas_receber.visualizar_boleto', conta_id=titulo.id) }}"
-      title="Boleto #{{ titulo.id }}"
-      loading="lazy"
-    ></iframe>
-    {% endfor %}
-  </section>
-</main>
-<section id="downloads" class="downloads hidden">
-  <h2>Arquivos gerados</h2>
-  <ul id="downloadList"></ul>
-</section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
 <script>
 (function(){
-  const ids = {{ ids|tojson }};
-  const total = {{ titulos|length }};
-  const frames = Array.from(document.querySelectorAll('.boleto-frame'));
-  const items = Array.from(document.querySelectorAll('.titulo-item'));
-  const indicator = document.getElementById('pageIndicator');
-  const feedback = document.getElementById('feedback');
-  const downloadsSection = document.getElementById('downloads');
-  const downloadList = document.getElementById('downloadList');
-  const btnPrev = document.getElementById('btnPrev');
-  const btnNext = document.getElementById('btnNext');
-  const btnGenerate = document.getElementById('btnGenerate');
-  let current = 0;
+    const ids = {{ ids|tojson }};
+    const total = {{ titulos|length }};
+    const frames = Array.from(document.querySelectorAll('.boleto-frame'));
+    const items = Array.from(document.querySelectorAll('.titulo-item'));
+    const indicator = document.getElementById('pageIndicator');
+    const feedback = document.getElementById('feedback');
+    const downloadsWrapper = document.getElementById('downloads');
+    const downloadList = document.getElementById('downloadList');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+    const btnGenerate = document.getElementById('btnGenerate');
+    const btnGenerateOriginalHTML = btnGenerate ? btnGenerate.innerHTML : '';
+    let current = 0;
 
-  function showFrame(index){
-    if (!frames.length) { return; }
-    if (index < 0) { index = 0; }
-    if (index >= frames.length) { index = frames.length - 1; }
-    frames.forEach((frame, idx) => {
-      frame.style.display = idx === index ? 'block' : 'none';
-    });
-    items.forEach((item, idx) => {
-      if (idx === index) {
-        item.classList.add('active');
-        item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      } else {
-        item.classList.remove('active');
-      }
-    });
-    indicator.textContent = (index + 1) + ' / ' + total;
-    current = index;
-  }
-
-  btnPrev.addEventListener('click', function(){ showFrame(current - 1); });
-  btnNext.addEventListener('click', function(){ showFrame(current + 1); });
-  items.forEach(function(item){
-    item.addEventListener('click', function(){
-      const idx = parseInt(item.dataset.index, 10);
-      if (!Number.isNaN(idx)) {
-        showFrame(idx);
-      }
-    });
-  });
-
-  function renderDownloads(data){
-    downloadList.innerHTML = '';
-    const links = [];
-    (data.pdf_urls || []).forEach(function(url, idx){
-      links.push({ url: url, label: 'Boleto PDF ' + (idx + 1) });
-    });
-    if (data.remessa_url) {
-      links.push({ url: data.remessa_url, label: 'Arquivo de remessa' });
+    function updateIndicator(index){
+        if (!indicator) { return; }
+        indicator.textContent = (total ? index + 1 : 0) + ' / ' + total;
     }
-    links.forEach(function(item){
-      const li = document.createElement('li');
-      const anchor = document.createElement('a');
-      anchor.href = item.url;
-      anchor.target = '_blank';
-      anchor.rel = 'noopener';
-      anchor.textContent = item.label;
-      li.appendChild(anchor);
-      downloadList.appendChild(li);
+
+    function updateNavState(){
+        if (btnPrev) { btnPrev.disabled = current <= 0; }
+        if (btnNext) { btnNext.disabled = current >= frames.length - 1; }
+    }
+
+    function highlightItem(index){
+        items.forEach((item, idx) => {
+            if (idx === index) {
+                item.classList.add('border-indigo-500', 'shadow-md', 'bg-indigo-50');
+            } else {
+                item.classList.remove('border-indigo-500', 'shadow-md', 'bg-indigo-50');
+            }
+        });
+    }
+
+    function showFrame(index){
+        if (!frames.length) {
+            updateIndicator(0);
+            updateNavState();
+            return;
+        }
+        if (index < 0) { index = 0; }
+        if (index >= frames.length) { index = frames.length - 1; }
+        frames.forEach((frame, idx) => {
+            if (idx === index) {
+                frame.classList.remove('hidden');
+            } else {
+                frame.classList.add('hidden');
+            }
+        });
+        highlightItem(index);
+        current = index;
+        updateIndicator(current);
+        updateNavState();
+    }
+
+    function clearFeedback(){
+        if (feedback) {
+            feedback.textContent = '';
+            feedback.classList.remove('text-green-600', 'text-red-600');
+        }
+    }
+
+    function setFeedback(message, type){
+        if (!feedback) { return; }
+        feedback.textContent = message || '';
+        feedback.classList.remove('text-green-600', 'text-red-600');
+        if (type === 'success') {
+            feedback.classList.add('text-green-600');
+        } else if (type === 'error') {
+            feedback.classList.add('text-red-600');
+        }
+    }
+
+    if (btnPrev) {
+        btnPrev.addEventListener('click', function(){
+            showFrame(current - 1);
+        });
+    }
+
+    if (btnNext) {
+        btnNext.addEventListener('click', function(){
+            showFrame(current + 1);
+        });
+    }
+
+    items.forEach(function(item){
+        item.addEventListener('click', function(){
+            const idx = parseInt(item.dataset.index, 10);
+            if (!Number.isNaN(idx)) {
+                showFrame(idx);
+            }
+        });
     });
-    if (links.length) {
-      downloadsSection.classList.remove('hidden');
-    }
-  }
 
-  btnGenerate.addEventListener('click', async function(){
-    feedback.textContent = '';
-    downloadsSection.classList.add('hidden');
-    downloadList.innerHTML = '';
-    btnGenerate.disabled = true;
-    const originalText = btnGenerate.textContent;
-    btnGenerate.textContent = 'Gerando...';
-    try {
-      const response = await fetch('/api/contas-receber/boleto/lote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: ids })
-      });
-      const data = await response.json().catch(function(){ return {}; });
-      if (!response.ok) {
-        feedback.textContent = data.error || 'Falha ao gerar boletos.';
-      } else {
-        feedback.textContent = 'Boletos gerados com sucesso.';
-        renderDownloads(data);
-      }
-    } catch (err) {
-      feedback.textContent = (err && err.message) ? err.message : 'Falha ao gerar boletos.';
-    } finally {
-      btnGenerate.disabled = false;
-      btnGenerate.textContent = originalText;
+    function renderDownloads(data){
+        if (!downloadsWrapper || !downloadList) { return; }
+        downloadList.innerHTML = '';
+        const links = [];
+        (data.pdf_urls || []).forEach(function(url, idx){
+            links.push({ url: url, label: 'Boleto PDF ' + (idx + 1) });
+        });
+        if (data.remessa_url) {
+            links.push({ url: data.remessa_url, label: 'Arquivo de remessa' });
+        }
+        links.forEach(function(file){
+            const li = document.createElement('li');
+            const anchor = document.createElement('a');
+            anchor.href = file.url;
+            anchor.target = '_blank';
+            anchor.rel = 'noopener';
+            anchor.className = 'text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-2';
+            anchor.innerHTML = '<i class="fas fa-file-alt"></i>' + file.label;
+            li.appendChild(anchor);
+            downloadList.appendChild(li);
+        });
+        if (links.length) {
+            downloadsWrapper.classList.remove('hidden');
+        }
     }
-  });
 
-  showFrame(0);
+    if (btnGenerate) {
+        btnGenerate.addEventListener('click', async function(){
+            clearFeedback();
+            if (!ids || !ids.length) {
+                setFeedback('Nenhum titulo selecionado para geracao.', 'error');
+                return;
+            }
+            if (downloadsWrapper) {
+                downloadsWrapper.classList.add('hidden');
+            }
+            if (downloadList) {
+                downloadList.innerHTML = '';
+            }
+            btnGenerate.disabled = true;
+            btnGenerate.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Gerando...</span>';
+            try {
+                const response = await fetch('/api/contas-receber/boleto/lote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: ids })
+                });
+                const data = await response.json().catch(function(){ return {}; });
+                if (!response.ok) {
+                    setFeedback(data.error || 'Falha ao gerar boletos.', 'error');
+                } else {
+                    setFeedback('Boletos gerados com sucesso.', 'success');
+                    renderDownloads(data);
+                }
+            } catch (err) {
+                setFeedback((err && err.message) ? err.message : 'Falha ao gerar boletos.', 'error');
+            } finally {
+                btnGenerate.disabled = false;
+                btnGenerate.innerHTML = btnGenerateOriginalHTML;
+            }
+        });
+    }
+
+    showFrame(0);
 })();
 </script>
-</body>
-</html>
+{% endblock %}

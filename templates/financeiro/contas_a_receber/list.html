@@ -14,7 +14,7 @@
                 <i class="fas fa-filter mr-2"></i> Filtros
             </button>
             <button type="button" class="btn-primary flex items-center" onclick="openLoteModal()">
-                <i class="fas fa-layer-group mr-2"></i> Gerar Boletos em Lote
+                <i class="fas fa-layer-group mr-2"></i> Gerar Boletos
             </button>
             <a href="{{ url_for('contas_a_receber_add') }}" class="btn-primary flex items-center">
                 <i class="fas fa-plus mr-2"></i> Nova Conta
@@ -220,7 +220,7 @@
 <div id="lote-modal" class="modal" style="display:none;">
     <div class="modal-content max-w-4xl">
         <span class="close-button" onclick="closeLoteModal()">&times;</span>
-        <h2 class="text-lg font-semibold mb-4">Gerar boletos em lote</h2>
+        <h2 class="text-lg font-semibold mb-4">Gerar Boletos</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-group">
                 <label for="lote-cliente" class="form-label">Cliente:</label>
@@ -257,6 +257,7 @@
                 <table class="min-w-full text-sm">
                     <thead class="bg-gray-100 text-gray-700">
                         <tr>
+                            <th class="px-3 py-2 text-left">Selecionar</th>
                             <th class="px-3 py-2 text-left">#</th>
                             <th class="px-3 py-2 text-left">Titulo</th>
                             <th class="px-3 py-2 text-left">Vencimento</th>
@@ -341,4 +342,9 @@ document.addEventListener('DOMContentLoaded', function(){
 });
 </script>
 {% endblock %}
+
+
+
+
+
 

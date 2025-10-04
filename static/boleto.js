@@ -31,7 +31,7 @@ async function gerarBoleto(id) {
     pdfTargets.forEach((p) => {
       const url = normalizePath(p) || p;
       if (url) {
-        window.open(url, '_blank');
+        window.location.href = url;
       }
     });
     const remessaTarget = data.remessa_url || data.remessa;
@@ -248,7 +248,7 @@ async function gerarBoleto(id) {
     }
     const ids = Array.from(state.selecionados).join(',');
     const url = `/api/contas-receber/boleto/lote?ids=${ids}`;
-    window.open(url, '_blank');
+    window.location.href = url;
     closeModal();
   };
 
