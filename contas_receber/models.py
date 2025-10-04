@@ -35,19 +35,30 @@ class Pessoa(db.Model):
 
 
 class OrigemCadastro(db.Model):
+    """Modela a tabela ``origens_cadastro`` utilizada como FK em contas a receber.
+
+    A aplicação realiza operações diretas via SQL bruto para essa tabela em
+    diversos pontos. Durante a inicialização em ambientes de desenvolvimento o
+    módulo pode ser carregado mais de uma vez (por exemplo, pelo reloader do
+    Flask), o que fazia com que o SQLAlchemy reclamasse da redefinição da
+    tabela. Ao informar ``extend_existing=True`` garantimos que, se a tabela já
+    estiver presente no metadata, a definição seja reutilizada em vez de
+    disparar um ``InvalidRequestError``.
+    """
+
     __tablename__ = 'origens_cadastro'
+    __table_args__ = {'extend_existing': True}
 
     id = db.Column(db.Integer, primary_key=True)
     descricao = db.Column(db.String(255), nullable=False)
     data_cadastro = db.Column(db.DateTime, server_default=db.func.now())
 
+    contas = db.relationship(
+        'ContaReceber',
+        backref=db.backref('origem', lazy=True),
+        lazy=True,
+    )
 
-class OrigemCadastro(db.Model):
-    __tablename__ = 'origens_cadastro'
-
-    id = db.Column(db.Integer, primary_key=True)
-    descricao = db.Column(db.String(255), nullable=False)
-    data_cadastro = db.Column(db.DateTime, server_default=db.func.now())
 
 class ContaReceber(db.Model):
     __tablename__ = 'contas_a_receber'
@@ -89,29 +100,3 @@ class ContaReceber(db.Model):
             self.status_conta = 'Paga'
         else:
             self.status_conta = 'Parcial'
-
-
-class OrigemCadastro(db.Model):
-    """Modela a tabela ``origens_cadastro`` utilizada como FK em contas a receber.
-
-    A aplicação realiza operações diretas via SQL bruto para essa tabela em
-    diversos pontos. Durante a inicialização em ambientes de desenvolvimento o
-    módulo pode ser carregado mais de uma vez (por exemplo, pelo reloader do
-    Flask), o que fazia com que o SQLAlchemy reclamasse da redefinição da
-    tabela. Ao informar ``extend_existing=True`` garantimos que, se a tabela já
-    estiver presente no metadata, a definição seja reutilizada em vez de
-    disparar um ``InvalidRequestError``.
-    """
-
-    __tablename__ = 'origens_cadastro'
-    __table_args__ = {'extend_existing': True}
-
-    id = db.Column(db.Integer, primary_key=True)
-    descricao = db.Column(db.String(255), nullable=False)
-    data_cadastro = db.Column(db.DateTime, server_default=db.func.now())
-
-    contas = db.relationship(
-        'ContaReceber',
-        backref=db.backref('origem', lazy=True),
-        lazy=True,
-    )
