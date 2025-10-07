@@ -53,11 +53,6 @@
     </style>
   </head>
   <body>
-    {% if not is_pdf %}
-    <div class="no-print">
-      <button onclick="gerarBoleto({{ titulo.id }})">Gerar PDF</button>
-    </div>
-    {% endif %}
     <div class="pagina">
 <div class="recibo-sacado">
   <table class="cabecalho">
