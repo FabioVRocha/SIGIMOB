@@ -34,6 +34,17 @@ class Pessoa(db.Model):
     cep = db.Column(db.String(10))
 
 
+class ReceitaCadastro(db.Model):
+    """Representa as categorias de receita disponíveis para as contas."""
+
+    __tablename__ = 'receitas_cadastro'
+    __table_args__ = {'extend_existing': True}
+
+    id = db.Column(db.Integer, primary_key=True)
+    descricao = db.Column(db.String(255), nullable=False)
+    data_cadastro = db.Column(db.DateTime, server_default=db.func.now())
+
+
 class OrigemCadastro(db.Model):
     """Modela a tabela ``origens_cadastro`` utilizada como FK em contas a receber.
 
