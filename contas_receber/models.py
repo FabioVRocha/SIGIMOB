@@ -76,7 +76,7 @@ class ContaReceber(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     contrato_id = db.Column(db.Integer, db.ForeignKey('contratos_aluguel.id'))
-    receita_id = db.Column(db.Integer, db.ForeignKey('receitas_cadastro.id'), nullable=False)
+    receita_id = db.Column(db.Integer, db.ForeignKey(ReceitaCadastro.id), nullable=False)
     cliente_id = db.Column(db.Integer, db.ForeignKey('pessoas.id'), nullable=False)
     titulo = db.Column(db.String(255))
     data_vencimento = db.Column(db.Date, nullable=False)
@@ -92,6 +92,13 @@ class ContaReceber(db.Model):
     origem_id = db.Column(db.Integer, db.ForeignKey('origens_cadastro.id'))
     nosso_numero = db.Column(db.String(20))
     data_cadastro = db.Column(db.DateTime, server_default=db.func.now())
+
+    receita = db.relationship(
+        ReceitaCadastro,
+        primaryjoin=receita_id == ReceitaCadastro.id,
+        backref=db.backref('contas', lazy=True),
+        lazy=True,
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
