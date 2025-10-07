@@ -71,6 +71,31 @@ class OrigemCadastro(db.Model):
     )
 
 
+class ContratoAluguel(db.Model):
+    """Minimal representation of ``contratos_aluguel`` used in FK relationships.
+
+    A grande maioria das operações envolvendo contratos de aluguel acontece
+    diretamente via SQL bruto espalhado pela aplicação. Apesar de a tabela
+    existir no banco de dados, ela não possuía uma definição declarativa no
+    SQLAlchemy. Isso fazia com que, ao carregar os modelos do módulo de contas
+    a receber – especialmente quando ``db.create_all`` era executado durante
+    tarefas utilitárias como a geração de boletos – o SQLAlchemy não conseguisse
+    resolver a ``ForeignKey`` configurada em ``ContaReceber`` e levantasse a
+    exceção ``NoReferencedTableError``.
+
+    Definimos aqui uma versão mínima da tabela apenas com a coluna ``id`` para
+    registrar a sua existência no ``MetaData`` do SQLAlchemy. O parâmetro
+    ``extend_existing`` garante que, em cenários onde a tabela já tenha sido
+    mapeada em outro ponto da aplicação, a definição será reutilizada em vez de
+    provocar conflitos.
+    """
+
+    __tablename__ = 'contratos_aluguel'
+    __table_args__ = {'extend_existing': True}
+
+    id = db.Column(db.Integer, primary_key=True)
+
+
 class ContaReceber(db.Model):
     __tablename__ = 'contas_a_receber'
 
