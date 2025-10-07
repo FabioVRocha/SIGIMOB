@@ -83,6 +83,9 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
     if _render_with_chromium(html, filepath):
         return
 
+    if _render_with_wkhtmltopdf(html, filepath):
+        return
+
     if pisa is None:
         current_app.logger.warning(
             "xhtml2pdf indisponível. Voltando ao gerador PDF manual.",
@@ -185,6 +188,48 @@ def _render_with_chromium(html: str, filepath: str) -> bool:
             )
     except Exception as exc:  # pragma: no cover
         current_app.logger.warning("Chromium headless não pôde gerar PDF: %s", exc)
+    return False
+
+
+def _render_with_wkhtmltopdf(html: str, filepath: str) -> bool:
+    comando = shutil.which("wkhtmltopdf")
+    if not comando:
+        return False
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".html", encoding="utf-8") as tmp:
+            tmp.write(html)
+            tmp_path = tmp.name
+        cmd = [
+            comando,
+            "--encoding",
+            "utf-8",
+            "--quiet",
+            tmp_path,
+            filepath,
+        ]
+        resultado = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=60,
+        )
+        if resultado.returncode == 0 and Path(filepath).exists():
+            return True
+        current_app.logger.warning(
+            "wkhtmltopdf falhou (ret=%s, stderr=%s)",
+            resultado.returncode,
+            resultado.stderr.decode("utf-8", errors="ignore"),
+        )
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.warning("wkhtmltopdf não pôde gerar PDF: %s", exc)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
     return False
 
 

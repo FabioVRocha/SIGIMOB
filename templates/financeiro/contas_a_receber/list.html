@@ -59,9 +59,6 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.status_conta }}</td>
                     <td class="py-3 px-4 text-sm">
                         {% if conta.status_conta in ['Aberta', 'Vencida', 'Parcial'] %}
-                        <button type="button" class="text-purple-600 hover:text-purple-800 mr-3" title="Gerar Boleto" onclick="visualizarBoleto({{ conta.id }})">
-                            <i class="fas fa-barcode"></i>
-                        </button>
                         <button type="button" class="text-green-600 hover:text-green-800 mr-3" title="Pagar" onclick="openPagarModal({{ conta.id }})">
                             <i class="fas fa-dollar-sign"></i>
                         </button>
