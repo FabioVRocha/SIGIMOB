@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import shutil
@@ -38,6 +39,11 @@ try:
     from xhtml2pdf import pisa  # type: ignore
 except Exception:  # pragma: no cover - mantemos fallback manual
     pisa = None  # type: ignore
+
+try:
+    from pyppeteer import launch  # type: ignore
+except Exception:  # pragma: no cover - execução sem pyppeteer continua válida
+    launch = None  # type: ignore
 
 
 def _resolver_entidades(titulo, empresa=None, conta=None, cliente=None):
@@ -129,6 +135,9 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
         return
 
     if _render_with_wkhtmltopdf(html, filepath):
+        return
+
+    if _render_with_pyppeteer(html, filepath):
         return
 
     if pisa is None:
@@ -276,6 +285,54 @@ def _render_with_wkhtmltopdf(html: str, filepath: str) -> bool:
             except OSError:
                 pass
     return False
+
+
+def _render_with_pyppeteer(html: str, filepath: str) -> bool:
+    """Renderiza o boleto em PDF utilizando o Chromium embarcado do pyppeteer."""
+
+    if launch is None:
+        return False
+
+    async def _gerar_pdf() -> None:
+        browser = await launch(
+            args=["--no-sandbox", "--disable-gpu"],
+            handleSIGINT=False,
+            handleSIGTERM=False,
+            handleSIGHUP=False,
+        )
+        try:
+            page = await browser.newPage()
+            await page.setContent(html, waitUntil="networkidle0")
+            await page.emulateMediaType("screen")
+            await page.pdf(
+                path=str(Path(filepath).resolve()),
+                format="A4",
+                printBackground=True,
+                margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"},
+            )
+        finally:
+            await browser.close()
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        if loop.is_running():
+            new_loop = asyncio.new_event_loop()
+            try:
+                new_loop.run_until_complete(_gerar_pdf())
+            finally:
+                new_loop.close()
+        else:
+            loop.run_until_complete(_gerar_pdf())
+    except Exception as exc:  # pragma: no cover - depende do ambiente
+        current_app.logger.warning("pyppeteer não pôde gerar PDF: %s", exc)
+        return False
+
+    return Path(filepath).exists()
 
 
 def _chromium_executable() -> list[str] | None:

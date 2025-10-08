@@ -8,3 +8,4 @@ openpyxl==3.1.2
 pytest==8.2.2
 WeasyPrint==61.2
 xhtml2pdf==0.2.13
+pyppeteer==1.0.2
