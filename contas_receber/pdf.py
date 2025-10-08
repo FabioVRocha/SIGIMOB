@@ -47,7 +47,7 @@ def _resolver_entidades(titulo, empresa=None, conta=None, cliente=None):
     conta_resolvida = conta or ContaBanco.query.first()
     cliente_resolvido = cliente or Pessoa.query.get(titulo.cliente_id)
 
-   if not all([empresa_resolvida, conta_resolvida, cliente_resolvido]):
+    if not all([empresa_resolvida, conta_resolvida, cliente_resolvido]):
         raise ValueError("Dados incompletos para gerar o boleto")
 
     return empresa_resolvida, conta_resolvida, cliente_resolvido
