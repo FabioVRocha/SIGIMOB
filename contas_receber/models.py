@@ -125,6 +125,29 @@ class ContaReceber(db.Model):
         lazy=True,
     )
 
+    @property
+    def data_emissao(self):
+        """Compatibilidade com templates/serviços que esperam ``data_emissao``.
+
+        Historicamente os boletos utilizavam ``data_emissao`` para exibir a
+        data presente no documento. A tabela ``contas_a_receber`` não possui
+        essa coluna; na prática o sistema sempre utilizou ``data_cadastro``.
+        Quando o novo módulo de boletos começou a usar o modelo declarativo,
+        o atributo passou a não existir e o template que gera os PDFs quebrou.
+
+        Para manter compatibilidade aceitamos um valor temporário definido em
+        memória (por exemplo, durante a geração de arquivos CNAB) e, caso não
+        seja informado, caímos como padrão na ``data_cadastro`` registrada no
+        banco de dados.
+        """
+
+        valor_customizado = getattr(self, '_data_emissao', None)
+        return valor_customizado or self.data_cadastro
+
+    @data_emissao.setter
+    def data_emissao(self, value):
+        self._data_emissao = value
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self.valor_previsto is not None:
