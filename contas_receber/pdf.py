@@ -100,22 +100,39 @@ def render_boleto_html(
     return render_template("financeiro/contas_a_receber/boleto.html", **contexto)
 
 
-def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
-    """Gera o PDF do boleto.
+def _inject_pdf_styles(html: str) -> str:
+    """Garante que o HTML possua regras de impressão adequadas."""
 
-    Tenta primeiro renderizar o HTML existente com o WeasyPrint. Caso a
-    biblioteca não esteja instalada (ou falhe), cai automaticamente para o
-    gerador manual que já era utilizado anteriormente.
-    """
+    if "@page" in html:
+        return html
+
+    styles = (
+        "<style>@page { size: A4; margin: 0; } "
+        "html, body { margin: 0; padding: 0; }" "</style>"
+    )
+    closing_head = "</head>"
+    if closing_head in html:
+        return html.replace(closing_head, styles + closing_head, 1)
+    return styles + html
+
+
+    def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
+    """Gera o PDF do boleto reutilizando o HTML exibido na aplicação."""
 
     empresa, conta, cliente = _resolver_entidades(
         titulo, empresa=empresa, conta=conta, cliente=cliente
     )
     contexto, barcode_num = _montar_contexto_boleto(titulo, empresa, conta, cliente)
-    contexto["is_pdf"] = True
 
-    html = render_template("financeiro/contas_a_receber/boleto.html", **contexto)
-
+    html = render_boleto_html(
+        titulo,
+        empresa=empresa,
+        conta=conta,
+        cliente=cliente,
+        is_pdf=False,
+    )
+    html = _inject_pdf_styles(html)
+    
     if HTML is not None:
         try:
             HTML(string=html, base_url=current_app.root_path).write_pdf(target=filepath)
