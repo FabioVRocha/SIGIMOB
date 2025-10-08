@@ -19,6 +19,8 @@ from .boleto_utils import (
     linha_digitavel,
     digits,
 )
+from caixa_banco.models import ContaBanco
+from .models import EmpresaLicenciada, Pessoa
 
 from fpdf import FPDF
 
@@ -38,17 +40,23 @@ except Exception:  # pragma: no cover - mantemos fallback manual
     pisa = None  # type: ignore
 
 
-def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
-    """Gera o PDF do boleto.
+def _resolver_entidades(titulo, empresa=None, conta=None, cliente=None):
+    """Garante que todas as entidades necessárias estejam disponíveis."""
 
-    Tenta primeiro renderizar o HTML existente com o WeasyPrint. Caso a
-    biblioteca não esteja instalada (ou falhe), cai automaticamente para o
-    gerador manual que já era utilizado anteriormente.
-    """
+    empresa_resolvida = empresa or EmpresaLicenciada.query.first()
+    conta_resolvida = conta or ContaBanco.query.first()
+    cliente_resolvido = cliente or Pessoa.query.get(titulo.cliente_id)
 
-    nosso_numero = titulo.nosso_numero or ""
-    valor_float = float(titulo.valor_previsto)
+   if not all([empresa_resolvida, conta_resolvida, cliente_resolvido]):
+        raise ValueError("Dados incompletos para gerar o boleto")
+
+    return empresa_resolvida, conta_resolvida, cliente_resolvido
+
+
+def _montar_contexto_boleto(titulo, empresa, conta, cliente):
     documento = str(titulo.id)
+    valor_float = float(titulo.valor_previsto)
+    nosso_numero = titulo.nosso_numero or ""
 
     linha = linha_digitavel(
         conta, nosso_numero, titulo.data_vencimento, valor_float, documento
@@ -64,8 +72,41 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
         cliente=cliente,
         linha_digitavel=linha,
         barcode=codigo_barras_html(barcode_num),
-        is_pdf=True,
     )
+    return contexto, barcode_num
+
+
+def render_boleto_html(
+    titulo,
+    *,
+    empresa=None,
+    conta=None,
+    cliente=None,
+    is_pdf=False,
+):
+    """Renderiza o boleto em HTML reutilizando o mesmo template da visualização."""
+
+    empresa, conta, cliente = _resolver_entidades(
+        titulo, empresa=empresa, conta=conta, cliente=cliente
+    )
+    contexto, _ = _montar_contexto_boleto(titulo, empresa, conta, cliente)
+    contexto["is_pdf"] = is_pdf
+    return render_template("financeiro/contas_a_receber/boleto.html", **contexto)
+
+
+def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
+    """Gera o PDF do boleto.
+
+    Tenta primeiro renderizar o HTML existente com o WeasyPrint. Caso a
+    biblioteca não esteja instalada (ou falhe), cai automaticamente para o
+    gerador manual que já era utilizado anteriormente.
+    """
+
+    empresa, conta, cliente = _resolver_entidades(
+        titulo, empresa=empresa, conta=conta, cliente=cliente
+    )
+    contexto, barcode_num = _montar_contexto_boleto(titulo, empresa, conta, cliente)
+    contexto["is_pdf"] = True
 
     html = render_template("financeiro/contas_a_receber/boleto.html", **contexto)
 
@@ -100,9 +141,9 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
             conta=conta,
             cliente=cliente,
             filepath=filepath,
-            linha_digitavel_texto=linha,
+            linha_digitavel_texto=contexto["linha_digitavel"],
             barcode_numero=barcode_num,
-            valor_formatado=f"{valor_float:.2f}",
+            valor_formatado=f"{float(titulo.valor_previsto):.2f}",
         )
         return
 
@@ -121,9 +162,9 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
         conta=conta,
         cliente=cliente,
         filepath=filepath,
-        linha_digitavel_texto=linha,
+        linha_digitavel_texto=contexto["linha_digitavel"],
         barcode_numero=barcode_num,
-        valor_formatado=f"{valor_float:.2f}",
+        valor_formatado=f"{float(titulo.valor_previsto):.2f}",
     )
 
 

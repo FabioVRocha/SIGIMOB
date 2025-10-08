@@ -2,14 +2,9 @@ import os
 from flask import Blueprint, request, jsonify, render_template, url_for, current_app
 from sqlalchemy import bindparam, text
 from caixa_banco import db
-from caixa_banco.models import ContaBanco
-from .boleto_utils import (
-    linha_digitavel,
-    codigo_barras_numero,
-    codigo_barras_html,
-)
 from .models import ContaReceber, EmpresaLicenciada, Pessoa
 from .services import gerar_boletos, importar_retorno
+from .pdf import render_boleto_html
 
 bp = Blueprint('contas_receber', __name__)
 
@@ -246,36 +241,10 @@ def visualizar_boletos_lote():
 @bp.get('/contas-receber/<int:conta_id>/boleto')
 def visualizar_boleto(conta_id):
     titulo = ContaReceber.query.get_or_404(conta_id)
-    empresa = EmpresaLicenciada.query.first()
-    conta = ContaBanco.query.first()
-    cliente = Pessoa.query.get(titulo.cliente_id)
-    if not all([empresa, conta, cliente]):
-        return 'Dados incompletos para gerar o boleto', 400
-    documento = str(titulo.id)
-    barcode_num = codigo_barras_numero(
-        conta,
-        titulo.nosso_numero or '',
-        documento,
-        float(titulo.valor_previsto),
-        titulo.data_vencimento,
-    )
-    barcode = codigo_barras_html(barcode_num)
-    linha = linha_digitavel(
-        conta,
-        titulo.nosso_numero or '',
-        titulo.data_vencimento,
-        float(titulo.valor_previsto),
-        documento,
-    )
-    return render_template(
-        'financeiro/contas_a_receber/boleto.html',
-        titulo=titulo,
-        empresa=empresa,
-        conta=conta,
-        cliente=cliente,
-        barcode=barcode,
-        linha_digitavel=linha,
-    )
+    try:
+        return render_boleto_html(titulo)
+    except ValueError as exc:
+        return str(exc), 400
 
 
 @bp.post('/contas-receber/<int:conta_id>/boleto')
