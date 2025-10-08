@@ -1,5 +1,11 @@
+# -*- coding: utf-8 -*-
+"""Funções utilitárias para geração de boletos em PDF.
+
+O arquivo original possuía apenas uma frase solta em português, o que causava
+um ``SyntaxError`` ao importar o módulo. O texto agora fica registrado neste
+docstring, preservando a descrição e garantindo que o interpretador consiga
+executar o restante do módulo normalmente.
 """
-Geração de boletos em PDF reaproveitando o template HTML."""
 
 from __future__ import annotations
 
