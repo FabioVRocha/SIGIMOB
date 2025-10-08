@@ -9,9 +9,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from caixa_banco import init_app as init_caixa, db
 from contas_receber import init_app as init_contas
 from caixa_banco.models import ContaBanco
-from contas_receber.models import EmpresaLicenciada, ContaReceber, Pessoa
+from contas_receber.models import EmpresaLicenciada, ContaReceber, Pessoa, ReceitaCadastro
 from contas_receber.services import gerar_boletos, importar_retorno
-from contas_receber.routes import _barcode_html
+from contas_receber.boleto_utils import codigo_barras_html as _barcode_html
 from contas_receber.boleto_utils import linha_digitavel, codigo_barras_numero, digits
 from contas_receber.cnab import CNAB240Writer, Titulo
 
@@ -39,9 +39,12 @@ def setup_app(tmp_path):
             cep='00000-000',
         )
         db.session.add(cliente)
+        receita = ReceitaCadastro(descricao='Aluguel')
+        db.session.add(receita)
         db.session.flush()
         titulo = ContaReceber(
             cliente_id=cliente.id,
+            receita_id=receita.id,
             titulo='Teste',
             data_vencimento=date.today(),
             valor_previsto=100.00,

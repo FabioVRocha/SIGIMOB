@@ -1,4 +1,5 @@
-"""Geração de boletos em PDF reaproveitando o template HTML."""
+"""
+Geração de boletos em PDF reaproveitando o template HTML."""
 
 from __future__ import annotations
 
@@ -210,12 +211,15 @@ def _render_with_chromium(html: str, filepath: str) -> bool:
         return False
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
+            user_data_dir = Path(tmpdir) / "user-data"
+            user_data_dir.mkdir()
             html_path = Path(tmpdir) / "boleto.html"
             html_path.write_text(html, encoding="utf-8")
             cmd = comando + [
                 "--headless",
                 "--disable-gpu",
                 "--no-sandbox",
+                f'--user-data-dir={user_data_dir}',
                 "--print-to-pdf-no-header",
                 f"--print-to-pdf={Path(filepath).resolve()}",
                 html_path.as_uri(),
@@ -237,7 +241,6 @@ def _render_with_chromium(html: str, filepath: str) -> bool:
     except Exception as exc:  # pragma: no cover
         current_app.logger.warning("Chromium headless não pôde gerar PDF: %s", exc)
     return False
-
 
 def _render_with_wkhtmltopdf(html: str, filepath: str) -> bool:
     comando = shutil.which("wkhtmltopdf")
@@ -288,48 +291,39 @@ def _render_with_pyppeteer(html: str, filepath: str) -> bool:
         return False
 
     async def _gerar_pdf() -> None:
-        browser = await launch(
-            args=["--no-sandbox", "--disable-gpu"],
-            handleSIGINT=False,
-            handleSIGTERM=False,
-            handleSIGHUP=False,
-        )
-        try:
-            page = await browser.newPage()
-            await page.setViewport({"width": 800, "height": 1200})
-            await page.setContent(html, waitUntil="networkidle0")
-            await page.emulateMediaType("screen")
-            await page.pdf(
-                path=str(Path(filepath).resolve()),
-                format="A4",
-                printBackground=True,
-                preferCSSPageSize=True,
-                margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"},
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_data_dir = Path(tmpdir) / "user-data"
+            user_data_dir.mkdir()
+            browser = await launch(
+                args=["--no-sandbox", "--disable-gpu", f"--user-data-dir={user_data_dir}"],
+                handleSIGINT=False,
+                handleSIGTERM=False,
+                handleSIGHUP=False,
             )
-        finally:
-            await browser.close()
-
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    try:
-        if loop.is_running():
-            new_loop = asyncio.new_event_loop()
             try:
-                new_loop.run_until_complete(_gerar_pdf())
+                page = await browser.newPage()
+                await page.setViewport({"width": 800, "height": 1200})
+                await page.setContent(html, waitUntil="networkidle0")
+                await page.emulateMediaType("screen")
+                await page.pdf(
+                    path=str(Path(filepath).resolve()),
+                    format="A4",
+                    printBackground=True,
+                    preferCSSPageSize=True,
+                    margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"},
+                )
             finally:
-                new_loop.close()
-        else:
-            loop.run_until_complete(_gerar_pdf())
+                await browser.close()
+
+    try:
+        # Garante que um loop de eventos esteja disponível e o utiliza para rodar a função assíncrona.
+        # A criação de um novo loop ou a obtenção do existente é gerenciada pelo asyncio.
+        asyncio.run(_gerar_pdf())
     except Exception as exc:  # pragma: no cover - depende do ambiente
         current_app.logger.warning("pyppeteer não pôde gerar PDF: %s", exc)
         return False
 
     return Path(filepath).exists()
-
 
 def _chromium_executable() -> list[str] | None:
     candidatos = [
@@ -367,7 +361,6 @@ def _bank_logo_path() -> str | None:
     Path(caminho).write_bytes(_BANK_LOGO_BYTES)
     _BANK_LOGO_FILE = Path(caminho)
     return caminho
-
 
 def _extract_logo_bytes() -> bytes:
     template_rel = Path("templates") / "financeiro" / "contas_a_receber" / "boleto.html"

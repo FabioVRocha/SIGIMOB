@@ -7,7 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from caixa_banco import init_app as init_caixa, db
 from contas_receber import init_app as init_contas
-from contas_receber.models import ContaReceber, Pessoa
+from contas_receber.models import ContaReceber, Pessoa, ReceitaCadastro
 
 
 def setup_app():
@@ -24,9 +24,12 @@ def test_cobrancas_titulos_includes_vencidos():
     with app.app_context():
         cliente = Pessoa(documento='1', razao_social_nome='Cliente')
         db.session.add(cliente)
+        receita = ReceitaCadastro(descricao='Aluguel')
+        db.session.add(receita)
         db.session.flush()
         titulo = ContaReceber(
             cliente_id=cliente.id,
+            receita_id=receita.id,
             titulo='Teste Vencido',
             data_vencimento=date.today() - timedelta(days=1),
             valor_previsto=100.0,
