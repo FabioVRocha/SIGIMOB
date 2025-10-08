@@ -7,6 +7,12 @@
     <script src="{{ url_for('static', filename='boleto.js') }}"></script>
     {% endif %}
     <style>
+      {% if is_pdf %}
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      {% endif %}
       html,body {margin:0;padding:0}
       hr {border:1px dashed #000}
       p {margin:0}

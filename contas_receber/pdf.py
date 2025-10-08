@@ -131,13 +131,13 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
             _WEASYPRINT_ERROR,
         )
 
+    if _render_with_pyppeteer(html, filepath):
+        return
+
     if _render_with_chromium(html, filepath):
         return
 
     if _render_with_wkhtmltopdf(html, filepath):
-        return
-
-    if _render_with_pyppeteer(html, filepath):
         return
 
     if pisa is None:
@@ -223,6 +223,7 @@ def _render_with_chromium(html: str, filepath: str) -> bool:
                 "--headless",
                 "--disable-gpu",
                 "--no-sandbox",
+                "--print-to-pdf-no-header",
                 f"--print-to-pdf={Path(filepath).resolve()}",
                 html_path.as_uri(),
             ]
@@ -302,12 +303,14 @@ def _render_with_pyppeteer(html: str, filepath: str) -> bool:
         )
         try:
             page = await browser.newPage()
+            await page.setViewport({"width": 800, "height": 1200})
             await page.setContent(html, waitUntil="networkidle0")
             await page.emulateMediaType("screen")
             await page.pdf(
                 path=str(Path(filepath).resolve()),
                 format="A4",
                 printBackground=True,
+                preferCSSPageSize=True,
                 margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"},
             )
         finally:
