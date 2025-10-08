@@ -374,6 +374,382 @@ def _chromium_executable() -> list[str] | None:
     return None
 
 
+"""Geração de boletos em PDF reaproveitando o template HTML."""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import os
+import shutil
+import subprocess
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Iterable
+
+from flask import current_app, render_template
+
+from .boleto_utils import (
+    codigo_barras_html,
+    codigo_barras_numero,
+    linha_digitavel,
+    digits,
+)
+from caixa_banco.models import ContaBanco
+from .models import EmpresaLicenciada, Pessoa
+
+from fpdf import FPDF
+
+PT_TO_MM = 0.352777778
+
+try:  # WeasyPrint usa dependências nativas; pode estar ausente.
+    from weasyprint import HTML  # type: ignore
+except Exception as exc:  # pragma: no cover - depende do SO
+    HTML = None  # type: ignore
+    _WEASYPRINT_ERROR = exc
+else:
+    _WEASYPRINT_ERROR = None
+
+try:
+    from xhtml2pdf import pisa  # type: ignore
+except Exception:  # pragma: no cover - mantemos fallback manual
+    pisa = None  # type: ignore
+
+try:
+    from pyppeteer import launch  # type: ignore
+except Exception:  # pragma: no cover - execução sem pyppeteer continua válida
+    launch = None  # type: ignore
+
+
+def _resolver_entidades(titulo, empresa=None, conta=None, cliente=None):
+    """Garante que todas as entidades necessárias estejam disponíveis."""
+
+    empresa_resolvida = empresa or EmpresaLicenciada.query.first()
+    conta_resolvida = conta or ContaBanco.query.first()
+    cliente_resolvido = cliente or Pessoa.query.get(titulo.cliente_id)
+
+    if not all([empresa_resolvida, conta_resolvida, cliente_resolvido]):
+        raise ValueError("Dados incompletos para gerar o boleto")
+
+    return empresa_resolvida, conta_resolvida, cliente_resolvido
+
+
+def _montar_contexto_boleto(titulo, empresa, conta, cliente):
+    documento = str(titulo.id)
+    valor_float = float(titulo.valor_previsto)
+    nosso_numero = titulo.nosso_numero or ""
+
+    linha = linha_digitavel(
+        conta, nosso_numero, titulo.data_vencimento, valor_float, documento
+    )
+    barcode_num = codigo_barras_numero(
+        conta, nosso_numero, documento, valor_float, titulo.data_vencimento
+    )
+
+    contexto = dict(
+        titulo=titulo,
+        empresa=empresa,
+        conta=conta,
+        cliente=cliente,
+        linha_digitavel=linha,
+        barcode=codigo_barras_html(barcode_num),
+    )
+    return contexto, barcode_num
+
+
+def render_boleto_html(
+    titulo,
+    *,
+    empresa=None,
+    conta=None,
+    cliente=None,
+    is_pdf=False,
+):
+    """Renderiza o boleto em HTML reutilizando o mesmo template da visualização."""
+
+    empresa, conta, cliente = _resolver_entidades(
+        titulo, empresa=empresa, conta=conta, cliente=cliente
+    )
+    contexto, _ = _montar_contexto_boleto(titulo, empresa, conta, cliente)
+    contexto["is_pdf"] = is_pdf
+    return render_template("financeiro/contas_a_receber/boleto.html", **contexto)
+
+
+def _inject_pdf_styles(html: str) -> str:
+    """Garante que o HTML possua regras de impressão adequadas."""
+
+    if "@page" in html:
+        return html
+
+    styles = (
+        "<style>@page { size: A4; margin: 0; } "
+        "html, body { margin: 0; padding: 0; }" "</style>"
+    )
+    closing_head = "</head>"
+    if closing_head in html:
+        return html.replace(closing_head, styles + closing_head, 1)
+    return styles + html
+
+
+def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
+    """Gera o PDF do boleto reutilizando o HTML exibido na aplicação."""
+
+    empresa, conta, cliente = _resolver_entidades(
+        titulo, empresa=empresa, conta=conta, cliente=cliente
+    )
+    contexto, barcode_num = _montar_contexto_boleto(titulo, empresa, conta, cliente)
+
+    html = render_boleto_html(
+        titulo,
+        empresa=empresa,
+        conta=conta,
+        cliente=cliente,
+        is_pdf=False,
+    )
+    html = _inject_pdf_styles(html)
+    
+    if HTML is not None:
+        try:
+            HTML(string=html, base_url=current_app.root_path).write_pdf(target=filepath)
+            return
+        except Exception as exc:  # pragma: no cover
+            current_app.logger.warning(
+                "WeasyPrint falhou (%s). Tentando Chromium headless.",
+                exc,
+            )
+    else:
+        current_app.logger.info(
+            "WeasyPrint indisponível (%s). Tentando Chromium headless.",
+            _WEASYPRINT_ERROR,
+        )
+
+    if _render_with_pyppeteer(html, filepath):
+        return
+
+    if _render_with_chromium(html, filepath):
+        return
+
+    if _render_with_wkhtmltopdf(html, filepath):
+        return
+
+    if pisa is None:
+        current_app.logger.warning(
+            "xhtml2pdf indisponível. Voltando ao gerador PDF manual.",
+        )
+        _gerar_pdf_manual(
+            titulo=titulo,
+            empresa=empresa,
+            conta=conta,
+            cliente=cliente,
+            filepath=filepath,
+            linha_digitavel_texto=contexto["linha_digitavel"],
+            barcode_numero=barcode_num,
+            valor_formatado=f"{float(titulo.valor_previsto):.2f}",
+        )
+        return
+
+    try:
+        _render_with_pisa(html, filepath)
+        return
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.warning(
+            "xhtml2pdf falhou (%s). Voltando ao gerador PDF manual.",
+            exc,
+        )
+
+    _gerar_pdf_manual(
+        titulo=titulo,
+        empresa=empresa,
+        conta=conta,
+        cliente=cliente,
+        filepath=filepath,
+        linha_digitavel_texto=contexto["linha_digitavel"],
+        barcode_numero=barcode_num,
+        valor_formatado=f"{float(titulo.valor_previsto):.2f}",
+    )
+
+
+def _link_callback(uri: str, rel: str) -> str:
+    """Permite que o xhtml2pdf resolva caminhos estáticos."""
+
+    if uri.startswith("data:"):
+        return uri
+    root = Path(current_app.root_path)
+    static = root / "static"
+    target = Path(uri)
+    if target.is_file():
+        return str(target)
+    candidate = (root / uri.lstrip("/\\")).resolve()
+    if candidate.is_file():
+        return str(candidate)
+    static_candidate = (static / uri.lstrip("/\\")).resolve()
+    if static_candidate.is_file():
+        return str(static_candidate)
+    return uri
+
+
+def _render_with_pisa(html: str, filepath: str) -> None:
+    directory = os.path.dirname(filepath)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+    with open(filepath, "wb") as arquivo:
+        resultado = pisa.CreatePDF(
+            html,
+            dest=arquivo,
+            link_callback=_link_callback,
+            encoding="utf-8",
+        )
+    if getattr(resultado, "err", 0):
+        raise RuntimeError("Falha ao gerar boleto com xhtml2pdf.")
+
+
+def _render_with_chromium(html: str, filepath: str) -> bool:
+    comando = _chromium_executable()
+    if not comando:
+        return False
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            html_path = Path(tmpdir) / "boleto.html"
+            html_path.write_text(html, encoding="utf-8")
+            cmd = comando + [
+                "--headless",
+                "--disable-gpu",
+                "--no-sandbox",
+                "--print-to-pdf-no-header",
+                f"--print-to-pdf={Path(filepath).resolve()}",
+                html_path.as_uri(),
+            ]
+            resultado = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=60,
+            )
+            if resultado.returncode == 0 and Path(filepath).exists():
+                return True
+            current_app.logger.warning(
+                "Chromium headless falhou (ret=%s, stderr=%s)",
+                resultado.returncode,
+                resultado.stderr.decode("utf-8", errors="ignore"),
+            )
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.warning("Chromium headless não pôde gerar PDF: %s", exc)
+    return False
+
+
+def _render_with_wkhtmltopdf(html: str, filepath: str) -> bool:
+    comando = shutil.which("wkhtmltopdf")
+    if not comando:
+        return False
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".html", encoding="utf-8") as tmp:
+            tmp.write(html)
+            tmp_path = tmp.name
+        cmd = [
+            comando,
+            "--encoding",
+            "utf-8",
+            "--quiet",
+            tmp_path,
+            filepath,
+        ]
+        resultado = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=60,
+        )
+        if resultado.returncode == 0 and Path(filepath).exists():
+            return True
+        current_app.logger.warning(
+            "wkhtmltopdf falhou (ret=%s, stderr=%s)",
+            resultado.returncode,
+            resultado.stderr.decode("utf-8", errors="ignore"),
+        )
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.warning("wkhtmltopdf não pôde gerar PDF: %s", exc)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+    return False
+
+
+def _render_with_pyppeteer(html: str, filepath: str) -> bool:
+    """Renderiza o boleto em PDF utilizando o Chromium embarcado do pyppeteer."""
+
+    if launch is None:
+        return False
+
+    async def _gerar_pdf() -> None:
+        browser = await launch(
+            args=["--no-sandbox", "--disable-gpu"],
+            handleSIGINT=False,
+            handleSIGTERM=False,
+            handleSIGHUP=False,
+        )
+        try:
+            page = await browser.newPage()
+            await page.setViewport({"width": 800, "height": 1200})
+            await page.setContent(html, waitUntil="networkidle0")
+            await page.emulateMediaType("screen")
+            await page.pdf(
+                path=str(Path(filepath).resolve()),
+                format="A4",
+                printBackground=True,
+                preferCSSPageSize=True,
+                margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"},
+            )
+        finally:
+            await browser.close()
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        if loop.is_running():
+            new_loop = asyncio.new_event_loop()
+            try:
+                new_loop.run_until_complete(_gerar_pdf())
+            finally:
+                new_loop.close()
+        else:
+            loop.run_until_complete(_gerar_pdf())
+    except Exception as exc:  # pragma: no cover - depende do ambiente
+        current_app.logger.warning("pyppeteer não pôde gerar PDF: %s", exc)
+        return False
+
+    return Path(filepath).exists()
+
+
+def _chromium_executable() -> list[str] | None:
+    candidatos = [
+        Path(os.environ.get("PROGRAMFILES", "")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("PROGRAMFILES", "")) / "Microsoft/Edge/Application/msedge.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "Microsoft/Edge/Application/msedge.exe",
+        Path(os.environ.get("PROGRAMFILES", "")) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+        Path(os.environ.get("PROGRAMFILES(X86)", "")) / "BraveSoftware/Brave-Browser/Application/brave.exe",
+    ]
+    for caminho in candidatos:
+        if caminho and caminho.exists():
+            return [str(caminho)]
+    for nome in ("msedge", "chrome", "chromium", "brave"):
+        executavel = shutil.which(nome)
+        if executavel:
+            return [executavel]
+    return None
+
+
 def _gerar_pdf_manual(
     *,
     titulo,
