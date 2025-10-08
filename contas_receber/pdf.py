@@ -50,8 +50,12 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
     valor_float = float(titulo.valor_previsto)
     documento = str(titulo.id)
 
-    linha = linha_digitavel(conta, nosso_numero, titulo.data_vencimento, valor_float)
-    barcode_num = codigo_barras_numero(conta, nosso_numero, documento, valor_float)
+    linha = linha_digitavel(
+        conta, nosso_numero, titulo.data_vencimento, valor_float, documento
+    )
+    barcode_num = codigo_barras_numero(
+        conta, nosso_numero, documento, valor_float, titulo.data_vencimento
+    )
 
     contexto = dict(
         titulo=titulo,

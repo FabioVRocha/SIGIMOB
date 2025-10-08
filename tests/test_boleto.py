@@ -12,6 +12,7 @@ from caixa_banco.models import ContaBanco
 from contas_receber.models import EmpresaLicenciada, ContaReceber, Pessoa
 from contas_receber.services import gerar_boletos, importar_retorno
 from contas_receber.routes import _barcode_html
+from contas_receber.boleto_utils import linha_digitavel, codigo_barras_numero, digits
 from contas_receber.cnab import CNAB240Writer, Titulo
 
 
@@ -136,6 +137,74 @@ def test_barcode_html_interleaved():
     stop = "<span class='w'></span><span class='n s'></span><span class='n'></span>"
     expected = start + pair12 + stop
     assert _barcode_html('12') == expected
+
+
+def test_linha_digitavel_and_barcode_alignment(tmp_path):
+    app = setup_app(tmp_path)
+    with app.app_context():
+        conta = ContaBanco.query.first()
+        titulo = ContaReceber.query.get(1)
+        documento = str(titulo.id)
+        linha = linha_digitavel(
+            conta,
+            titulo.nosso_numero or '',
+            titulo.data_vencimento,
+            float(titulo.valor_previsto),
+            documento,
+        )
+        codigo = codigo_barras_numero(
+            conta,
+            titulo.nosso_numero or '',
+            documento,
+            float(titulo.valor_previsto),
+            titulo.data_vencimento,
+        )
+
+        assert len(codigo) == 44
+
+        numeros = digits(linha)
+        assert len(numeros) == 47
+
+        campo1 = numeros[:9]
+        dv1 = numeros[9]
+        campo2 = numeros[10:20]
+        dv2 = numeros[20]
+        campo3 = numeros[21:31]
+        dv3 = numeros[31]
+        dv = numeros[32]
+        campo5 = numeros[33:]
+
+        def mod10(valor):
+            soma = 0
+            peso = 2
+            for digito in reversed(valor):
+                parcial = int(digito) * peso
+                soma += parcial // 10 + parcial % 10
+                peso = 1 if peso == 2 else 2
+            return str((10 - (soma % 10)) % 10)
+
+        pesos = [2, 3, 4, 5, 6, 7, 8, 9]
+
+        def mod11(valor):
+            soma = 0
+            idx = 0
+            for digito in reversed(valor):
+                soma += int(digito) * pesos[idx]
+                idx = (idx + 1) % len(pesos)
+            resto = soma % 11
+            resultado = 11 - resto
+            if resultado in (0, 10, 11):
+                return '1'
+            return str(resultado)
+
+        assert mod10(campo1) == dv1
+        assert mod10(campo2) == dv2
+        assert mod10(campo3) == dv3
+
+        campo_livre = campo1[4:] + campo2 + campo3
+        reconstruido = campo1[:4] + dv + campo5[:4] + campo5[4:] + campo_livre
+        assert codigo == reconstruido
+        assert mod11(codigo[:4] + codigo[5:]) == dv
 
 
 def test_gerar_boleto_handles_unexpected_error(tmp_path, monkeypatch):

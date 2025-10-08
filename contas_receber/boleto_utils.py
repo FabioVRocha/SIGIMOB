@@ -1,5 +1,6 @@
 import re
 from datetime import date, datetime
+from itertools import cycle
 from typing import Union
 
 
@@ -11,40 +12,94 @@ def digits(value: str) -> str:
     return re.sub(r"\D", "", value or "")
 
 
-def linha_digitavel(conta, nosso_numero: str, vencimento: DateLike, valor: float) -> str:
-    """Generate a 47-digit placeholder line formatted as a boleto "linha digitável"."""
-    banco = (digits(getattr(conta, "banco", "")) or "000").rjust(3, "0")[:3]
+def _fator_vencimento(vencimento: DateLike | None) -> str:
+    if not vencimento:
+        return "0000"
+
+    if isinstance(vencimento, datetime):
+        vencimento = vencimento.date()
+
+    base = date(1997, 10, 7)
+    dias = (vencimento - base).days
+    return f"{max(dias, 0):04d}"[:4]
+
+
+def _valor_formatado(valor: float | None) -> str:
+    centavos = int(round(float(valor or 0) * 100))
+    return f"{centavos:010d}"[:10]
+
+
+def _montar_campo_livre(conta, nosso_numero: str, documento: str) -> str:
+    agencia = digits(getattr(conta, "agencia", ""))[:4].zfill(4)
+    conta_num = digits(getattr(conta, "conta", ""))[:8].zfill(8)
+    carteira = digits(getattr(conta, "carteira", "17") or "17")[:2].zfill(2)
+    nosso = digits(nosso_numero) or digits(documento)
+    nosso = nosso[:11].zfill(11)
+    return (carteira + agencia + nosso + conta_num)[:25].ljust(25, "0")
+
+
+def _dv_mod11(numero: str) -> str:
+    pesos = cycle(range(2, 10))
+    soma = 0
+    for digito, peso in zip(reversed(numero), pesos):
+        soma += int(digito) * peso
+    resto = soma % 11
+    dv = 11 - resto
+    if dv in (0, 10, 11):
+        return "1"
+    return str(dv)
+
+
+def _dv_mod10(numero: str) -> str:
+    soma = 0
+    peso = 2
+    for digito in reversed(numero):
+        parcial = int(digito) * peso
+        soma += parcial // 10 + parcial % 10
+        peso = 1 if peso == 2 else 2
+    return str((10 - (soma % 10)) % 10)
+
+
+def _codigo_barras_base(conta, nosso_numero: str, documento: str, vencimento: DateLike, valor: float) -> str:
+    banco = (digits(getattr(conta, "banco", "")) or "000")[:3].zfill(3)
     moeda = "9"
+    fator = _fator_vencimento(vencimento)
+    valor_str = _valor_formatado(valor)
+    campo_livre = _montar_campo_livre(conta, nosso_numero, documento)
 
-    vencimento_data = vencimento.date() if isinstance(vencimento, datetime) else vencimento
-    fator = (vencimento_data - date(1997, 10, 7)).days
-    fator_str = str(max(fator, 0)).rjust(4, "0")[:4]
-
-    valor_centavos = int(round(float(valor) * 100))
-    valor_str = f"{valor_centavos:010d}"[:10]
-
-    agencia = digits(getattr(conta, "agencia", ""))[:4].ljust(4, "0")
-    conta_num = digits(getattr(conta, "conta", "")).replace("-", "")[:8].ljust(8, "0")
-    nn = digits(nosso_numero)[:11].rjust(11, "0")
-    carteira = digits(getattr(conta, "carteira", "17") or "17")[:2].rjust(2, "0")
-
-    base = banco + moeda + carteira + agencia + nn + conta_num + fator_str + valor_str
-    base = (base + ("0" * 47))[:47]
-
-    c1 = f"{base[0:5]}.{base[5:10]}"
-    c2 = f"{base[10:15]}.{base[15:21]}"
-    c3 = f"{base[21:26]}.{base[26:32]}"
-    dv = base[32]
-    c5 = base[33:47]
-    return f"{c1} {c2} {c3} {dv} {c5}"
+    parcial = banco + moeda + fator + valor_str + campo_livre
+    dv = _dv_mod11(parcial)
+    return banco + moeda + dv + fator + valor_str + campo_livre
 
 
-def codigo_barras_numero(conta, nosso_numero: str, documento: str, valor: float) -> str:
-    """Return the numeric string used to build the barcode placeholder."""
-    numero = digits(getattr(conta, "banco", ""))
-    numero += digits(nosso_numero or documento)
-    numero += digits(f"{float(valor):.2f}")
-    return numero[:44].ljust(44, "0")
+def linha_digitavel(conta, nosso_numero: str, vencimento: DateLike, valor: float, documento: str = "") -> str:
+    """Generate the "linha digitável" string for the boleto."""
+
+    codigo = _codigo_barras_base(conta, nosso_numero, documento, vencimento, valor)
+    banco_moeda = codigo[:4]
+    fator = codigo[5:9]
+    valor_str = codigo[9:19]
+    campo_livre = codigo[19:]
+
+    campo1 = banco_moeda + campo_livre[:5]
+    campo2 = campo_livre[5:15]
+    campo3 = campo_livre[15:25]
+
+    dv1 = _dv_mod10(campo1)
+    dv2 = _dv_mod10(campo2)
+    dv3 = _dv_mod10(campo3)
+
+    campo1_fmt = f"{campo1[:5]}.{campo1[5:]}{dv1}"
+    campo2_fmt = f"{campo2[:5]}.{campo2[5:]}{dv2}"
+    campo3_fmt = f"{campo3[:5]}.{campo3[5:]}{dv3}"
+
+    return f"{campo1_fmt} {campo2_fmt} {campo3_fmt} {codigo[4]} {fator}{valor_str}"
+
+
+def codigo_barras_numero(conta, nosso_numero: str, documento: str, valor: float, vencimento: DateLike | None = None) -> str:
+    """Return the 44-digit numeric string encoded in the boleto barcode."""
+
+    return _codigo_barras_base(conta, nosso_numero, documento, vencimento or date.today(), valor)
 
 
 def codigo_barras_html(numero: str) -> str:

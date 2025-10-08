@@ -253,11 +253,19 @@ def visualizar_boleto(conta_id):
         return 'Dados incompletos para gerar o boleto', 400
     documento = str(titulo.id)
     barcode_num = codigo_barras_numero(
-        conta, titulo.nosso_numero or '', documento, float(titulo.valor_previsto)
+        conta,
+        titulo.nosso_numero or '',
+        documento,
+        float(titulo.valor_previsto),
+        titulo.data_vencimento,
     )
     barcode = codigo_barras_html(barcode_num)
     linha = linha_digitavel(
-        conta, titulo.nosso_numero or '', titulo.data_vencimento, float(titulo.valor_previsto)
+        conta,
+        titulo.nosso_numero or '',
+        titulo.data_vencimento,
+        float(titulo.valor_previsto),
+        documento,
     )
     return render_template(
         'financeiro/contas_a_receber/boleto.html',
