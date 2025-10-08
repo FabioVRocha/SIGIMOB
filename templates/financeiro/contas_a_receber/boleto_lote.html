@@ -99,7 +99,17 @@
 
     <div id="downloads" class="mt-6 hidden">
         <div class="border border-gray-200 bg-slate-50 rounded-lg p-4">
-            <h3 class="text-lg font-semibold text-dark-blue mb-2">Arquivos gerados</h3>
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+                <h3 class="text-lg font-semibold text-dark-blue">Arquivos gerados</h3>
+                <button
+                    id="btnDownloadAll"
+                    type="button"
+                    class="btn-secondary flex items-center justify-center gap-2 hidden"
+                >
+                    <i class="fas fa-download"></i>
+                    <span>Baixar todos</span>
+                </button>
+            </div>
             <ul id="downloadList" class="space-y-2 text-sm"></ul>
         </div>
     </div>
@@ -118,11 +128,14 @@
     const feedback = document.getElementById('feedback');
     const downloadsWrapper = document.getElementById('downloads');
     const downloadList = document.getElementById('downloadList');
+    const btnDownloadAll = document.getElementById('btnDownloadAll');
     const btnPrev = document.getElementById('btnPrev');
     const btnNext = document.getElementById('btnNext');
     const btnGenerate = document.getElementById('btnGenerate');
     const btnGenerateOriginalHTML = btnGenerate ? btnGenerate.innerHTML : '';
+    const btnDownloadAllOriginalHTML = btnDownloadAll ? btnDownloadAll.innerHTML : '';
     let current = 0;
+    let generatedFiles = [];
 
     function updateIndicator(index){
         if (!indicator) { return; }
@@ -204,6 +217,89 @@
         });
     });
 
+    function getFileNameFromContentDisposition(disposition){
+        if (!disposition) { return ''; }
+        const filenameRegex = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i;
+        const match = disposition.match(filenameRegex);
+        if (match) {
+            const value = match[1] || match[2] || '';
+            try {
+                return decodeURIComponent(value);
+            } catch (err) {
+                return value;
+            }
+        }
+        return '';
+    }
+
+    function getExtensionFromContentType(contentType){
+        if (!contentType) { return ''; }
+        if (contentType.includes('pdf')) { return '.pdf'; }
+        if (contentType.includes('text/plain')) { return '.txt'; }
+        if (contentType.includes('json')) { return '.json'; }
+        if (contentType.includes('zip')) { return '.zip'; }
+        return '';
+    }
+
+    function sanitizeFileName(label){
+        if (!label) { return 'arquivo'; }
+        const normalized = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_.-]/g, '');
+        return normalized || 'arquivo';
+    }
+
+    async function downloadFile(file){
+        const response = await fetch(file.url, { credentials: 'same-origin' });
+        if (!response.ok) {
+            throw new Error('Falha ao baixar ' + file.label);
+        }
+        const blob = await response.blob();
+        let filename = getFileNameFromContentDisposition(response.headers.get('Content-Disposition'));
+        if (!filename) {
+            try {
+                const urlObj = new URL(file.url, window.location.href);
+                const pathSegments = urlObj.pathname.split('/').filter(Boolean);
+                const lastSegment = pathSegments[pathSegments.length - 1] || '';
+                filename = lastSegment;
+            } catch (err) {
+                filename = '';
+            }
+        }
+        if (!filename || !filename.includes('.')) {
+            const extension = getExtensionFromContentType(response.headers.get('Content-Type'));
+            filename = sanitizeFileName(file.label) + (extension || '');
+        }
+        const blobUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = blobUrl;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(blobUrl);
+    }
+
+    async function downloadAllFiles(){
+        if (!generatedFiles.length || !btnDownloadAll) { return; }
+        clearFeedback();
+        btnDownloadAll.disabled = true;
+        btnDownloadAll.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Baixando...</span>';
+        try {
+            for (const file of generatedFiles) {
+                await downloadFile(file);
+            }
+            setFeedback('Downloads iniciados para todos os arquivos.', 'success');
+        } catch (err) {
+            setFeedback((err && err.message) ? err.message : 'Falha ao baixar os arquivos.', 'error');
+        } finally {
+            btnDownloadAll.disabled = false;
+            btnDownloadAll.innerHTML = btnDownloadAllOriginalHTML;
+        }
+    }
+
+    if (btnDownloadAll) {
+        btnDownloadAll.addEventListener('click', downloadAllFiles);
+    }
+
     function renderDownloads(data){
         if (!downloadsWrapper || !downloadList) { return; }
         downloadList.innerHTML = '';
@@ -214,6 +310,7 @@
         if (data.remessa_url) {
             links.push({ url: data.remessa_url, label: 'Arquivo de remessa' });
         }
+        generatedFiles = links.slice();
         links.forEach(function(file){
             const li = document.createElement('li');
             const anchor = document.createElement('a');
@@ -227,6 +324,16 @@
         });
         if (links.length) {
             downloadsWrapper.classList.remove('hidden');
+            if (btnDownloadAll) {
+                btnDownloadAll.classList.remove('hidden');
+                btnDownloadAll.disabled = false;
+                btnDownloadAll.innerHTML = btnDownloadAllOriginalHTML;
+            }
+        } else {
+            generatedFiles = [];
+            if (btnDownloadAll) {
+                btnDownloadAll.classList.add('hidden');
+            }
         }
     }
 
@@ -242,6 +349,10 @@
             }
             if (downloadList) {
                 downloadList.innerHTML = '';
+            }
+            generatedFiles = [];
+            if (btnDownloadAll) {
+                btnDownloadAll.classList.add('hidden');
             }
             btnGenerate.disabled = true;
             btnGenerate.innerHTML = '<i class="fas fa-spinner fa-spin"></i><span>Gerando...</span>';
