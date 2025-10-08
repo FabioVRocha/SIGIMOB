@@ -74,6 +74,13 @@ def _montar_contexto_boleto(titulo, empresa, conta, cliente):
         conta, nosso_numero, documento, valor_float, titulo.data_vencimento
     )
 
+    banco_bruto = getattr(conta, "banco", "") or ""
+    banco_digitos = digits(banco_bruto)
+    codigo_banco = (banco_digitos[:3] or "000").zfill(3)
+    dv_banco = banco_digitos[3:4]
+    if dv_banco:
+        codigo_banco = f"{codigo_banco}-{dv_banco}"
+
     contexto = dict(
         titulo=titulo,
         empresa=empresa,
@@ -81,6 +88,7 @@ def _montar_contexto_boleto(titulo, empresa, conta, cliente):
         cliente=cliente,
         linha_digitavel=linha,
         barcode=codigo_barras_html(barcode_num),
+        codigo_banco=codigo_banco,
     )
     return contexto, barcode_num
 
