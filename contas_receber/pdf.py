@@ -144,7 +144,6 @@ def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
         conta=conta,
         cliente=cliente,
         is_pdf=True,
-        template_name="financeiro/contas_a_receber/boleto_pdf.html",
     )
     html = _inject_pdf_styles(html)
     
