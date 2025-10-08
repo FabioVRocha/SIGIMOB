@@ -116,7 +116,7 @@ def _inject_pdf_styles(html: str) -> str:
     return styles + html
 
 
-    def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
+def gerar_pdf_boleto(titulo, empresa, conta, cliente, filepath: str) -> None:
     """Gera o PDF do boleto reutilizando o HTML exibido na aplicação."""
 
     empresa, conta, cliente = _resolver_entidades(
