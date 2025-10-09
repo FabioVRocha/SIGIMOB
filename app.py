@@ -2652,8 +2652,38 @@ def pessoas_add():
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO pessoas (documento, razao_social_nome, nome_fantasia, endereco, bairro, cidade, estado, cep, telefone, contato, nacionalidade, estado_civil, profissao, rg, observacao, responsavel_nome, responsavel_cpf, responsavel_endereco, responsavel_bairro, responsavel_cidade, responsavel_estado, responsavel_uf, responsavel_estado_civil, tipo, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO pessoas (
+                    documento,
+                    razao_social_nome,
+                    nome_fantasia,
+                    endereco,
+                    bairro,
+                    cidade,
+                    estado,
+                    cep,
+                    telefone,
+                    contato,
+                    nacionalidade,
+                    estado_civil,
+                    profissao,
+                    rg,
+                    observacao,
+                    responsavel_nome,
+                    responsavel_cpf,
+                    responsavel_endereco,
+                    responsavel_bairro,
+                    responsavel_cidade,
+                    responsavel_estado,
+                    responsavel_uf,
+                    responsavel_estado_civil,
+                    tipo,
+                    status
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
                 """,
                 (
                     documento,
