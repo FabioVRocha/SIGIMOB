@@ -2787,6 +2787,7 @@ def pessoas_edit(id):
             pessoa = cur.fetchone()
             return render_template("pessoas/add_list.html", pessoa=pessoa)
         except Exception as e:
+            conn.rollback()
             flash(f"Erro ao atualizar pessoa: {e}", "danger")
             # Recarrega os dados da pessoa para preencher o formulário novamente
             cur.execute("SELECT * FROM pessoas WHERE id = %s", (id,))
