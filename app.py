@@ -2063,6 +2063,36 @@ def ensure_column_exists(cur, table_name, column_name, definition_sql):
 
 
 
+def ensure_pessoas_responsavel_columns():
+    """Ensure the pessoas table exposes the responsavel_* columns."""
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        for column, definition in [
+            ("responsavel_nome", "VARCHAR(255)"),
+            ("responsavel_cpf", "VARCHAR(14)"),
+            ("responsavel_endereco", "VARCHAR(255)"),
+            ("responsavel_bairro", "VARCHAR(100)"),
+            ("responsavel_cidade", "VARCHAR(100)"),
+            ("responsavel_estado", "VARCHAR(100)"),
+            ("responsavel_uf", "CHAR(2)"),
+            ("responsavel_estado_civil", "VARCHAR(50)"),
+        ]:
+            ensure_column_exists(cur, "pessoas", column, definition)
+        conn.commit()
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+ensure_pessoas_responsavel_columns()
+
+
 def ensure_prestacao_enum_credito_extra(conn):
     """Ensure the enum prestacao_item_tipo includes required values for prestacao de contas."""
     with conn.cursor() as cur:
