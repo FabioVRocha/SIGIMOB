@@ -5543,6 +5543,133 @@ def contas_a_receber_delete(id):
     return redirect(url_for("contas_a_receber_list"))
 
 
+@app.route("/contas-a-receber/replicar/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_receber_replicar(id):
+    quantidade = int(request.form.get("quantidade", 0))
+    same_day = int(request.form.get("same_day", 0) or 0)
+    days_interval = int(request.form.get("days_interval", 0) or 0)
+    if quantidade < 1:
+        flash("Quantidade inv�lida.", "warning")
+        return redirect(url_for("contas_a_receber_list"))
+    if (same_day > 0 and days_interval > 0) or (same_day == 0 and days_interval == 0):
+        flash(
+            "Informe apenas 'Vencimento no mesmo dia' ou 'Dias e intervalo'.",
+            "warning",
+        )
+        return redirect(url_for("contas_a_receber_list"))
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM contas_a_receber WHERE id = %s", (id,))
+    conta = cur.fetchone()
+    if not conta:
+        cur.close()
+        conn.close()
+        flash("Conta n�o encontrada.", "danger")
+        return redirect(url_for("contas_a_receber_list"))
+
+    def gerar_titulo(incremento):
+        titulo_base = conta["titulo"] or ""
+        if not titulo_base:
+            return None
+        match = re.match(r"^(.*?)-(\s*)(\d+)\s*/\s*(\d+)$", titulo_base)
+        if match:
+            prefixo, espaco, numero, total = match.groups()
+            return f"{prefixo}-{espaco}{int(numero) + incremento}/{total}"
+        return f"{titulo_base}-{incremento}"
+
+    try:
+        if same_day > 0:
+            base_date = conta["data_vencimento"]
+            last_day = calendar.monthrange(base_date.year, base_date.month)[1]
+            base_day = min(same_day, last_day)
+            base_date = base_date.replace(day=base_day)
+            for i in range(1, quantidade + 1):
+                novo_vencimento = add_months(base_date, i)
+                novo_titulo = gerar_titulo(i)
+                status_conta = calcular_status_conta(
+                    novo_vencimento.strftime("%Y-%m-%d"),
+                    None,
+                    conta["contrato_id"],
+                    cur,
+                )
+                cur.execute(
+                    """
+                    INSERT INTO contas_a_receber (
+                        contrato_id, receita_id, cliente_id, titulo,
+                        data_vencimento, valor_previsto, data_pagamento, valor_pago,
+                        valor_pendente, valor_desconto, valor_multa, valor_juros, observacao,
+                        status_conta, origem_id
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        conta["contrato_id"],
+                        conta["receita_id"],
+                        conta["cliente_id"],
+                        novo_titulo,
+                        novo_vencimento,
+                        conta["valor_previsto"],
+                        None,
+                        None,
+                        conta["valor_previsto"],
+                        Decimal("0"),
+                        Decimal("0"),
+                        Decimal("0"),
+                        conta["observacao"],
+                        status_conta,
+                        conta["origem_id"],
+                    ),
+                )
+        else:
+            novo_vencimento = conta["data_vencimento"]
+            for i in range(1, quantidade + 1):
+                novo_vencimento = novo_vencimento + timedelta(days=days_interval)
+                novo_titulo = gerar_titulo(i)
+                status_conta = calcular_status_conta(
+                    novo_vencimento.strftime("%Y-%m-%d"),
+                    None,
+                    conta["contrato_id"],
+                    cur,
+                )
+                cur.execute(
+                    """
+                    INSERT INTO contas_a_receber (
+                        contrato_id, receita_id, cliente_id, titulo,
+                        data_vencimento, valor_previsto, data_pagamento, valor_pago,
+                        valor_pendente, valor_desconto, valor_multa, valor_juros, observacao,
+                        status_conta, origem_id
+                    ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    """,
+                    (
+                        conta["contrato_id"],
+                        conta["receita_id"],
+                        conta["cliente_id"],
+                        novo_titulo,
+                        novo_vencimento,
+                        conta["valor_previsto"],
+                        None,
+                        None,
+                        conta["valor_previsto"],
+                        Decimal("0"),
+                        Decimal("0"),
+                        Decimal("0"),
+                        conta["observacao"],
+                        status_conta,
+                        conta["origem_id"],
+                    ),
+                )
+        conn.commit()
+        flash("T�tulos replicados com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao replicar t�tulos: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("contas_a_receber_list"))
+
+
 @app.route("/contas-a-receber/pagar/<int:id>", methods=["POST"])
 @login_required
 @permission_required("Financeiro", "Incluir")

@@ -69,6 +69,9 @@
                         <a href="{{ url_for('contas_a_receber_edit', id=conta.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
                             <i class="fas fa-edit"></i>
                         </a>
+                        <button type="button" class="text-purple-600 hover:text-purple-800 mr-3" title="Replicar" onclick="openReplicarModal({{ conta.id }})">
+                            <i class="fas fa-clone"></i>
+                        </button>
                         <form action="{{ url_for('contas_a_receber_delete', id=conta.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta conta?');">
                             <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
                                 <i class="fas fa-trash-alt"></i>
@@ -143,6 +146,33 @@
             <div class="flex justify-end space-x-4">
                 <button type="button" class="btn-secondary" onclick="closePagarModal({{ conta.id }})">Cancelar</button>
                 <button type="submit" class="btn-primary">Salvar</button>
+            </div>
+        </form>
+</div>
+</div>
+{% endfor %}
+
+{% for conta in contas %}
+<div id="replicar-modal-{{ conta.id }}" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeReplicarModal({{ conta.id }})">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Replicar T�tulo</h2>
+        <form action="{{ url_for('contas_a_receber_replicar', id=conta.id) }}" method="POST">
+            <div class="form-group mb-4">
+                <label for="quantidade_{{ conta.id }}" class="form-label">Quantidade:</label>
+                <input type="number" id="quantidade_{{ conta.id }}" name="quantidade" min="1" class="form-input" required>
+            </div>
+            <div class="form-group mb-4">
+                <label for="same_day_{{ conta.id }}" class="form-label">Vencimento no mesmo dia:</label>
+                <input type="number" id="same_day_{{ conta.id }}" name="same_day" min="0" max="31" class="form-input" oninput="toggleReplicarFields({{ conta.id }})">
+            </div>
+            <div class="form-group mb-4">
+                <label for="days_interval_{{ conta.id }}" class="form-label">Dias e intervalo:</label>
+                <input type="number" id="days_interval_{{ conta.id }}" name="days_interval" min="0" class="form-input" oninput="toggleReplicarFields({{ conta.id }})">
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closeReplicarModal({{ conta.id }})">Cancelar</button>
+                <button type="submit" class="btn-primary">Replicar</button>
             </div>
         </form>
 </div>
@@ -301,6 +331,23 @@ function filterPayAccounts(id){
     });
     const opt = contaSelect.querySelector('option[data-tipo="'+tipo+'"]');
     if(opt){ contaSelect.value = opt.value; }
+}
+function openReplicarModal(id){
+    const modal = document.getElementById('replicar-modal-'+id);
+    if(modal){ modal.style.display='flex'; }
+}
+function closeReplicarModal(id){
+    const modal = document.getElementById('replicar-modal-'+id);
+    if(modal){ modal.style.display='none'; }
+}
+function toggleReplicarFields(id){
+    const sameDay = document.getElementById('same_day_'+id);
+    const interval = document.getElementById('days_interval_'+id);
+    if(!sameDay || !interval){ return; }
+    const sameDayVal = parseInt(sameDay.value || '0', 10);
+    const intervalVal = parseInt(interval.value || '0', 10);
+    interval.disabled = sameDayVal > 0;
+    sameDay.disabled = intervalVal > 0;
 }
 
 document.addEventListener('DOMContentLoaded', function(){
