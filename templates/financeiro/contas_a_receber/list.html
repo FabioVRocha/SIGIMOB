@@ -28,15 +28,17 @@
             <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
                 <tr>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Título</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cliente</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Receita</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Vencimento</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Pendente</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">AÃ§Ãµes</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
                 <tr>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
@@ -51,6 +53,7 @@
                 {% for conta in contas %}
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ conta.titulo or '' }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.cliente }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.receita }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
