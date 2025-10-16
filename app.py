@@ -1733,6 +1733,24 @@ def ensure_max_contratos_column():
     conn.close()
 
 
+def ensure_imoveis_video_url_column():
+    """Garante que a coluna video_url exista na tabela imoveis."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='imoveis' AND column_name='video_url'
+        """
+    )
+    exists = cur.fetchone() is not None
+    if not exists:
+        cur.execute("ALTER TABLE imoveis ADD COLUMN video_url TEXT")
+        conn.commit()
+    cur.close()
+    conn.close()
+
+
 def ensure_finalidade_column():
     """Garante que o tipo e a coluna de finalidade existam."""
     conn = get_db_connection()
@@ -1841,6 +1859,7 @@ def ensure_tipo_pessoa_enum():
 
 # Assegura colunas necessárias no banco de dados
 ensure_max_contratos_column()
+ensure_imoveis_video_url_column()
 ensure_calcao_columns()
 ensure_contrato_renovacoes_table()
 ensure_tipo_pessoa_enum()
@@ -2270,9 +2289,30 @@ def imoveis_fotos(imovel_id):
         )
         for row in cur.fetchall()
     ]
+    cur.execute("SELECT video_url FROM imoveis WHERE id = %s", (imovel_id,))
+    row = cur.fetchone()
+    video_url = None
+    if row:
+        raw_video = row["video_url"]
+        if raw_video:
+            video_url = raw_video.strip() or None
+    cur.execute(
+        "SELECT nome_arquivo FROM imovel_anexos WHERE imovel_id = %s AND tipo_anexo = 'documento'",
+        (imovel_id,),
+    )
+    documentos = [
+        {
+            "name": row_doc["nome_arquivo"],
+            "url": url_for(
+                "uploaded_file",
+                filename=posixpath.join("imoveis_anexos", row_doc["nome_arquivo"]),
+            ),
+        }
+        for row_doc in cur.fetchall()
+    ]
     cur.close()
     conn.close()
-    return jsonify(fotos)
+    return jsonify({"photos": fotos, "video": video_url, "documents": documentos})
 
 
 # Context processor para injetar variáveis em todos os templates
@@ -3029,6 +3069,7 @@ def imoveis_add():
             max_contratos = request.form.get("max_contratos") or 1
             destinacao = request.form.get("destinacao") or None
             observacao = request.form.get("observacao")
+            video_url = (request.form.get("video_url") or "").strip() or None
 
             data_aquisicao = (
                 datetime.strptime(data_aquisicao_str, "%Y-%m-%d").date()
@@ -3043,8 +3084,8 @@ def imoveis_add():
                 INSERT INTO imoveis (tipo_imovel, endereco, bairro, cidade, estado, cep,
                                      registro, livro, folha, matricula, inscricao_iptu,
                                      latitude, longitude, data_aquisicao, valor_imovel,
-                                     valor_previsto_aluguel, max_contratos, destinacao, observacao)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                                     valor_previsto_aluguel, max_contratos, destinacao, observacao, video_url)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """,
                 (
                     tipo_imovel,
@@ -3066,6 +3107,7 @@ def imoveis_add():
                     max_contratos,
                     destinacao,
                     observacao,
+                    video_url,
                 ),
             )
             imovel_id = cur.fetchone()[0]
@@ -3155,6 +3197,7 @@ def imoveis_edit(id):
             max_contratos = request.form.get("max_contratos") or 1
             destinacao = request.form.get("destinacao") or None
             observacao = request.form.get("observacao")
+            video_url = (request.form.get("video_url") or "").strip() or None
 
             data_aquisicao = (
                 datetime.strptime(data_aquisicao_str, "%Y-%m-%d").date()
@@ -3168,7 +3211,8 @@ def imoveis_edit(id):
                 SET tipo_imovel = %s, endereco = %s, bairro = %s, cidade = %s, estado = %s, cep = %s,
                     registro = %s, livro = %s, folha = %s, matricula = %s, inscricao_iptu = %s,
                     latitude = %s, longitude = %s, data_aquisicao = %s, valor_imovel = %s,
-                    valor_previsto_aluguel = %s, max_contratos = %s, destinacao = %s, observacao = %s
+                    valor_previsto_aluguel = %s, max_contratos = %s, destinacao = %s, observacao = %s,
+                    video_url = %s
                 WHERE id = %s
                 """,
                 (
@@ -3191,6 +3235,7 @@ def imoveis_edit(id):
                     max_contratos,
                     destinacao,
                     observacao,
+                    video_url,
                     id,
                 ),
             )

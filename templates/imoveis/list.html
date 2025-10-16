@@ -82,11 +82,21 @@
 <div id="photos-modal" class="modal">
     <div class="modal-content photo-modal-content">
         <span class="close-button" onclick="closePhotosModal()">&times;</span>
-        <h2 class="text-lg font-semibold mb-4">Fotos do Imóvel</h2>
+        <h2 class="text-lg font-semibold mb-4">Mídias do Imóvel</h2>
         <div id="main-photo-wrapper" class="flex justify-center mb-4">
             <img id="main-photo" class="photo-main rounded shadow" src="" alt="Foto principal">
         </div>
         <div id="thumbs-container" class="flex justify-center gap-2 flex-wrap"></div>
+        <div id="video-container" class="mt-4 hidden">
+            <h3 class="text-md font-semibold mb-2">Vídeo</h3>
+            <div class="relative w-full" style="aspect-ratio: 16 / 9;">
+                <iframe id="video-frame" class="w-full h-full rounded shadow" src="" title="Vídeo do Imóvel" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            </div>
+        </div>
+        <div id="documents-container" class="mt-6 border-t pt-4 hidden">
+            <h3 class="text-md font-semibold mb-2">Documentos</h3>
+            <ul id="documents-list" class="list-disc list-inside space-y-1 text-sm text-gray-700"></ul>
+        </div>
     </div>
 </div>
 
@@ -101,16 +111,27 @@ document.addEventListener('DOMContentLoaded', () => {
             fetch(`/imoveis/fotos/${id}`)
                 .then(r => r.json())
                 .then(data => {
+                    const photos = Array.isArray(data.photos) ? data.photos : [];
+                    const video = data.video || null;
+                    const documents = Array.isArray(data.documents) ? data.documents : [];
+                    const mainWrapper = document.getElementById('main-photo-wrapper');
                     const main = document.getElementById('main-photo');
                     const thumbs = document.getElementById('thumbs-container');
+                    const videoContainer = document.getElementById('video-container');
+                    const videoFrame = document.getElementById('video-frame');
+                    const documentsContainer = document.getElementById('documents-container');
+                    const documentsList = document.getElementById('documents-list');
+
                     thumbs.innerHTML = '';
-                    if (data.length === 0) {
-                        main.style.display = 'none';
-                        thumbs.innerHTML = '<p class="text-center">Sem fotos cadastradas.</p>';
+                    documentsList.innerHTML = '';
+
+                    if (photos.length === 0) {
+                        mainWrapper.classList.add('hidden');
+                        thumbs.innerHTML = '<p class="text-center w-full">Sem fotos cadastradas.</p>';
                     } else {
-                        main.style.display = '';
-                        main.src = data[0];
-                        data.forEach(url => {
+                        mainWrapper.classList.remove('hidden');
+                        main.src = photos[0];
+                        photos.forEach(url => {
                             const img = document.createElement('img');
                             img.src = url;
                             img.className = 'photo-thumb object-cover rounded cursor-pointer';
@@ -122,10 +143,71 @@ document.addEventListener('DOMContentLoaded', () => {
                             thumbs.appendChild(img);
                         });
                     }
+
+                    const embedUrl = buildYouTubeEmbedUrl(video);
+                    if (embedUrl) {
+                        videoFrame.src = embedUrl;
+                        videoContainer.classList.remove('hidden');
+                    } else {
+                        videoFrame.src = '';
+                        videoContainer.classList.add('hidden');
+                    }
+
+                    if (documents.length > 0) {
+                        documents.forEach(doc => {
+                            if (!doc || !doc.url) {
+                                return;
+                            }
+                            const li = document.createElement('li');
+                            const link = document.createElement('a');
+                            link.href = doc.url;
+                            link.target = '_blank';
+                            link.rel = 'noopener';
+                            link.className = 'text-blue-600 hover:underline break-all';
+                            link.textContent = doc.name || doc.url;
+                            li.appendChild(link);
+                            documentsList.appendChild(li);
+                        });
+                        documentsContainer.classList.remove('hidden');
+                    } else {
+                        documentsContainer.classList.add('hidden');
+                    }
+
                     document.getElementById('photos-modal').style.display = 'flex';
                 });
         });
     });
+
+    function buildYouTubeEmbedUrl(rawUrl){
+        if(!rawUrl){
+            return null;
+        }
+        try {
+            const url = new URL(rawUrl);
+            const host = url.hostname.replace('www.', '');
+            if (host === 'youtu.be') {
+                const videoId = url.pathname.replace('/', '');
+                return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+            }
+            if (host.endsWith('youtube.com')) {
+                if (url.searchParams.get('v')) {
+                    return `https://www.youtube.com/embed/${url.searchParams.get('v')}`;
+                }
+                if (url.pathname.startsWith('/embed/')) {
+                    return rawUrl;
+                }
+                if (url.pathname.startsWith('/shorts/')) {
+                    const parts = url.pathname.split('/').filter(Boolean);
+                    if (parts.length > 1) {
+                        return `https://www.youtube.com/embed/${parts[1]}`;
+                    }
+                }
+            }
+        } catch (e) {
+            return null;
+        }
+        return null;
+    }
 
     // Filtro por coluna (como em Contas a Receber)
     const inputs = document.querySelectorAll('.column-search');
@@ -147,6 +229,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 function closePhotosModal(){
     document.getElementById('photos-modal').style.display='none';
+    const videoFrame = document.getElementById('video-frame');
+    if (videoFrame) {
+        videoFrame.src = '';
+    }
 }
 </script>
 {% endblock %}
