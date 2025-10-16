@@ -166,7 +166,7 @@ class CNAB240Writer:
         movimento = '01'
         agencia_num, agencia_dv = self._split_num_dv(getattr(self.conta, 'agencia', ''))
         conta_num, conta_dv = self._split_num_dv(getattr(self.conta, 'conta', ''))
-        nosso_numero = self._alfa(titulo.nosso_numero, 20)
+        nosso_numero = self._nosso_numero(titulo)
         carteira = self._carteira_codigo()
         forma_cadastramento = '1'
         tipo_documento = '1'
@@ -412,6 +412,17 @@ class CNAB240Writer:
         if carteira == '17':
             return '7'
         return (carteira[-1:] or '7')
+
+    def _nosso_numero(self, titulo: Titulo) -> str:
+        convenio = self._digits(getattr(self.conta, 'convenio', ''))
+        sequencial = self._digits(titulo.nosso_numero)
+
+        if len(convenio) == 7:
+            numero = convenio[-7:] + sequencial.zfill(10)
+        else:
+            numero = sequencial.zfill(17)
+
+        return numero[:17].ljust(20)
 
     def _tipo_inscricao(self, documento: str) -> str:
         digits = self._digits(documento)

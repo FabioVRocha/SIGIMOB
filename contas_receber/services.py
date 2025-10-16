@@ -82,8 +82,8 @@ def gerar_boletos(ids):
         pdfs.append(pdf_path)
 
     rem_path = os.path.join(rem_dir, f"remessa_{datetime.now().strftime('%Y%m%d%H%M%S')}.rem")
-    with open(rem_path, 'w') as arquivo:
-        arquivo.write(remessa)
+    with open(rem_path, 'wb') as arquivo:
+        arquivo.write(remessa.encode('ascii'))
     db.session.commit()
     return {'pdfs': pdfs, 'remessa': rem_path}
 
