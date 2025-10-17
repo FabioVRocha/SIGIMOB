@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório - Contas a Pagar{% endblock %}
+{% block page_title %}Relatório de Contas a Pagar{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl mb-6">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+    <div class="mb-4 md:mb-0">
+      <div class="text-lg font-semibold text-dark-blue">Contas a Pagar Detalhado</div>
+      <div class="text-sm text-gray-700">Período: <span class="font-semibold">{{ filtros.periodo }}</span></div>
+      {% if filtros.fornecedor_nome %}
+        <div class="text-sm text-gray-700">Fornecedor: <span class="font-semibold">{{ filtros.fornecedor_nome }}</span></div>
+      {% endif %}
+      {% if filtros.imovel_descricao %}
+        <div class="text-sm text-gray-700">Imóvel: <span class="font-semibold">{{ filtros.imovel_descricao }}</span></div>
+      {% endif %}
+      {% if filtros.status_contas %}
+        <div class="text-sm text-gray-700">Status: <span class="font-semibold">{{ filtros.status_contas|join(', ') }}</span></div>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <form action="{{ url_for('relatorio_contas_a_pagar_detalhado_excel') }}" method="POST">
+        <input type="hidden" name="fornecedor_id" value="{{ filtros.fornecedor_id or '' }}">
+        <input type="hidden" name="imovel_id" value="{{ filtros.imovel_id or '' }}">
+        <input type="hidden" name="vencimento_inicio" value="{{ filtros.inicio_str }}">
+        <input type="hidden" name="vencimento_fim" value="{{ filtros.fim_str }}">
+        {% for status in filtros.status_contas %}
+          <input type="hidden" name="status_conta" value="{{ status }}">
+        {% endfor %}
+        <button type="submit" class="btn btn-primary"><i class="fas fa-file-excel mr-2"></i>Exportar Excel</button>
+      </form>
+      <form action="{{ url_for('relatorio_contas_a_pagar_detalhado_pdf') }}" method="POST" target="_blank">
+        <input type="hidden" name="fornecedor_id" value="{{ filtros.fornecedor_id or '' }}">
+        <input type="hidden" name="imovel_id" value="{{ filtros.imovel_id or '' }}">
+        <input type="hidden" name="vencimento_inicio" value="{{ filtros.inicio_str }}">
+        <input type="hidden" name="vencimento_fim" value="{{ filtros.fim_str }}">
+        {% for status in filtros.status_contas %}
+          <input type="hidden" name="status_conta" value="{{ status }}">
+        {% endfor %}
+        <button type="submit" class="btn btn-primary"><i class="fas fa-file-pdf mr-2"></i>Exportar PDF</button>
+      </form>
+      <a href="{{ url_for('relatorios_contas_a_pagar') }}" class="btn btn-secondary"><i class="fas fa-arrow-left mr-2"></i>Voltar</a>
+    </div>
+  </div>
+</div>
+
+{% if dados %}
+  <div class="overflow-x-auto bg-white p-6 rounded-lg shadow-xl">
+    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+      <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+        <tr>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Vencimento</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Pagamento</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Fornecedor</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Título</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Despesa</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Status</th>
+          <th class="py-3 px-4 text-right text-sm font-semibold">Valor Previsto</th>
+          <th class="py-3 px-4 text-right text-sm font-semibold">Multa</th>
+          <th class="py-3 px-4 text-right text-sm font-semibold">Juros</th>
+          <th class="py-3 px-4 text-right text-sm font-semibold">Desconto</th>
+          <th class="py-3 px-4 text-right text-sm font-semibold">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in dados %}
+          <tr class="border-b border-gray-200 hover:bg-gray-50">
+            <td class="py-3 px-4 text-sm text-gray-700">{{ linha.data_vencimento.strftime('%d/%m/%Y') if linha.data_vencimento else '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ linha.data_pagamento.strftime('%d/%m/%Y') if linha.data_pagamento else '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ linha.fornecedor_nome or '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ linha.titulo or '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ linha.despesa or '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ linha.status_conta or '' }}</td>
+            <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.valor_previsto|currency }}</td>
+            <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.valor_multa|currency }}</td>
+            <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.valor_juros|currency }}</td>
+            <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.valor_desconto|currency }}</td>
+            <td class="py-3 px-4 text-sm text-right text-gray-700">{{ linha.total|currency }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="bg-gray-100">
+          <td class="py-3 px-4 text-sm font-semibold text-right" colspan="6">Totais</td>
+          <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.valor_previsto|currency }}</td>
+          <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.multa|currency }}</td>
+          <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.juros|currency }}</td>
+          <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.desconto|currency }}</td>
+          <td class="py-3 px-4 text-sm text-right font-semibold">{{ totais.total|currency }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+{% else %}
+  <div class="bg-white p-6 rounded-lg shadow-xl text-center text-gray-600">
+    Nenhuma conta a pagar encontrada para os filtros informados.
+  </div>
+{% endif %}
+{% endblock %}

@@ -8058,8 +8058,523 @@ def relatorios_contas_a_pagar():
     imoveis = cur.fetchall()
     cur.close()
     conn.close()
+    status_opcoes = ["Aberta", "Parcial", "Paga", "Vencida", "Cancelada"]
     return render_template(
-        "relatorios/contas_a_pagar/index.html", fornecedores=fornecedores, imoveis=imoveis
+        "relatorios/contas_a_pagar/index.html",
+        fornecedores=fornecedores,
+        imoveis=imoveis,
+        status_opcoes=status_opcoes,
+    )
+
+
+def consultar_relatorio_contas_pagar(
+    cur,
+    data_inicio,
+    data_fim,
+    fornecedor_id=None,
+    imovel_id=None,
+    status_contas=None,
+):
+    query = [
+        """
+        SELECT cp.data_vencimento,
+               cp.data_pagamento,
+               p.razao_social_nome AS fornecedor_nome,
+               cp.titulo,
+               d.descricao AS despesa,
+               cp.status_conta,
+               COALESCE(cp.valor_previsto, 0) AS valor_previsto,
+               COALESCE(cp.valor_multa, 0) AS valor_multa,
+               COALESCE(cp.valor_juros, 0) AS valor_juros,
+               COALESCE(cp.valor_desconto, 0) AS valor_desconto,
+               COALESCE(cp.valor_previsto, 0)
+             + COALESCE(cp.valor_multa, 0)
+             + COALESCE(cp.valor_juros, 0)
+             - COALESCE(cp.valor_desconto, 0) AS total,
+               cp.fornecedor_id,
+               cp.imovel_id
+          FROM contas_a_pagar cp
+          LEFT JOIN despesas_cadastro d ON cp.despesa_id = d.id
+          LEFT JOIN pessoas p ON cp.fornecedor_id = p.id
+         WHERE cp.data_vencimento BETWEEN %s AND %s
+        """,
+    ]
+    params = [data_inicio, data_fim]
+
+    if fornecedor_id:
+        query.append("AND cp.fornecedor_id = %s")
+        params.append(fornecedor_id)
+
+    if imovel_id:
+        query.append("AND cp.imovel_id = %s")
+        params.append(imovel_id)
+
+    if status_contas:
+        marcadores = ", ".join(["%s"] * len(status_contas))
+        query.append(f"AND cp.status_conta IN ({marcadores})")
+        params.extend(status_contas)
+
+    query.append("ORDER BY cp.data_vencimento, fornecedor_nome")
+    cur.execute("\n".join(query), params)
+    return cur.fetchall()
+
+
+def calcular_totais_contas_pagar(dados):
+    total_previsto = Decimal("0")
+    total_multa = Decimal("0")
+    total_juros = Decimal("0")
+    total_desconto = Decimal("0")
+    total_geral = Decimal("0")
+
+    for linha in dados:
+        valor_previsto = linha.get("valor_previsto") or Decimal("0")
+        valor_multa = linha.get("valor_multa") or Decimal("0")
+        valor_juros = linha.get("valor_juros") or Decimal("0")
+        valor_desconto = linha.get("valor_desconto") or Decimal("0")
+        total = linha.get("total") or (
+            valor_previsto + valor_multa + valor_juros - valor_desconto
+        )
+
+        total_previsto += Decimal(valor_previsto)
+        total_multa += Decimal(valor_multa)
+        total_juros += Decimal(valor_juros)
+        total_desconto += Decimal(valor_desconto)
+        total_geral += Decimal(total)
+
+    return {
+        "valor_previsto": total_previsto,
+        "multa": total_multa,
+        "juros": total_juros,
+        "desconto": total_desconto,
+        "total": total_geral,
+    }
+
+
+def obter_descricoes_filtros_contas_pagar(cur, fornecedor_id=None, imovel_id=None):
+    fornecedor_nome = None
+    imovel_descricao = None
+
+    if fornecedor_id:
+        cur.execute(
+            "SELECT razao_social_nome FROM pessoas WHERE id = %s",
+            (fornecedor_id,),
+        )
+        row = cur.fetchone()
+        if row:
+            fornecedor_nome = row["razao_social_nome"]
+
+    if imovel_id:
+        cur.execute(
+            """
+            SELECT tipo_imovel, endereco, cidade, estado
+              FROM imoveis
+             WHERE id = %s
+            """,
+            (imovel_id,),
+        )
+        row = cur.fetchone()
+        if row:
+            cidade = row["cidade"] or ""
+            estado = row["estado"] or ""
+            local = (
+                f" {cidade}/{estado}".strip()
+                if cidade or estado
+                else ""
+            )
+            imovel_descricao = f"{row['tipo_imovel']} - {row['endereco']}{local}"
+
+    return fornecedor_nome, imovel_descricao
+
+
+def carregar_dados_relatorio_contas_pagar(form):
+    fornecedor_id = parse_int(form.get("fornecedor_id"))
+    imovel_id = parse_int(form.get("imovel_id"))
+    data_inicio = parse_date(form.get("vencimento_inicio"))
+    data_fim = parse_date(form.get("vencimento_fim"))
+    status_contas = []
+    if hasattr(form, "getlist"):
+        status_contas = [valor for valor in form.getlist("status_conta") if valor]
+
+    if not data_inicio or not data_fim:
+        return None, "Informe o intervalo de vencimento."
+
+    if data_inicio > data_fim:
+        data_inicio, data_fim = data_fim, data_inicio
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+    try:
+        atualizar_status_contas_a_pagar(cur)
+        dados = consultar_relatorio_contas_pagar(
+            cur,
+            data_inicio,
+            data_fim,
+            fornecedor_id,
+            imovel_id,
+            status_contas,
+        )
+        totais = calcular_totais_contas_pagar(dados)
+        fornecedor_nome, imovel_descricao = obter_descricoes_filtros_contas_pagar(
+            cur, fornecedor_id, imovel_id
+        )
+    finally:
+        cur.close()
+        conn.close()
+
+    resultado = {
+        "dados": dados,
+        "totais": totais,
+        "fornecedor_id": fornecedor_id,
+        "imovel_id": imovel_id,
+        "fornecedor_nome": fornecedor_nome,
+        "imovel_descricao": imovel_descricao,
+        "data_inicio": data_inicio,
+        "data_fim": data_fim,
+        "status_contas": status_contas,
+    }
+
+    return resultado, None
+
+
+@app.route("/relatorios/contas-a-pagar/detalhado", methods=["POST"])
+@login_required
+def relatorio_contas_a_pagar_detalhado():
+    resultado, erro = carregar_dados_relatorio_contas_pagar(request.form)
+    if erro:
+        flash(erro, "warning")
+        return redirect(url_for("relatorios_contas_a_pagar"))
+
+    periodo_txt = (
+        resultado["data_inicio"].strftime("%d/%m/%Y")
+        + " a "
+        + resultado["data_fim"].strftime("%d/%m/%Y")
+    )
+
+    filtros = {
+        "fornecedor_id": resultado["fornecedor_id"],
+        "imovel_id": resultado["imovel_id"],
+        "fornecedor_nome": resultado["fornecedor_nome"],
+        "imovel_descricao": resultado["imovel_descricao"],
+        "inicio": resultado["data_inicio"],
+        "fim": resultado["data_fim"],
+        "inicio_str": resultado["data_inicio"].isoformat(),
+        "fim_str": resultado["data_fim"].isoformat(),
+        "periodo": periodo_txt,
+        "status_contas": resultado["status_contas"],
+    }
+
+    return render_template(
+        "relatorios/contas_a_pagar/relatorio_detalhado.html",
+        dados=resultado["dados"],
+        totais=resultado["totais"],
+        filtros=filtros,
+    )
+
+
+@app.route("/relatorios/contas-a-pagar/detalhado/excel", methods=["POST"])
+@login_required
+def relatorio_contas_a_pagar_detalhado_excel():
+    resultado, erro = carregar_dados_relatorio_contas_pagar(request.form)
+    if erro:
+        flash(erro, "warning")
+        return redirect(url_for("relatorios_contas_a_pagar"))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Contas a Pagar"
+
+    headers = [
+        "Vencimento",
+        "Pagamento",
+        "Fornecedor",
+        "Título",
+        "Despesa",
+        "Status",
+        "Valor Previsto",
+        "Multa",
+        "Juros",
+        "Desconto",
+        "Total",
+    ]
+    ws.append(headers)
+
+    bold_font = Font(bold=True)
+    for cell in ws[1]:
+        cell.font = bold_font
+
+    row_index = 2
+    for linha in resultado["dados"]:
+        data_vencimento = (
+            linha["data_vencimento"].strftime("%d/%m/%Y")
+            if linha["data_vencimento"]
+            else ""
+        )
+        ws.cell(row=row_index, column=1, value=data_vencimento)
+        data_pagamento = (
+            linha["data_pagamento"].strftime("%d/%m/%Y")
+            if linha["data_pagamento"]
+            else ""
+        )
+        ws.cell(row=row_index, column=2, value=data_pagamento)
+        ws.cell(row=row_index, column=3, value=linha.get("fornecedor_nome") or "")
+        ws.cell(row=row_index, column=4, value=linha.get("titulo") or "")
+        ws.cell(row=row_index, column=5, value=linha.get("despesa") or "")
+        ws.cell(row=row_index, column=6, value=linha.get("status_conta") or "")
+        ws.cell(
+            row=row_index,
+            column=7,
+            value=float(linha.get("valor_previsto") or 0),
+        )
+        ws.cell(
+            row=row_index,
+            column=8,
+            value=float(linha.get("valor_multa") or 0),
+        )
+        ws.cell(
+            row=row_index,
+            column=9,
+            value=float(linha.get("valor_juros") or 0),
+        )
+        ws.cell(
+            row=row_index,
+            column=10,
+            value=float(linha.get("valor_desconto") or 0),
+        )
+        ws.cell(row=row_index, column=11, value=float(linha.get("total") or 0))
+
+        for col in range(7, 12):
+            ws.cell(row=row_index, column=col).number_format = "#,##0.00"
+
+        row_index += 1
+
+    total_row = row_index
+    ws.cell(row=total_row, column=1, value="Totais")
+    for col in range(2, 7):
+        ws.cell(row=total_row, column=col, value="")
+    ws.cell(
+        row=total_row,
+        column=7,
+        value=float(resultado["totais"]["valor_previsto"]),
+    ).number_format = "#,##0.00"
+    ws.cell(
+        row=total_row,
+        column=8,
+        value=float(resultado["totais"]["multa"]),
+    ).number_format = "#,##0.00"
+    ws.cell(
+        row=total_row,
+        column=9,
+        value=float(resultado["totais"]["juros"]),
+    ).number_format = "#,##0.00"
+    ws.cell(
+        row=total_row,
+        column=10,
+        value=float(resultado["totais"]["desconto"]),
+    ).number_format = "#,##0.00"
+    ws.cell(
+        row=total_row,
+        column=11,
+        value=float(resultado["totais"]["total"]),
+    ).number_format = "#,##0.00"
+
+    column_widths = [15, 15, 30, 30, 30, 18, 18, 15, 15, 15, 18]
+    for idx, width in enumerate(column_widths, start=1):
+        ws.column_dimensions[get_column_letter(idx)].width = width
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = "contas_a_pagar_{inicio}_{fim}.xlsx".format(
+        inicio=resultado["data_inicio"].strftime("%Y%m%d"),
+        fim=resultado["data_fim"].strftime("%Y%m%d"),
+    )
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@app.route("/relatorios/contas-a-pagar/detalhado/pdf", methods=["POST"])
+@login_required
+def relatorio_contas_a_pagar_detalhado_pdf():
+    resultado, erro = carregar_dados_relatorio_contas_pagar(request.form)
+    if erro:
+        flash(erro, "warning")
+        return redirect(url_for("relatorios_contas_a_pagar"))
+
+    def to_latin(text):
+        if not text:
+            return ""
+        return str(text).encode("latin-1", "replace").decode("latin-1")
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            largura_util = self.w - self.l_margin - self.r_margin
+            self.cell(largura_util, 8, "Contas a Pagar - Detalhado", 0, 1, "C")
+            self.set_font("Arial", "", 10)
+            periodo = getattr(self, "periodo", "")
+            if periodo:
+                self.cell(largura_util, 6, f"Período: {periodo}", 0, 1, "C")
+            filtros = getattr(self, "filtros", {})
+            fornecedor = filtros.get("fornecedor")
+            imovel = filtros.get("imovel")
+            if fornecedor:
+                self.cell(largura_util, 5, to_latin(f"Fornecedor: {fornecedor}"), 0, 1, "C")
+            if imovel:
+                self.cell(largura_util, 5, to_latin(f"Imóvel: {imovel}"), 0, 1, "C")
+            self.ln(2)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, f"Página {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    headers = [
+        ("Vencimento", 22),
+        ("Pagamento", 22),
+        ("Fornecedor", 36),
+        ("Título", 36),
+        ("Despesa", 36),
+        ("Status", 22),
+        ("Valor Previsto", 24),
+        ("Multa", 18),
+        ("Juros", 18),
+        ("Desconto", 18),
+        ("Total", 24),
+    ]
+
+    pdf = PDF()
+    pdf.alias_nb_pages()
+    pdf.periodo = (
+        resultado["data_inicio"].strftime("%d/%m/%Y")
+        + " a "
+        + resultado["data_fim"].strftime("%d/%m/%Y")
+    )
+    pdf.filtros = {
+        "fornecedor": resultado["fornecedor_nome"],
+        "imovel": resultado["imovel_descricao"],
+    }
+
+    def truncate_text(pdf_obj, text, max_width):
+        if not text:
+            return ""
+        text = str(text)
+        if pdf_obj.get_string_width(text) <= max_width:
+            return text
+        while pdf_obj.get_string_width(text + "...") > max_width and text:
+            text = text[:-1]
+        return text + "..."
+
+    pdf.add_page()
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(200, 200, 200)
+    for titulo, largura in headers:
+        pdf.cell(largura, 8, titulo, 1, 0, "C", True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "", 9)
+    for linha in resultado["dados"]:
+        data_venc = (
+            linha["data_vencimento"].strftime("%d/%m/%Y")
+            if linha["data_vencimento"]
+            else ""
+        )
+        data_pag = (
+            linha["data_pagamento"].strftime("%d/%m/%Y")
+            if linha["data_pagamento"]
+            else ""
+        )
+        valores = [
+            data_venc,
+            data_pag,
+            truncate_text(pdf, linha.get("fornecedor_nome") or "", headers[2][1] - 2),
+            truncate_text(pdf, linha.get("titulo") or "", headers[3][1] - 2),
+            truncate_text(pdf, linha.get("despesa") or "", headers[4][1] - 2),
+            truncate_text(pdf, linha.get("status_conta") or "", headers[5][1] - 2),
+            format_currency(linha.get("valor_previsto") or 0),
+            format_currency(linha.get("valor_multa") or 0),
+            format_currency(linha.get("valor_juros") or 0),
+            format_currency(linha.get("valor_desconto") or 0),
+            format_currency(linha.get("total") or 0),
+        ]
+        for (titulo, largura), valor in zip(headers, valores):
+            align = (
+                "R"
+                if titulo
+                in ("Valor Previsto", "Multa", "Juros", "Desconto", "Total")
+                else "L"
+            )
+            pdf.cell(largura, 7, valor, 1, 0, align)
+        pdf.ln(7)
+
+    pdf.set_font("Arial", "B", 9)
+    pdf.cell(
+        sum(largura for _, largura in headers[:6]),
+        7,
+        "Totais",
+        1,
+        0,
+        "R",
+    )
+    pdf.cell(
+        headers[6][1],
+        7,
+        format_currency(resultado["totais"]["valor_previsto"]),
+        1,
+        0,
+        "R",
+    )
+    pdf.cell(
+        headers[7][1],
+        7,
+        format_currency(resultado["totais"]["multa"]),
+        1,
+        0,
+        "R",
+    )
+    pdf.cell(
+        headers[8][1],
+        7,
+        format_currency(resultado["totais"]["juros"]),
+        1,
+        0,
+        "R",
+    )
+    pdf.cell(
+        headers[9][1],
+        7,
+        format_currency(resultado["totais"]["desconto"]),
+        1,
+        0,
+        "R",
+    )
+    pdf.cell(
+        headers[10][1],
+        7,
+        format_currency(resultado["totais"]["total"]),
+        1,
+        1,
+        "R",
+    )
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+
+    filename = "contas_a_pagar_{inicio}_{fim}.pdf".format(
+        inicio=resultado["data_inicio"].strftime("%Y%m%d"),
+        fim=resultado["data_fim"].strftime("%Y%m%d"),
+    )
+
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename,
     )
 
 

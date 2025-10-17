@@ -6,11 +6,69 @@
 
 {% block content %}
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <button type="button" class="card p-6 text-center flex flex-col items-center justify-center" onclick="openDetalhadoModal()">
+        <div class="text-icon-blue mb-4"><i class="fas fa-file-invoice-dollar fa-3x"></i></div>
+        <h2 class="text-xl font-semibold text-dark-blue mb-2">Contas a Pagar Detalhado</h2>
+        <p class="text-medium-gray">Filtra por fornecedor, imóvel e vencimento.</p>
+    </button>
     <button type="button" class="card p-6 text-center flex flex-col items-center justify-center" onclick="openPeriodoModal()">
         <div class="text-icon-blue mb-4"><i class="fas fa-calendar-alt fa-3x"></i></div>
         <h2 class="text-xl font-semibold text-dark-blue mb-2">Por Período</h2>
         <p class="text-medium-gray">Visualize contas a pagar entre datas.</p>
     </button>
+</div>
+
+<div id="detalhado-modal" class="modal">
+    <div class="modal-content max-w-3xl">
+        <span class="close-button" onclick="closeDetalhadoModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Contas a Pagar Detalhado</h2>
+        <form action="{{ url_for('relatorio_contas_a_pagar_detalhado') }}" method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="form-group">
+                    <label for="det-fornecedor" class="form-label">Fornecedor:</label>
+                    <select id="det-fornecedor" name="fornecedor_id" class="form-select">
+                        <option value="">Todos os fornecedores</option>
+                        {% for forn in fornecedores %}
+                        <option value="{{ forn.id }}">{{ forn.razao_social_nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="det-imovel" class="form-label">Imóvel:</label>
+                    <select id="det-imovel" name="imovel_id" class="form-select">
+                        <option value="">Todos os imóveis</option>
+                        {% for imovel in imoveis %}
+                        <option value="{{ imovel.id }}">{{ imovel.tipo_imovel }} / {{ imovel.endereco }}{% if imovel.cidade or imovel.estado %} / {{ imovel.cidade }}{% if imovel.estado %}/{{ imovel.estado }}{% endif %}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="det-venc-inicio" class="form-label">Vencimento Início:</label>
+                    <input type="date" id="det-venc-inicio" name="vencimento_inicio" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label for="det-venc-fim" class="form-label">Vencimento Fim:</label>
+                    <input type="date" id="det-venc-fim" name="vencimento_fim" class="form-input" required>
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label class="form-label">Status do título:</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {% for status in status_opcoes %}
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" name="status_conta" value="{{ status }}">
+                            <span>{{ status }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Selecione um ou mais status para filtrar. Se nenhum for marcado, todos serão considerados.</p>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closeDetalhadoModal()">Cancelar</button>
+                <button type="submit" class="btn-primary">Gerar Relatório</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div id="periodo-modal" class="modal">
@@ -33,7 +91,7 @@
                     <select id="imovel_id" name="imovel_id" class="form-select">
                         <option value="">Todos</option>
                         {% for imovel in imoveis %}
-                        <option value="{{ imovel.id }}">{{ imovel.tipo_imovel }} / {{ imovel.endereco }} / {{ imovel.cidade }}/{{ imovel.estado }}</option>
+                        <option value="{{ imovel.id }}">{{ imovel.tipo_imovel }} / {{ imovel.endereco }}{% if imovel.cidade or imovel.estado %} / {{ imovel.cidade }}{% if imovel.estado %}/{{ imovel.estado }}{% endif %}{% endif %}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -72,6 +130,12 @@ function openPeriodoModal(){
 }
 function closePeriodoModal(){
     document.getElementById('periodo-modal').style.display='none';
+}
+function openDetalhadoModal(){
+    document.getElementById('detalhado-modal').style.display='flex';
+}
+function closeDetalhadoModal(){
+    document.getElementById('detalhado-modal').style.display='none';
 }
 </script>
 {% endblock %}
