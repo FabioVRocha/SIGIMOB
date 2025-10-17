@@ -8448,7 +8448,7 @@ def relatorio_contas_a_pagar_detalhado_pdf():
         ("Total", 24),
     ]
 
-    pdf = PDF()
+    pdf = PDF(orientation="L")
     pdf.alias_nb_pages()
     pdf.periodo = (
         resultado["data_inicio"].strftime("%d/%m/%Y")
