@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Vendas de Imóveis{% endblock %}
+{% block page_title %}Vendas de Imóveis{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Registros de Vendas</h2>
+        <a href="{{ url_for('imoveis_vendas_add') }}" class="btn-primary flex items-center">
+            <i class="fas fa-plus mr-2"></i> Registrar Venda
+        </a>
+    </div>
+
+    {% if vendas %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Comprador</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Total</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Parcelamento</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Observação</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Anexos</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for venda in vendas %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {{ venda.data_venda.strftime("%d/%m/%Y") if venda.data_venda else "-" }}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        <div class="font-medium text-gray-800">{{ venda.endereco }}</div>
+                        <div class="text-xs text-gray-500">
+                            {{ venda.bairro }}{% if venda.cidade %}, {{ venda.cidade }}{% endif %}{% if venda.estado %}/{{ venda.estado }}{% endif %}
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {{ venda.cliente_nome or "N/A" }}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {{ venda.valor_total | currency }}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {{ venda.quantidade_parcelas }}x de {{ venda.valor_parcela | currency }}
+                        {% if venda.quantidade_parcelas and venda.quantidade_parcelas > 1 %}
+                        <div class="text-xs text-gray-500">
+                            Primeira parcela em {{ venda.data_venda.strftime("%d/%m/%Y") if venda.data_venda else "-" }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {% if venda.observacao %}
+                        <span title="{{ venda.observacao }}">{{ venda.observacao | truncate(70, True) }}</span>
+                        {% else %}
+                        <span class="text-gray-400">Sem observação</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {% set anexos = anexos_por_venda.get(venda.id, []) %}
+                        {% if anexos %}
+                        <ul class="space-y-1">
+                            {% for anexo in anexos %}
+                            <li>
+                                <a href="{{ url_for('imoveis_vendas_anexo_download', anexo_id=anexo.id) }}" class="text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-paperclip mr-1"></i>{{ anexo.nome_arquivo }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <span class="text-gray-400">Nenhum</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-10 text-gray-500">
+        <i class="fas fa-info-circle mr-2"></i>Nenhuma venda registrada até o momento.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

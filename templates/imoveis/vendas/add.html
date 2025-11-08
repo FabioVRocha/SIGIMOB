@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Venda{% endblock %}
+{% block page_title %}Registrar Venda de Imóvel{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <form action="{{ url_for('imoveis_vendas_add') }}" method="POST" enctype="multipart/form-data">
+        {% if not imoveis_disponiveis %}
+        <div class="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
+            Nenhum imóvel disponível para venda no momento. Verifique se existem contratos ativos ou cadastre novos imóveis.
+        </div>
+        {% endif %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="form-group">
+                <label for="imovel_id" class="form-label">Imóvel *</label>
+                <div class="flex items-center gap-3">
+                    <select id="imovel_id" name="imovel_id" class="form-select flex-1" required>
+                        <option value="">Selecione...</option>
+                        {% for imovel in imoveis_disponiveis %}
+                        <option value="{{ imovel.id }}" {% if venda.get('imovel_id')|string == imovel.id|string %}selected{% endif %}>
+                            {{ imovel.id }} - {{ imovel.endereco }}{% if imovel.bairro %} - {{ imovel.bairro }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" id="open-imovel-modal" class="btn-secondary px-3 py-2 flex items-center justify-center" title="Pesquisar imóvel">
+                        <i class="fas fa-search mr-0"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="cliente_id" class="form-label">Comprador *</label>
+                <div class="flex items-center gap-3">
+                    <select id="cliente_id" name="cliente_id" class="form-select flex-1" required>
+                        <option value="">Selecione...</option>
+                        {% for cliente in clientes %}
+                        <option value="{{ cliente.id }}" {% if venda.get('cliente_id')|string == cliente.id|string %}selected{% endif %}>
+                            {{ cliente.id }} - {{ cliente.razao_social_nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" id="open-cliente-modal" class="btn-secondary px-3 py-2 flex items-center justify-center" title="Pesquisar comprador">
+                        <i class="fas fa-search mr-0"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="data_venda" class="form-label">Data da Venda *</label>
+                <input type="date" id="data_venda" name="data_venda" class="form-input"
+                       value="{{ venda.get('data_venda') or '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="data_primeira_parcela" class="form-label">Data da 1ª Parcela</label>
+                <input type="date" id="data_primeira_parcela" name="data_primeira_parcela" class="form-input"
+                       value="{{ venda.get('data_primeira_parcela') or '' }}">
+                <small class="text-xs text-gray-500">Quando vazio, será utilizada a data da venda.</small>
+            </div>
+            <div class="form-group">
+                <label for="valor_total" class="form-label">Valor Total *</label>
+                <input type="text" id="valor_total" name="valor_total" class="form-input currency-input"
+                       value="{{ venda.get('valor_total') or '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="quantidade_parcelas" class="form-label">Quantidade de Parcelas *</label>
+                <input type="number" id="quantidade_parcelas" name="quantidade_parcelas" min="1" class="form-input"
+                       value="{{ venda.get('quantidade_parcelas') or '1' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="valor_parcela" class="form-label">Valor da Parcela *</label>
+                <input type="text" id="valor_parcela" name="valor_parcela" class="form-input currency-input"
+                       value="{{ venda.get('valor_parcela') or '' }}" required>
+                <small class="text-xs text-gray-500">Deixe em branco para calcular automaticamente.</small>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 mt-6">
+            <div class="form-group">
+                <label for="observacao" class="form-label">Observação</label>
+                <textarea id="observacao" name="observacao" class="form-textarea" rows="4"
+                          placeholder="Detalhes adicionais da negociação">{{ venda.get('observacao') or '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="anexos" class="form-label">Anexos</label>
+                <input type="file" id="anexos" name="anexos" class="form-input" multiple>
+                <small class="text-xs text-gray-500">Anexe documentos relevantes (formatos permitidos seguem a configuração do sistema).</small>
+            </div>
+        </div>
+
+        <div class="flex justify-end space-x-4 mt-6">
+            <a href="{{ url_for('imoveis_vendas_list') }}" class="btn-secondary">Cancelar</a>
+            <button type="submit" class="btn-primary">Confirmar Venda</button>
+        </div>
+    </form>
+</div>
+
+<!-- Modal seleção de imóvel -->
+<div id="imovel-modal" class="modal hidden">
+    <div class="modal-content max-w-3xl">
+        <span class="close-button" data-modal-close="imovel-modal">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
+        <input type="text" id="imovel-search" class="form-input mb-4" placeholder="Digite para filtrar por ID, endereço ou bairro">
+        <div class="overflow-y-auto max-h-80 border rounded">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Descrição</th>
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Bairro</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="imovel-modal-table" class="bg-white divide-y divide-gray-200">
+                    {% for imovel in imoveis_disponiveis %}
+                    {% set descricao = imovel.endereco %}
+                    <tr data-value="{{ imovel.id }}" data-text="{{ (imovel.id|string) ~ ' ' ~ (imovel.endereco or '') ~ ' ' ~ (imovel.bairro or '') }}" class="hover:bg-gray-50 cursor-pointer">
+                        <td class="px-4 py-2 text-sm text-gray-600 font-semibold">{{ imovel.id }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-700">{{ imovel.endereco or '-' }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-700">{{ imovel.bairro or '-' }}</td>
+                        <td class="px-4 py-2 text-sm text-right">
+                            <button type="button" class="btn-primary px-3 py-1 text-xs font-semibold select-imovel">Selecionar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal seleção de comprador -->
+<div id="cliente-modal" class="modal hidden">
+    <div class="modal-content max-w-3xl">
+        <span class="close-button" data-modal-close="cliente-modal">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Comprador</h2>
+        <input type="text" id="cliente-search" class="form-input mb-4" placeholder="Digite para filtrar por ID ou nome">
+        <div class="overflow-y-auto max-h-80 border rounded">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nome</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="cliente-modal-table" class="bg-white divide-y divide-gray-200">
+                    {% for cliente in clientes %}
+                    <tr data-value="{{ cliente.id }}" data-text="{{ (cliente.id|string) ~ ' ' ~ (cliente.razao_social_nome or '') }}" class="hover:bg-gray-50 cursor-pointer">
+                        <td class="px-4 py-2 text-sm text-gray-600 font-semibold">{{ cliente.id }}</td>
+                        <td class="px-4 py-2 text-sm text-gray-700">{{ cliente.razao_social_nome or '-' }}</td>
+                        <td class="px-4 py-2 text-sm text-right">
+                            <button type="button" class="btn-primary px-3 py-1 text-xs font-semibold select-cliente">Selecionar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    const parseCurrency = (value) => {
+        if (!value) return 0;
+        const digits = value.toString().replace(/\D/g, '');
+        if (!digits) return 0;
+        return parseInt(digits, 10) / 100;
+    };
+
+    document.querySelectorAll('.currency-input').forEach(el => {
+        const format = () => {
+            const val = parseCurrency(el.value);
+            el.value = val ? currencyFormatter.format(val) : '';
+        };
+        if (el.value) format();
+        el.addEventListener('input', format);
+        el.addEventListener('blur', format);
+    });
+
+    const totalInput = document.getElementById('valor_total');
+    const parcelasInput = document.getElementById('quantidade_parcelas');
+    const parcelaInput = document.getElementById('valor_parcela');
+
+    const recalcularParcela = () => {
+        if (!totalInput || !parcelasInput || !parcelaInput) return;
+        const total = parseCurrency(totalInput.value);
+        const parcelas = parseInt(parcelasInput.value, 10);
+        if (!total || !parcelas || parcelas <= 0) return;
+        if (parcelaInput.dataset.manual === 'true') return;
+        const valor = total / parcelas;
+        parcelaInput.value = currencyFormatter.format(valor);
+    };
+
+    if (parcelaInput) {
+        parcelaInput.addEventListener('input', () => {
+            parcelaInput.dataset.manual = parcelaInput.value.trim() ? 'true' : 'false';
+        });
+    }
+    if (totalInput) totalInput.addEventListener('blur', recalcularParcela);
+    if (parcelasInput) parcelasInput.addEventListener('input', () => {
+        parcelaInput.dataset.manual = parcelaInput.value.trim() ? parcelaInput.dataset.manual : 'false';
+        recalcularParcela();
+    });
+
+    const toggleModalVisibility = (modalEl, show) => {
+        if (!modalEl) return;
+        if (show) {
+            modalEl.classList.remove('hidden');
+            modalEl.classList.add('open');
+            modalEl.style.display = 'flex';
+        } else {
+            modalEl.classList.add('hidden');
+            modalEl.classList.remove('open');
+            modalEl.style.display = 'none';
+        }
+    };
+
+    const setupLookup = ({ modalId, openButtonId, selectId, searchInputId, rowSelector, selectButtonSelector }) => {
+        const modalEl = document.getElementById(modalId);
+        const openBtn = document.getElementById(openButtonId);
+        const selectEl = document.getElementById(selectId);
+        if (!modalEl || !openBtn || !selectEl) return;
+
+        const searchInput = searchInputId ? document.getElementById(searchInputId) : null;
+        const rows = Array.from(modalEl.querySelectorAll(rowSelector));
+        const closeButtons = modalEl.querySelectorAll(`[data-modal-close="${modalId}"]`);
+
+        const filterRows = () => {
+            if (!searchInput) return;
+            const term = searchInput.value.toLowerCase().trim();
+            rows.forEach(row => {
+                const text = (row.dataset.text || '').toLowerCase();
+                const match = !term || text.includes(term);
+                row.classList.toggle('hidden', !match);
+            });
+        };
+
+        if (searchInput) {
+            searchInput.addEventListener('input', filterRows);
+        }
+
+        const highlightSelection = () => {
+            const selected = selectEl.value;
+            rows.forEach(row => {
+                const isSelected = row.dataset.value === selected;
+                row.classList.toggle('bg-blue-50', isSelected);
+                row.classList.toggle('font-semibold', isSelected);
+            });
+        };
+
+        const closeModal = () => {
+            toggleModalVisibility(modalEl, false);
+        };
+
+        const applySelection = (row) => {
+            if (!row) return;
+            const value = row.dataset.value || '';
+            if (value) {
+                selectEl.value = value;
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+            highlightSelection();
+            closeModal();
+        };
+
+        rows.forEach(row => {
+            row.addEventListener('dblclick', () => applySelection(row));
+            if (selectButtonSelector) {
+                const btn = row.querySelector(selectButtonSelector);
+                if (btn) {
+                    btn.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        applySelection(row);
+                    });
+                }
+            }
+        });
+
+        const openModal = () => {
+            toggleModalVisibility(modalEl, true);
+            highlightSelection();
+            if (searchInput) {
+                searchInput.value = '';
+                filterRows();
+                setTimeout(() => searchInput.focus(), 50);
+            }
+            modalEl.setAttribute('tabindex', '-1');
+            modalEl.focus({ preventScroll: true });
+        };
+
+        openBtn.addEventListener('click', openModal);
+        selectEl.addEventListener('dblclick', openModal);
+
+        closeButtons.forEach(btn => btn.addEventListener('click', closeModal));
+        modalEl.addEventListener('click', (event) => {
+            if (event.target === modalEl) {
+                closeModal();
+            }
+        });
+
+        modalEl.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    };
+
+    setupLookup({
+        modalId: 'imovel-modal',
+        openButtonId: 'open-imovel-modal',
+        selectId: 'imovel_id',
+        searchInputId: 'imovel-search',
+        rowSelector: '#imovel-modal-table tr',
+        selectButtonSelector: '.select-imovel',
+    });
+
+    setupLookup({
+        modalId: 'cliente-modal',
+        openButtonId: 'open-cliente-modal',
+        selectId: 'cliente_id',
+        searchInputId: 'cliente-search',
+        rowSelector: '#cliente-modal-table tr',
+        selectButtonSelector: '.select-cliente',
+    });
+});
+</script>
+{% endblock %}

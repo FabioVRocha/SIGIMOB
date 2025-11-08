@@ -33,7 +33,7 @@
             <tr class="border-b border-gray-200 hover:bg-gray-50">
                 <td class="py-3 px-4 text-sm text-gray-700">{{ c.id }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ c.nome }}</td>
-                <td class="py-3 px-4 text-sm text-gray-700">{{ (c.saldo_atual or 0) | currency }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ (c.saldo_calculado or 0) | currency }}</td>
                 <td class="py-3 px-4 text-sm">
                     <a href="{{ url_for('caixas_edit', id=c.id) }}" class="text-blue-600 hover:text-blue-800">
                         <i class="fas fa-edit"></i> Editar

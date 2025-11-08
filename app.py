@@ -56,6 +56,7 @@ from caixa_banco.services import (
     atualizar_movimento,
     deletar_movimento,
     recalcular_posicoes,
+    calcular_saldos_atualizados,
 )
 from db_utils import decode_psycopg_unicode_error
 from sqlalchemy import func
@@ -79,6 +80,9 @@ os.makedirs(
 os.makedirs(
     os.path.join(UPLOAD_FOLDER, "contratos_anexos"), exist_ok=True
 )  # Pasta para anexos de contratos
+os.makedirs(
+    os.path.join(UPLOAD_FOLDER, "imoveis_vendas_anexos"), exist_ok=True
+)  # Pasta para anexos de vendas de imóveis
 
 # ------------------ Utilidades para Modelos/Placeholders ------------------
 PLACEHOLDER_PATTERN = re.compile(r"\[([^\[\]]+)\]")
@@ -1751,6 +1755,132 @@ def ensure_imoveis_video_url_column():
     conn.close()
 
 
+def ensure_imovel_status_columns():
+    """Garante que o status e a disponibilidade existam na tabela de imóveis."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT 1 FROM pg_type WHERE typname = 'status_imovel_enum'")
+        if cur.fetchone() is None:
+            cur.execute("CREATE TYPE status_imovel_enum AS ENUM ('Ativo', 'Vendido')")
+        else:
+            cur.execute(
+                """
+                SELECT 1 FROM pg_enum
+                WHERE enumtypid = 'status_imovel_enum'::regtype AND enumlabel = 'Ativo'
+                """
+            )
+            if cur.fetchone() is None:
+                cur.execute("ALTER TYPE status_imovel_enum ADD VALUE 'Ativo'")
+            cur.execute(
+                """
+                SELECT 1 FROM pg_enum
+                WHERE enumtypid = 'status_imovel_enum'::regtype AND enumlabel = 'Vendido'
+                """
+            )
+            if cur.fetchone() is None:
+                cur.execute("ALTER TYPE status_imovel_enum ADD VALUE 'Vendido'")
+
+        cur.execute(
+            """
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='imoveis' AND column_name='status'
+            """
+        )
+        if cur.fetchone() is None:
+            cur.execute(
+                """
+                ALTER TABLE imoveis
+                ADD COLUMN status status_imovel_enum NOT NULL DEFAULT 'Ativo'
+                """
+            )
+        else:
+            cur.execute(
+                "ALTER TABLE imoveis ALTER COLUMN status SET DEFAULT 'Ativo'"
+            )
+
+        cur.execute(
+            """
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='imoveis' AND column_name='disponivel'
+            """
+        )
+        if cur.fetchone() is None:
+            cur.execute(
+                """
+                ALTER TABLE imoveis
+                ADD COLUMN disponivel BOOLEAN NOT NULL DEFAULT TRUE
+                """
+            )
+        else:
+            cur.execute(
+                "UPDATE imoveis SET disponivel = TRUE WHERE disponivel IS NULL"
+            )
+
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
+def ensure_imovel_vendas_tables():
+    """Cria tabelas de vendas de imóveis e anexos, se necessário."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS imoveis_vendas (
+                id SERIAL PRIMARY KEY,
+                imovel_id INTEGER NOT NULL REFERENCES imoveis(id),
+                cliente_id INTEGER NOT NULL REFERENCES pessoas(id),
+                usuario_id INTEGER REFERENCES usuarios(id),
+                data_venda DATE NOT NULL,
+                valor_total NUMERIC(15,2) NOT NULL,
+                quantidade_parcelas INTEGER NOT NULL DEFAULT 1,
+                valor_parcela NUMERIC(15,2) NOT NULL,
+                observacao TEXT,
+                data_cadastro TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS imovel_venda_anexos (
+                id SERIAL PRIMARY KEY,
+                venda_id INTEGER NOT NULL REFERENCES imoveis_vendas(id) ON DELETE CASCADE,
+                nome_arquivo VARCHAR(255) NOT NULL,
+                caminho_arquivo VARCHAR(500) NOT NULL,
+                data_upload TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
+def ensure_venda_imovel_receita():
+    """Garante a existência da categoria de receita para vendas de imóveis."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+            ("Venda de Imóvel",),
+        )
+        if cur.fetchone() is None:
+            cur.execute(
+                "INSERT INTO receitas_cadastro (descricao) VALUES (%s)",
+                ("Venda de Imóvel",),
+            )
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
 def ensure_finalidade_column():
     """Garante que o tipo e a coluna de finalidade existam."""
     conn = get_db_connection()
@@ -1860,6 +1990,9 @@ def ensure_tipo_pessoa_enum():
 # Assegura colunas necessárias no banco de dados
 ensure_max_contratos_column()
 ensure_imoveis_video_url_column()
+ensure_imovel_status_columns()
+ensure_imovel_vendas_tables()
+ensure_venda_imovel_receita()
 ensure_calcao_columns()
 ensure_contrato_renovacoes_table()
 ensure_tipo_pessoa_enum()
@@ -2535,11 +2668,13 @@ def dashboard():
     contratacoes = [2, 3, 1, 4, 2, 3, 1, 2, 4, 3, 2, 1]
     demissoes = [1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1]
 
-    saldo_caixas = db.session.query(func.coalesce(func.sum(ContaCaixa.saldo_atual), 0)).scalar() or 0
-    saldo_bancos = db.session.query(func.coalesce(func.sum(ContaBanco.saldo_atual), 0)).scalar() or 0
-    saldo_total = float(saldo_caixas) + float(saldo_bancos)
-    alertas_saldo_negativo = ContaCaixa.query.filter(ContaCaixa.saldo_atual < 0).count() + \
-        ContaBanco.query.filter(ContaBanco.saldo_atual < 0).count()
+    _, saldos_caixa = calcular_saldos_atualizados("caixa")
+    _, saldos_banco = calcular_saldos_atualizados("banco")
+    saldo_caixas = sum(saldos_caixa.values(), Decimal("0"))
+    saldo_bancos = sum(saldos_banco.values(), Decimal("0"))
+    saldo_total = float(saldo_caixas + saldo_bancos)
+    alertas_saldo_negativo = sum(1 for valor in saldos_caixa.values() if valor < 0) + \
+        sum(1 for valor in saldos_banco.values() if valor < 0)
     conciliacoes_pendentes = Conciliacao.query.filter_by(status='pendente').count()
 
     return render_template(
@@ -2940,7 +3075,15 @@ def imoveis_list():
             SELECT i.*, EXISTS (
                 SELECT 1 FROM contratos_aluguel c
                 WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
-            ) AS contrato_ativo
+            ) AS contrato_ativo,
+            (
+                COALESCE(i.disponivel, TRUE)
+                AND i.status <> 'Vendido'
+                AND NOT EXISTS (
+                    SELECT 1 FROM contratos_aluguel c
+                    WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+                )
+            ) AS disponivel_para_locacao
             FROM imoveis i
             WHERE endereco ILIKE %s OR bairro ILIKE %s OR cidade ILIKE %s OR inscricao_iptu ILIKE %s
             ORDER BY data_cadastro DESC
@@ -2958,7 +3101,15 @@ def imoveis_list():
             SELECT i.*, EXISTS (
                 SELECT 1 FROM contratos_aluguel c
                 WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
-            ) AS contrato_ativo
+            ) AS contrato_ativo,
+            (
+                COALESCE(i.disponivel, TRUE)
+                AND i.status <> 'Vendido'
+                AND NOT EXISTS (
+                    SELECT 1 FROM contratos_aluguel c
+                    WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+                )
+            ) AS disponivel_para_locacao
             FROM imoveis i
             ORDER BY data_cadastro DESC
         """
@@ -2995,7 +3146,9 @@ def imoveis_mapa():
         LEFT JOIN contratos_aluguel c
             ON c.imovel_id = i.id AND c.status_contrato = 'Ativo'
         LEFT JOIN pessoas p ON c.cliente_id = p.id
-        WHERE i.latitude IS NOT NULL AND i.longitude IS NOT NULL
+        WHERE i.latitude IS NOT NULL
+          AND i.longitude IS NOT NULL
+          AND i.status <> 'Vendido'
         """
     )
     imoveis = cur.fetchall()
@@ -3013,8 +3166,13 @@ def imoveis_mapa():
     cur.execute(
         """
         SELECT
-            COUNT(*) AS total_imoveis,
-            COUNT(c.imovel_id) AS total_alugados
+            COUNT(*) FILTER (WHERE i.status <> 'Vendido') AS total_imoveis,
+            COUNT(*) FILTER (WHERE i.status <> 'Vendido' AND c.imovel_id IS NOT NULL) AS total_alugados,
+            COUNT(*) FILTER (
+                WHERE i.status <> 'Vendido'
+                  AND COALESCE(i.disponivel, TRUE)
+                  AND c.imovel_id IS NULL
+            ) AS total_disponiveis
         FROM imoveis i
         LEFT JOIN (
             SELECT DISTINCT imovel_id
@@ -3026,7 +3184,7 @@ def imoveis_mapa():
     totals = cur.fetchone()
     total_imoveis = totals["total_imoveis"]
     total_alugados = totals["total_alugados"]
-    total_disponiveis = total_imoveis - total_alugados
+    total_disponiveis = totals["total_disponiveis"] or 0
     vacancia_percent = (
         (total_disponiveis / total_imoveis) * 100 if total_imoveis else 0
     )
@@ -3355,6 +3513,293 @@ def imovel_anexo_delete(anexo_id):
     return redirect(
         url_for("imoveis_list")
     )  # Redireciona para a lista caso não encontre o anexo ou erro
+
+
+@app.route("/imoveis/vendas")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def imoveis_vendas_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    vendas = []
+    anexos_por_venda = {}
+    try:
+        cur.execute(
+            """
+            SELECT
+                v.*,
+                i.endereco,
+                i.bairro,
+                i.cidade,
+                i.estado,
+                i.status AS status_imovel,
+                p.razao_social_nome AS cliente_nome
+            FROM imoveis_vendas v
+            JOIN imoveis i ON v.imovel_id = i.id
+            JOIN pessoas p ON v.cliente_id = p.id
+            ORDER BY v.data_cadastro DESC
+            """
+        )
+        vendas = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT venda_id, id, nome_arquivo
+            FROM imovel_venda_anexos
+            ORDER BY venda_id, data_upload
+            """
+        )
+        for row in cur.fetchall():
+            anexos_por_venda.setdefault(row["venda_id"], []).append(row)
+    finally:
+        cur.close()
+        conn.close()
+    return render_template(
+        "imoveis/vendas/list.html",
+        vendas=vendas,
+        anexos_por_venda=anexos_por_venda,
+    )
+
+
+@app.route("/imoveis/vendas/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Editar")
+def imoveis_vendas_add():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    venda_data = request.form.to_dict() if request.method == "POST" else {}
+    try:
+        if request.method == "POST":
+            imovel_id = parse_int(request.form.get("imovel_id"))
+            cliente_id = parse_int(request.form.get("cliente_id"))
+            if not imovel_id:
+                raise ValueError("Selecione o imóvel a ser vendido.")
+            if not cliente_id:
+                raise ValueError("Selecione o comprador da venda.")
+
+            data_venda = parse_date(request.form.get("data_venda"))
+            if not data_venda:
+                raise ValueError("Informe a data da venda.")
+            data_primeira_parcela = parse_date(
+                request.form.get("data_primeira_parcela")
+            ) or data_venda
+
+            quantidade_parcelas = parse_int(request.form.get("quantidade_parcelas")) or 1
+            if quantidade_parcelas <= 0:
+                raise ValueError("A quantidade de parcelas deve ser maior que zero.")
+
+            valor_total = parse_decimal(request.form.get("valor_total"))
+            if valor_total is None or valor_total <= 0:
+                raise ValueError("Informe o valor total da venda.")
+
+            valor_parcela = parse_decimal(request.form.get("valor_parcela"))
+            if valor_parcela is None:
+                valor_parcela = (valor_total / quantidade_parcelas).quantize(
+                    Decimal("0.01")
+                )
+            else:
+                valor_parcela = valor_parcela.quantize(Decimal("0.01"))
+            if valor_parcela <= 0:
+                raise ValueError("O valor da parcela deve ser maior que zero.")
+
+            observacao = request.form.get("observacao")
+            usuario_id = session.get("user_id")
+
+            cur.execute(
+                "SELECT id, status, disponivel FROM imoveis WHERE id = %s FOR UPDATE",
+                (imovel_id,),
+            )
+            imovel = cur.fetchone()
+            if not imovel:
+                raise ValueError("Imóvel não encontrado.")
+            if imovel["status"] == "Vendido":
+                raise ValueError("Este imóvel já está marcado como vendido.")
+            if imovel["disponivel"] is False:
+                raise ValueError("Imóvel marcado como indisponível para venda.")
+
+            cur.execute(
+                """
+                SELECT 1
+                FROM contratos_aluguel
+                WHERE imovel_id = %s AND status_contrato = 'Ativo'
+                """,
+                (imovel_id,),
+            )
+            if cur.fetchone():
+                raise ValueError("Imóvel possui contrato de aluguel ativo.")
+
+            cur.execute(
+                "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+                ("Venda de Imóvel",),
+            )
+            receita = cur.fetchone()
+            if receita is None:
+                raise ValueError(
+                    "Categoria de receita 'Venda de Imóvel' não encontrada."
+                )
+            receita_id = receita["id"] if isinstance(receita, dict) else receita[0]
+
+            cur.execute(
+                """
+                INSERT INTO imoveis_vendas (
+                    imovel_id,
+                    cliente_id,
+                    usuario_id,
+                    data_venda,
+                    valor_total,
+                    quantidade_parcelas,
+                    valor_parcela,
+                    observacao
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    imovel_id,
+                    cliente_id,
+                    usuario_id,
+                    data_venda,
+                    valor_total,
+                    quantidade_parcelas,
+                    valor_parcela,
+                    observacao,
+                ),
+            )
+            venda_id = cur.fetchone()[0]
+
+            gerar_contas_a_receber_venda(
+                cur,
+                venda_id=venda_id,
+                imovel_id=imovel_id,
+                receita_id=receita_id,
+                cliente_id=cliente_id,
+                quantidade_parcelas=quantidade_parcelas,
+                valor_total=valor_total,
+                valor_parcela=valor_parcela,
+                data_primeira_parcela=data_primeira_parcela,
+                observacao=observacao,
+            )
+
+            cur.execute(
+                "UPDATE imoveis SET status = 'Vendido', disponivel = FALSE WHERE id = %s",
+                (imovel_id,),
+            )
+
+            if "anexos" in request.files:
+                files = request.files.getlist("anexos")
+                base_dir = os.path.join(
+                    app.config["UPLOAD_FOLDER"], "imoveis_vendas_anexos"
+                )
+                os.makedirs(base_dir, exist_ok=True)
+                for file in files:
+                    if file and allowed_file(file.filename):
+                        original_name = secure_filename(file.filename)
+                        stored_name = (
+                            f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{original_name}"
+                        )
+                        filepath = os.path.join(base_dir, stored_name)
+                        try:
+                            file.save(filepath)
+                        except Exception:
+                            if os.path.exists(filepath):
+                                os.remove(filepath)
+                            raise
+                        cur.execute(
+                            """
+                            INSERT INTO imovel_venda_anexos (
+                                venda_id,
+                                nome_arquivo,
+                                caminho_arquivo
+                            ) VALUES (%s, %s, %s)
+                            """,
+                            (venda_id, original_name, filepath),
+                        )
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Venda registrada com sucesso!", "success")
+            return redirect(url_for("imoveis_vendas_list"))
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "danger")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Erro ao registrar venda: {exc}", "danger")
+
+    cur.execute(
+        """
+        SELECT
+            i.id,
+            i.endereco,
+            i.bairro
+        FROM imoveis i
+        WHERE i.status <> 'Vendido'
+          AND COALESCE(i.disponivel, TRUE)
+          AND NOT EXISTS (
+              SELECT 1
+              FROM contratos_aluguel c
+              WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+          )
+        ORDER BY i.endereco
+        """
+    )
+    imoveis_disponiveis = cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT id, razao_social_nome
+        FROM pessoas
+        WHERE tipo IN ('Cliente', 'Cliente/Fornecedor')
+        ORDER BY razao_social_nome
+        """
+    )
+    clientes = cur.fetchall()
+
+    cur.close()
+    conn.close()
+    return render_template(
+        "imoveis/vendas/add.html",
+        venda=venda_data,
+        imoveis_disponiveis=imoveis_disponiveis,
+        clientes=clientes,
+    )
+
+
+@app.route("/imoveis/vendas/anexo/<int:anexo_id>")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def imoveis_vendas_anexo_download(anexo_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT nome_arquivo, caminho_arquivo
+        FROM imovel_venda_anexos
+        WHERE id = %s
+        """,
+        (anexo_id,),
+    )
+    anexo = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if not anexo:
+        flash("Anexo não encontrado.", "danger")
+        return redirect(url_for("imoveis_vendas_list"))
+
+    caminho = anexo["caminho_arquivo"]
+    if not caminho or not os.path.exists(caminho):
+        flash("Arquivo de anexo não está disponível.", "danger")
+        return redirect(url_for("imoveis_vendas_list"))
+
+    diretorio, stored_name = os.path.split(caminho)
+    download_name = anexo["nome_arquivo"] or stored_name
+    return send_from_directory(
+        diretorio,
+        stored_name,
+        as_attachment=True,
+        download_name=download_name,
+    )
 
 
 # --- Avaliações de Imóveis ---
@@ -3848,6 +4293,25 @@ def contratos_imovel_disponibilidade(imovel_id):
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute(
         """
+        SELECT status, COALESCE(disponivel, TRUE) AS disponivel
+        FROM imoveis
+        WHERE id = %s
+        """,
+        (imovel_id,),
+    )
+    imovel = cur.fetchone()
+    if not imovel:
+        cur.close()
+        conn.close()
+        return jsonify({"disponivel": False})
+
+    if imovel["status"] == "Vendido" or not imovel["disponivel"]:
+        cur.close()
+        conn.close()
+        return jsonify({"disponivel": False})
+
+    cur.execute(
+        """
         SELECT id
         FROM contratos_aluguel
         WHERE imovel_id = %s AND status_contrato = 'Ativo'
@@ -4064,12 +4528,119 @@ def gerar_contas_a_receber_contrato(
         )
 
 
+def gerar_contas_a_receber_venda(
+    cur,
+    *,
+    venda_id: int,
+    imovel_id: int,
+    receita_id: int,
+    cliente_id: int,
+    quantidade_parcelas: int,
+    valor_total: Decimal,
+    valor_parcela: Decimal,
+    data_primeira_parcela: date,
+    observacao: str | None = None,
+):
+    """Cria lançamentos em contas a receber referentes a uma venda de imóvel."""
+    if quantidade_parcelas <= 0:
+        raise ValueError("Quantidade de parcelas inválida.")
+    if not isinstance(data_primeira_parcela, date):
+        raise ValueError("Data da primeira parcela inválida.")
+
+    valor_total = Decimal(str(valor_total or 0)).quantize(Decimal("0.01"))
+    valor_parcela = Decimal(str(valor_parcela or 0)).quantize(Decimal("0.01"))
+    if valor_total <= 0:
+        raise ValueError("Valor total da venda deve ser maior que zero.")
+    if valor_parcela <= 0:
+        raise ValueError("Valor da parcela deve ser maior que zero.")
+
+    saldo_restante = valor_total
+    data_vencimento = data_primeira_parcela
+    texto_observacao_base = f"Parcela venda imóvel #{imovel_id}"
+    if observacao:
+        texto_observacao_base = f"{texto_observacao_base} - {observacao}"
+
+    for numero_parcela in range(1, quantidade_parcelas + 1):
+        if numero_parcela == quantidade_parcelas:
+            valor_atual = saldo_restante
+        else:
+            valor_atual = min(valor_parcela, saldo_restante)
+
+        titulo = f"VENDA-{venda_id}-{numero_parcela}/{quantidade_parcelas}"
+        obs = f"{texto_observacao_base} ({numero_parcela}/{quantidade_parcelas})"
+
+        cur.execute(
+            """
+            INSERT INTO contas_a_receber (
+                receita_id,
+                cliente_id,
+                titulo,
+                data_vencimento,
+                valor_previsto,
+                valor_pendente,
+                observacao,
+                status_conta
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'Aberta')
+            """,
+            (
+                receita_id,
+                cliente_id,
+                titulo,
+                data_vencimento,
+                valor_atual,
+                valor_atual,
+                obs,
+            ),
+        )
+
+        saldo_restante -= valor_atual
+        if saldo_restante <= 0:
+            break
+        data_vencimento = add_months(data_vencimento, 1)
+
+    if saldo_restante > 0:
+        raise ValueError("Não foi possível distribuir o valor total pelas parcelas.")
+
+
 @app.route("/contratos/add", methods=["GET", "POST"])
 @login_required
 @permission_required("Gestao Contratos", "Incluir")
 def contratos_add():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    contrato_data = request.form if request.method == "POST" else {}
+
+    def load_form_data():
+        cur.execute(
+            """
+            SELECT id, endereco
+            FROM imoveis
+            WHERE status <> 'Vendido'
+              AND COALESCE(disponivel, TRUE)
+            ORDER BY endereco
+            """
+        )
+        imoveis_local = cur.fetchall()
+        cur.execute(
+            "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
+        )
+        clientes_local = cur.fetchall()
+        return imoveis_local, clientes_local
+
+    def render_form_error(message):
+        conn.rollback()
+        flash(message, "danger")
+        imoveis_local, clientes_local = load_form_data()
+        cur.close()
+        conn.close()
+        return render_template(
+            "contratos/add_list.html",
+            contrato=contrato_data,
+            imoveis=imoveis_local,
+            clientes=clientes_local,
+            anexos=[],
+        )
+
     if request.method == "POST":
         try:
             imovel_id = request.form["imovel_id"]
@@ -4107,6 +4678,18 @@ def contratos_add():
                 valor_parcela = valor_parcela or 0
 
             cur.execute(
+                "SELECT status, COALESCE(disponivel, TRUE) AS disponivel FROM imoveis WHERE id = %s",
+                (imovel_id,),
+            )
+            imovel_info = cur.fetchone()
+            if not imovel_info:
+                return render_form_error("Imóvel selecionado não foi encontrado.")
+            if imovel_info["status"] == "Vendido":
+                return render_form_error("Imóvel já foi vendido. Selecione outro imóvel.")
+            if not imovel_info["disponivel"]:
+                return render_form_error("Imóvel está marcado como indisponível para locação.")
+
+            cur.execute(
                 """
                 SELECT id
                 FROM contratos_aluguel
@@ -4116,25 +4699,8 @@ def contratos_add():
             )
             contrato_ativo = cur.fetchone()
             if contrato_ativo:
-                conn.rollback()
-                flash(
-                    f"Imovel ja possui contrato ativo (#{contrato_ativo['id']}). Selecione outro imovel.",
-                    "danger",
-                )
-                cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
-                imoveis = cur.fetchall()
-                cur.execute(
-                    "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
-                )
-                clientes = cur.fetchall()
-                cur.close()
-                conn.close()
-                return render_template(
-                    "contratos/add_list.html",
-                    contrato=request.form,
-                    imoveis=imoveis,
-                    clientes=clientes,
-                    anexos=[],
+                return render_form_error(
+                    f"Imovel ja possui contrato ativo (#{contrato_ativo['id']}). Selecione outro imovel."
                 )
 
             cur.execute(
@@ -4215,34 +4781,22 @@ def contratos_add():
 
             conn.commit()
             flash("Contrato cadastrado com sucesso!", "success")
+            cur.close()
+            conn.close()
             return redirect(url_for("contratos_list"))
         except Exception as e:
             conn.rollback()
             flash(f"Erro ao cadastrar contrato: {e}", "danger")
-            cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
-            imoveis = cur.fetchall()
-            cur.execute(
-                "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
-            )
-            clientes = cur.fetchall()
-            return render_template(
-                "contratos/add_list.html",
-                contrato=request.form,
-                imoveis=imoveis,
-                clientes=clientes,
-                anexos=[],
-            )
 
-    cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
-    imoveis = cur.fetchall()
-    cur.execute(
-        "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
-    )
-    clientes = cur.fetchall()
+    imoveis, clientes = load_form_data()
     cur.close()
     conn.close()
     return render_template(
-        "contratos/add_list.html", contrato={}, imoveis=imoveis, clientes=clientes, anexos=[]
+        "contratos/add_list.html",
+        contrato=contrato_data if contrato_data else {},
+        imoveis=imoveis,
+        clientes=clientes,
+        anexos=[],
     )
 
 
@@ -4275,6 +4829,18 @@ def contratos_edit(id):
             else:
                 quantidade_parcelas = int(quantidade_parcelas)
                 valor_parcela = valor_parcela or 0
+
+            cur.execute(
+                "SELECT status, COALESCE(disponivel, TRUE) AS disponivel FROM imoveis WHERE id = %s",
+                (imovel_id,),
+            )
+            imovel_info = cur.fetchone()
+            if not imovel_info:
+                raise ValueError("Imóvel selecionado não foi encontrado.")
+            if imovel_info["status"] == "Vendido":
+                raise ValueError("Imóvel já foi vendido. Selecione outro imóvel.")
+            if not imovel_info["disponivel"]:
+                raise ValueError("Imóvel está marcado como indisponível para locação.")
 
             cur.execute(
                 "SELECT razao_social_nome, endereco, bairro, cidade, estado, cep, telefone FROM pessoas WHERE id = %s",
@@ -4403,7 +4969,16 @@ def contratos_edit(id):
     contrato = cur.fetchone()
     cur.execute("SELECT * FROM contrato_anexos WHERE contrato_id = %s", (id,))
     anexos = cur.fetchall()
-    cur.execute("SELECT id, endereco FROM imoveis ORDER BY endereco")
+    cur.execute(
+        """
+        SELECT id, endereco
+        FROM imoveis
+        WHERE status <> 'Vendido'
+           OR id = %s
+        ORDER BY endereco
+        """,
+        (contrato["imovel_id"] if contrato else None,),
+    )
     imoveis = cur.fetchall()
     cur.execute(
         "SELECT * FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
@@ -7513,6 +8088,9 @@ def ordens_pagamento_delete(id):
 @permission_required("Financeiro", "Consultar")
 def caixas_list():
     contas = ContaCaixa.query.all()
+    _, saldos = calcular_saldos_atualizados("caixa", contas)
+    for conta in contas:
+        conta.saldo_calculado = saldos.get(conta.id, Decimal("0"))
     return render_template("financeiro/caixas/list.html", contas=contas)
 
 
@@ -7574,6 +8152,9 @@ def caixas_edit(id):
 @permission_required("Financeiro", "Consultar")
 def bancos_list():
     contas = ContaBanco.query.all()
+    _, saldos = calcular_saldos_atualizados("banco", contas)
+    for conta in contas:
+        conta.saldo_calculado = saldos.get(conta.id, Decimal("0"))
     return render_template("financeiro/bancos/list.html", contas=contas)
 
 
@@ -9514,18 +10095,25 @@ def relatorio_financeiro_caixa_banco():
     conta_id = request.form.get("conta_id")
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
+    conta_id_int = int(conta_id) if conta_id else None
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
 
+    saldo_inicial_conta = Decimal("0")
     if tipo_conta == "caixa":
-        cur.execute("SELECT nome FROM conta_caixa WHERE id = %s", (conta_id,))
+        cur.execute(
+            "SELECT nome, saldo_inicial FROM conta_caixa WHERE id = %s",
+            (conta_id_int,),
+        )
         conta = cur.fetchone()
         conta_nome = conta["nome"] if conta else ""
+        if conta:
+            saldo_inicial_conta = Decimal(conta.get("saldo_inicial") or 0)
     else:
         cur.execute(
-            "SELECT nome_banco, agencia, conta FROM conta_banco WHERE id = %s",
-            (conta_id,),
+            "SELECT nome_banco, agencia, conta, saldo_inicial FROM conta_banco WHERE id = %s",
+            (conta_id_int,),
         )
         conta = cur.fetchone()
         if conta:
@@ -9534,16 +10122,40 @@ def relatorio_financeiro_caixa_banco():
             )
         else:
             conta_nome = ""
+        if conta:
+            saldo_inicial_conta = Decimal(conta.get("saldo_inicial") or 0)
 
     cur.execute(
         """
-        SELECT COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE -valor END),0) AS saldo
+        SELECT
+            COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor ELSE 0 END), 0) AS entradas,
+            COALESCE(SUM(CASE WHEN tipo IN ('saida', 'transferencia') THEN valor ELSE 0 END), 0) AS saidas
         FROM movimento_financeiro
         WHERE conta_origem_tipo = %s AND conta_origem_id = %s AND data_movimento < %s
         """,
-        (tipo_conta, conta_id, data_inicio),
+        (tipo_conta, conta_id_int, data_inicio),
     )
-    saldo_inicial = cur.fetchone()["saldo"]
+    saldos_anteriores = cur.fetchone() or {"entradas": 0, "saidas": 0}
+    entradas_anteriores = Decimal(saldos_anteriores.get("entradas") or 0)
+    saidas_anteriores = Decimal(saldos_anteriores.get("saidas") or 0)
+
+    cur.execute(
+        """
+        SELECT COALESCE(SUM(valor), 0) AS entradas
+        FROM movimento_financeiro
+        WHERE tipo = 'transferencia'
+          AND conta_destino_tipo = %s AND conta_destino_id = %s
+          AND data_movimento < %s
+        """,
+        (tipo_conta, conta_id_int, data_inicio),
+    )
+    transferencias_entrada_previas = cur.fetchone() or {"entradas": 0}
+    entradas_transferidas_previas = Decimal(
+        transferencias_entrada_previas.get("entradas") or 0
+    )
+    saldo_inicial = (
+        saldo_inicial_conta + entradas_anteriores + entradas_transferidas_previas - saidas_anteriores
+    )
 
     cur.execute(
         """
@@ -9553,26 +10165,68 @@ def relatorio_financeiro_caixa_banco():
           AND data_movimento BETWEEN %s AND %s
         ORDER BY data_movimento ASC, id ASC
         """,
-        (tipo_conta, conta_id, data_inicio, data_fim),
+        (tipo_conta, conta_id_int, data_inicio, data_fim),
     )
-    movimentos = cur.fetchall()
+    movimentos_origem = cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT id, data_movimento, historico, valor
+        FROM movimento_financeiro
+        WHERE tipo = 'transferencia'
+          AND conta_destino_tipo = %s AND conta_destino_id = %s
+          AND data_movimento BETWEEN %s AND %s
+        """,
+        (tipo_conta, conta_id_int, data_inicio, data_fim),
+    )
+    movimentos_destino = cur.fetchall()
     cur.close()
     conn.close()
 
     entradas = Decimal("0")
     saidas = Decimal("0")
-    saldo = Decimal(saldo_inicial)
+    saldo = saldo_inicial
     linhas = []
-    for m in movimentos:
-        entrada = m["valor"] if m["tipo"] == "entrada" else Decimal("0")
-        saida = m["valor"] if m["tipo"] == "saida" else Decimal("0")
+    movimentos_combinados = []
+    for m in movimentos_origem:
+        valor = Decimal(m["valor"] or 0)
+        entrada = valor if m["tipo"] == "entrada" else Decimal("0")
+        saida = valor if m["tipo"] in ("saida", "transferencia") else Decimal("0")
+        movimentos_combinados.append(
+            {
+                "id": m["id"],
+                "data": m["data_movimento"],
+                "historico": m["historico"],
+                "entrada": entrada,
+                "saida": saida,
+                "ordem": 0,
+            }
+        )
+    for m in movimentos_destino:
+        valor = Decimal(m["valor"] or 0)
+        movimentos_combinados.append(
+            {
+                "id": m["id"],
+                "data": m["data_movimento"],
+                "historico": m["historico"],
+                "entrada": valor,
+                "saida": Decimal("0"),
+                "ordem": 1,
+            }
+        )
+
+    movimentos_combinados.sort(key=lambda item: (item["data"], item["id"], item["ordem"]))
+
+    for movimento in movimentos_combinados:
+        entrada = movimento["entrada"]
+        saida = movimento["saida"]
         entradas += entrada
         saidas += saida
         saldo += entrada - saida
         linhas.append(
             {
-                "data": m["data_movimento"],
-                "historico": m["historico"],
+                "data": movimento["data"],
+                "historico": movimento["historico"],
                 "entrada": entrada,
                 "saida": saida,
                 "saldo": saldo,
@@ -9590,6 +10244,9 @@ def relatorio_financeiro_caixa_banco():
             conta = getattr(self, "conta", "")
             if conta:
                 self.cell(0, 10, conta, 0, 1, "L")
+            saldo_txt = getattr(self, "saldo_inicial_txt", "")
+            if saldo_txt:
+                self.cell(0, 10, saldo_txt, 0, 1, "L")
             self.ln(5)
 
         def footer(self):
@@ -9638,6 +10295,7 @@ def relatorio_financeiro_caixa_banco():
     pdf = PDF()
     pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
     pdf.conta = conta_nome
+    pdf.saldo_inicial_txt = f"Saldo inicial do período: {format_currency(saldo_inicial)}"
     pdf.alias_nb_pages()
     pdf.add_page()
 

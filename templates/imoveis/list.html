@@ -32,10 +32,12 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cidade/Estado</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">IPTU</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Aluguel Previsto</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Disponível</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
                 <tr>
+                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
@@ -55,7 +57,12 @@
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.cidade }}/{{ imovel.estado }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.inscricao_iptu | default('N/A') }}</td>
                     <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f" | format(imovel.valor_previsto_aluguel | default(0.00)) }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ 'Não' if imovel.contrato_ativo else 'Sim' }}</td>
+                    {% set status_val = imovel.status or 'Ativo' %}
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ status_val }}</td>
+                    {% set disponivel = imovel.disponivel_para_locacao if imovel.disponivel_para_locacao is not none else (not imovel.contrato_ativo) %}
+                    <td class="py-3 px-4 text-sm {% if disponivel %}text-green-600{% else %}text-red-600{% endif %} font-semibold">
+                        {{ 'Sim' if disponivel else 'Não' }}
+                    </td>
                     <td class="py-3 px-4 text-sm">
                         <button type="button" class="text-green-600 hover:text-green-800 mr-3 view-photos-btn" data-id="{{ imovel.id }}" title="Ver Fotos">
                             <i class="fas fa-images"></i>

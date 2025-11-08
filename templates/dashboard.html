@@ -91,7 +91,7 @@
             <div class="dashboard-card-header">
                 <i class="fas fa-wallet"></i> Financeiro
             </div>
-            <p class="text-3xl font-bold text-dark-blue">{{ '{:.2f}'.format(saldo_total) }}</p>
+            <p class="text-3xl font-bold text-dark-blue">{{ saldo_total | currency }}</p>
             <p class="text-sm text-gray-700">Conciliações pendentes: {{ conciliacoes_pendentes }}</p>
             {% if alertas_saldo_negativo > 0 %}
             <p class="text-sm text-red-600">Contas com saldo negativo: {{ alertas_saldo_negativo }}</p>

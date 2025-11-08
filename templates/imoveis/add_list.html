@@ -23,6 +23,15 @@
                     <option value="Terreno" {% if imovel.tipo_imovel == 'Terreno' %}selected{% endif %}>Terreno</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label for="status" class="form-label">Status</label>
+                {% set status_val = imovel.status if imovel and imovel.status else 'Ativo' %}
+                <select id="status" name="status" class="form-select" disabled>
+                    <option value="Ativo" {% if status_val == 'Ativo' %}selected{% endif %}>Ativo</option>
+                    <option value="Vendido" {% if status_val == 'Vendido' %}selected{% endif %}>Vendido</option>
+                </select>
+                <small class="text-xs text-gray-500">Campo atualizado automaticamente ao confirmar a venda.</small>
+            </div>
             <div class="form-group md:col-span-2">
                 <label for="endereco" class="form-label">Endereço:</label>
                 <input type="text" id="endereco" name="endereco" class="form-input" value="{{ imovel.endereco | default('') }}" required>

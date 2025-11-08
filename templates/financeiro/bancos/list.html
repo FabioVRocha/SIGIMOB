@@ -52,7 +52,7 @@
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.nome_banco }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.agencia }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.conta }}</td>
-                <td class="py-3 px-4 text-sm text-gray-700">{{ (b.saldo_atual or 0) | currency }}</td>
+                <td class="py-3 px-4 text-sm text-gray-700">{{ (b.saldo_calculado or 0) | currency }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.contrato }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.juros_mora }}</td>
                 <td class="py-3 px-4 text-sm text-gray-700">{{ b.multa }}</td>
