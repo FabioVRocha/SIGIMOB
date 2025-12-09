@@ -55,8 +55,31 @@
             <div class="dashboard-card-header">
                 <i class="fas fa-tasks"></i> Tarefas Pendentes
             </div>
-            <div class="text-sm text-gray-700 space-y-3">
+            <div class="text-sm text-gray-700 space-y-3 flex-1 overflow-y-auto">
+                {% if prestacoes_pendentes %}
+                <ul class="space-y-3">
+                    {% for prestacao in prestacoes_pendentes %}
+                    <li class="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div class="flex justify-between gap-3">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800">
+                                    Contrato #{{ prestacao.contrato_id }}{% if prestacao.nome_inquilino %} - {{ prestacao.nome_inquilino }}{% endif %}
+                                </p>
+                                <p class="text-xs text-gray-600">
+                                    Encerramento: {{ prestacao.data_encerramento.strftime('%d/%m/%Y') if prestacao.data_encerramento else 'Data não informada' }}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm font-semibold text-dark-blue">{{ prestacao.saldo_final | currency }}</p>
+                                <a href="{{ url_for('contratos_prestacoes_list', contrato_id=prestacao.contrato_id) }}" class="text-xs text-blue-600 hover:text-blue-800">Abrir</a>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
                 <p class="text-gray-600">Sem tarefas pendentes no momento.</p>
+                {% endif %}
             </div>
         </div>
 

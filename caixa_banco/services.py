@@ -1,7 +1,7 @@
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 from io import StringIO
-from sqlalchemy import text
+from sqlalchemy import text, func, case
 from .models import db, ContaCaixa, ContaBanco, MovimentoFinanceiro, Conciliacao, PosicaoDiaria
 
 
@@ -262,3 +262,59 @@ def recalcular_posicoes(data_inicio=None):
 
     db.session.commit()
     return total
+
+
+def calcular_saldos_atualizados(tipo, contas=None):
+    """
+    Retorna (contas, saldos) onde saldos aplica a regra:
+    saldo = saldo_inicial + entradas - saídas.
+    Transferências debitam a origem e creditam o destino.
+    """
+    if tipo not in ("caixa", "banco"):
+        raise ValueError("Tipo de conta inválido para cálculo de saldo.")
+
+    model = ContaCaixa if tipo == "caixa" else ContaBanco
+    contas = contas or model.query.all()
+    conta_ids = [c.id for c in contas]
+    saldos = {c.id: Decimal(c.saldo_inicial or 0) for c in contas}
+    if not conta_ids:
+        return contas, saldos
+
+    movimento_delta = case(
+        (MovimentoFinanceiro.tipo == "entrada", MovimentoFinanceiro.valor),
+        (MovimentoFinanceiro.tipo == "saida", -MovimentoFinanceiro.valor),
+        (MovimentoFinanceiro.tipo == "transferencia", -MovimentoFinanceiro.valor),
+        else_=0,
+    )
+    variacoes_origem = (
+        db.session.query(
+            MovimentoFinanceiro.conta_origem_id,
+            func.coalesce(func.sum(movimento_delta), 0),
+        )
+        .filter(
+            MovimentoFinanceiro.conta_origem_tipo == tipo,
+            MovimentoFinanceiro.conta_origem_id.in_(conta_ids),
+        )
+        .group_by(MovimentoFinanceiro.conta_origem_id)
+        .all()
+    )
+    for conta_id, total in variacoes_origem:
+        saldos[conta_id] += Decimal(total or 0)
+
+    transferencias_destino = (
+        db.session.query(
+            MovimentoFinanceiro.conta_destino_id,
+            func.coalesce(func.sum(MovimentoFinanceiro.valor), 0),
+        )
+        .filter(
+            MovimentoFinanceiro.tipo == "transferencia",
+            MovimentoFinanceiro.conta_destino_tipo == tipo,
+            MovimentoFinanceiro.conta_destino_id.in_(conta_ids),
+        )
+        .group_by(MovimentoFinanceiro.conta_destino_id)
+        .all()
+    )
+    for conta_id, total in transferencias_destino:
+        saldos[conta_id] += Decimal(total or 0)
+
+    return contas, saldos

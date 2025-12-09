@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from datetime import date
 from .models import db, ContaCaixa, ContaBanco, MovimentoFinanceiro
-from .services import criar_movimento, importar_cnab, recalcular_posicoes
+from .services import criar_movimento, importar_cnab, recalcular_posicoes, calcular_saldos_atualizados
 
 bp = Blueprint('caixa_banco_api', __name__)
 
@@ -9,12 +9,13 @@ bp = Blueprint('caixa_banco_api', __name__)
 @bp.get('/caixas')
 def listar_caixas():
     contas = ContaCaixa.query.all()
+    _, saldos = calcular_saldos_atualizados('caixa', contas)
     return jsonify([
         {
             'id': c.id,
             'nome': c.nome,
             'moeda': c.moeda,
-            'saldo_atual': float(c.saldo_atual or 0),
+            'saldo_atual': float(saldos.get(c.id, 0)),
             'data_saldo_inicial': c.data_saldo_inicial.isoformat() if c.data_saldo_inicial else None
         } for c in contas
     ])
@@ -41,6 +42,7 @@ def criar_caixa():
 @bp.get('/bancos')
 def listar_bancos():
     contas = ContaBanco.query.all()
+    _, saldos = calcular_saldos_atualizados('banco', contas)
     return jsonify([
         {
             'id': c.id,
@@ -57,7 +59,7 @@ def listar_bancos():
             'multa': float(c.multa or 0) if c.multa is not None else None,
             'dias_protesto': c.dias_protesto,
             'especie_documento': c.especie_documento,
-            'saldo_atual': float(c.saldo_atual or 0),
+            'saldo_atual': float(saldos.get(c.id, 0)),
             'data_saldo_inicial': c.data_saldo_inicial.isoformat() if c.data_saldo_inicial else None
         } for c in contas
     ])

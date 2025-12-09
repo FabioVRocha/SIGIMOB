@@ -1682,7 +1682,8 @@ def atualizar_status_contas_a_pagar(cur):
                 WHEN cp.data_pagamento IS NOT NULL THEN 'Paga'::status_conta_enum
                 WHEN cp.data_vencimento < CURRENT_DATE THEN 'Vencida'::status_conta_enum
                 ELSE 'Aberta'::status_conta_enum
-           END
+           END,
+               valor_pendente = GREATEST(cp.valor_previsto - COALESCE(cp.valor_pago, 0), 0)
         """
     )
 
@@ -2245,6 +2246,37 @@ def ensure_pessoas_responsavel_columns():
 ensure_pessoas_responsavel_columns()
 
 
+def ensure_contas_a_pagar_columns():
+    """Guarantee contas_a_pagar exposes valor_pendente and is backfilled."""
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        ensure_column_exists(
+            cur,
+            "contas_a_pagar",
+            "valor_pendente",
+            "NUMERIC(10,2) DEFAULT 0",
+        )
+        cur.execute(
+            """
+            UPDATE contas_a_pagar
+               SET valor_pendente = GREATEST(valor_previsto - COALESCE(valor_pago, 0), 0)
+            """
+        )
+        conn.commit()
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+ensure_contas_a_pagar_columns()
+
+
 def ensure_prestacao_enum_credito_extra(conn):
     """Ensure the enum prestacao_item_tipo includes required values for prestacao de contas."""
     with conn.cursor() as cur:
@@ -2588,7 +2620,7 @@ def index():
 @login_required
 def dashboard():
     conn = get_db_connection()
-    cur = conn.cursor()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     atualizar_status_contas_a_receber(cur)
     atualizar_status_contas_a_pagar(cur)
     conn.commit()
@@ -2649,6 +2681,42 @@ def dashboard():
                 "localizacao": localizacao.strip(),
             }
         )
+    cur.execute(
+        """
+        SELECT pc.id,
+               pc.contrato_id,
+               pc.data_encerramento,
+               pc.saldo_final,
+               pc.status,
+               pc.conta_pagar_id,
+               pc.conta_receber_id,
+               c.nome_inquilino
+          FROM prestacoes_contas pc
+          JOIN contratos_aluguel c ON c.id = pc.contrato_id
+         ORDER BY pc.data_encerramento ASC NULLS LAST, pc.id DESC
+        """
+    )
+    prestacoes_pendentes = []
+    for row in cur.fetchall():
+        status_prestacao = row["status"]
+        if not status_prestacao:
+            if row["conta_pagar_id"] or row["conta_receber_id"]:
+                status_prestacao = "Aprovada"
+            else:
+                status_prestacao = "Pendente"
+        if status_prestacao != "Pendente":
+            continue
+        prestacoes_pendentes.append(
+            {
+                "id": row["id"],
+                "contrato_id": row["contrato_id"],
+                "data_encerramento": row["data_encerramento"],
+                "saldo_final": row["saldo_final"],
+                "nome_inquilino": row["nome_inquilino"],
+            }
+        )
+        if len(prestacoes_pendentes) >= 6:
+            break
     cur.close()
     conn.close()
     meses_labels = [
@@ -2693,6 +2761,7 @@ def dashboard():
         alertas_saldo_negativo=alertas_saldo_negativo,
         conciliacoes_pendentes=conciliacoes_pendentes,
         avisos_contratos=avisos_contratos,
+        prestacoes_pendentes=prestacoes_pendentes,
     )
 
 
@@ -6141,6 +6210,127 @@ def contas_a_receber_edit(id):
         receitas=receitas,
         clientes=clientes,
         origens=origens,
+    )
+
+
+@app.route("/contas-a-receber/ajustar-vencimentos", methods=["GET", "POST"])
+@login_required
+@permission_required("Financeiro", "Editar")
+def contas_a_receber_ajustar_vencimentos():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    atualizar_status_contas_a_receber(cur)
+    conn.commit()
+
+    def carregar_titulos(cliente_id):
+        cur.execute(
+            """
+            SELECT cr.id, cr.titulo, cr.data_vencimento, cr.valor_previsto, cr.valor_pendente,
+                   cr.status_conta, cr.receita_id, r.descricao AS receita, p.razao_social_nome AS cliente
+            FROM contas_a_receber cr
+            JOIN pessoas p ON cr.cliente_id = p.id
+            LEFT JOIN receitas_cadastro r ON cr.receita_id = r.id
+            WHERE cr.cliente_id = %s
+              AND cr.status_conta IN ('Aberta','Vencida','Parcial')
+            ORDER BY cr.data_vencimento ASC, cr.id ASC
+            """,
+            (cliente_id,),
+        )
+        return cur.fetchall()
+
+    titulos = []
+    cliente = None
+    cliente_id_raw = (
+        request.form.get("cliente_id")
+        if request.method == "POST"
+        else request.args.get("cliente_id")
+    )
+    cliente_id = None
+    if not cliente_id_raw:
+        cur.close()
+        conn.close()
+        flash(
+            "Escolha um cliente na lista de Contas a Receber antes de ajustar vencimentos.",
+            "warning",
+        )
+        return redirect(url_for("contas_a_receber_list"))
+    try:
+        cliente_id = int(cliente_id_raw)
+    except (TypeError, ValueError):
+        cliente_id = None
+    else:
+        cur.execute(
+            "SELECT id, razao_social_nome FROM pessoas WHERE id = %s",
+            (cliente_id,),
+        )
+        cliente = cur.fetchone()
+    if not cliente:
+        cur.close()
+        conn.close()
+        flash("Cliente nao encontrado.", "warning")
+        return redirect(url_for("contas_a_receber_list"))
+
+    if request.method == "POST":
+        titulos = carregar_titulos(cliente["id"])
+        if not titulos:
+            cur.close()
+            conn.close()
+            flash("Nenhum titulo em aberto para o cliente escolhido.", "info")
+            return redirect(
+                url_for(
+                    "contas_a_receber_ajustar_vencimentos", cliente_id=cliente["id"]
+                )
+            )
+        erros = []
+        atualizacoes = []
+        for titulo in titulos:
+            campo = f"vencimento_{titulo['id']}"
+            novo_vencimento = request.form.get(campo)
+            if not novo_vencimento:
+                continue
+            try:
+                nova_data = datetime.strptime(novo_vencimento, "%Y-%m-%d").date()
+            except ValueError:
+                erros.append(titulo["id"])
+                continue
+            data_atual = titulo["data_vencimento"]
+            if data_atual != nova_data:
+                atualizacoes.append((nova_data, titulo["id"]))
+        if erros:
+            conn.rollback()
+            flash(
+                f"Datas invalidas para os titulos: {', '.join(str(e) for e in erros)}.",
+                "danger",
+            )
+        elif atualizacoes:
+            try:
+                for nova_data, titulo_id in atualizacoes:
+                    cur.execute(
+                        "UPDATE contas_a_receber SET data_vencimento=%s WHERE id=%s",
+                        (nova_data, titulo_id),
+                    )
+                atualizar_status_contas_a_receber(cur)
+                conn.commit()
+                flash(
+                    f"Vencimentos atualizados para {len(atualizacoes)} titulo(s).",
+                    "success",
+                )
+            except Exception as e:
+                conn.rollback()
+                flash(f"Erro ao atualizar vencimentos: {e}", "danger")
+        else:
+            flash("Nenhuma alteracao de vencimento para salvar.", "info")
+        titulos = carregar_titulos(cliente["id"])
+    elif cliente:
+        titulos = carregar_titulos(cliente["id"])
+
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/contas_a_receber/ajustar_vencimentos.html",
+        cliente=cliente,
+        titulos=titulos,
+        cliente_id=cliente_id,
     )
 
 

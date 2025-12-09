@@ -10,6 +10,9 @@
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-semibold text-dark-blue">Lista de Contas a Receber</h2>
         <div class="flex items-center space-x-2">
+            <button type="button" class="btn-secondary flex items-center" onclick="openAjusteModal()">
+                <i class="fas fa-calendar-alt mr-2"></i> Ajustar vencimentos
+            </button>
             <button type="button" class="btn-secondary flex items-center" onclick="openFiltroModal()">
                 <i class="fas fa-filter mr-2"></i> Filtros
             </button>
@@ -306,6 +309,30 @@
     </div>
 </div>
 
+<div id="ajuste-modal" class="modal" style="display:none;">
+    <div class="modal-content max-w-xl">
+        <span class="close-button" onclick="closeAjusteModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Escolher cliente</h2>
+        <div class="form-group mb-4">
+            <label for="ajuste-busca" class="form-label">Buscar cliente</label>
+            <input type="text" id="ajuste-busca" class="form-input" placeholder="Digite para filtrar" oninput="filtrarClientesAjuste()">
+        </div>
+        <div class="form-group mb-4">
+            <label for="ajuste-cliente" class="form-label">Cliente</label>
+            <select id="ajuste-cliente" class="form-input" size="8">
+                {% for c in clientes %}
+                <option value="{{ c.id }}">{{ c.razao_social_nome }}</option>
+                {% endfor %}
+            </select>
+            <p id="ajuste-feedback" class="text-xs text-red-600 mt-2" style="display:none;"></p>
+        </div>
+        <div class="flex justify-end space-x-3">
+            <button type="button" class="btn-secondary" onclick="closeAjusteModal()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="selecionarClienteAjuste()">Selecionar</button>
+        </div>
+    </div>
+</div>
+
 </div>
 {% endblock %}
 
@@ -387,6 +414,56 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     inputs.forEach(input => input.addEventListener('input', filterTable));
 });
+
+// Ajuste de vencimentos - seleção de cliente
+function openAjusteModal(){
+    const modal = document.getElementById('ajuste-modal');
+    const busca = document.getElementById('ajuste-busca');
+    const select = document.getElementById('ajuste-cliente');
+    const feedback = document.getElementById('ajuste-feedback');
+    if(!modal || !busca || !select){ return; }
+    busca.value = '';
+    feedback.style.display = 'none';
+    Array.from(select.options).forEach(opt => opt.style.display = 'block');
+    select.selectedIndex = select.options.length ? 0 : -1;
+    modal.style.display = 'flex';
+    busca.focus();
+}
+function closeAjusteModal(){
+    const modal = document.getElementById('ajuste-modal');
+    if(modal){ modal.style.display = 'none'; }
+}
+function filtrarClientesAjuste(){
+    const termo = (document.getElementById('ajuste-busca').value || '').toLowerCase();
+    const select = document.getElementById('ajuste-cliente');
+    if(!select){ return; }
+    let firstVisible = null;
+    Array.from(select.options).forEach(opt => {
+        const match = opt.text.toLowerCase().includes(termo);
+        opt.style.display = match ? 'block' : 'none';
+        if(match && firstVisible === null){
+            firstVisible = opt;
+        }
+    });
+    if(firstVisible){
+        firstVisible.selected = true;
+    }
+}
+function selecionarClienteAjuste(){
+    const select = document.getElementById('ajuste-cliente');
+    const feedback = document.getElementById('ajuste-feedback');
+    if(!select){ return; }
+    const option = Array.from(select.options).find(opt => opt.selected && opt.style.display !== 'none');
+    if(!option){
+        if(feedback){
+            feedback.textContent = 'Escolha um cliente para continuar.';
+            feedback.style.display = 'block';
+        }
+        return;
+    }
+    const id = option.value;
+    window.location.href = "{{ url_for('contas_a_receber_ajustar_vencimentos') }}?cliente_id=" + encodeURIComponent(id);
+}
 </script>
 {% endblock %}
 

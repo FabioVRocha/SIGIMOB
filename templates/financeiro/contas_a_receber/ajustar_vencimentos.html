@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block title %}Ajustar vencimentos{% endblock %}
+{% block page_title %}Ajuste de vencimentos{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-2xl font-semibold text-dark-blue">Alterar vencimentos em lote</h2>
+            <p class="text-sm text-gray-600 mt-1">Sugira novas datas para os titulos em aberto e salve apenas quando estiver tudo certo.</p>
+        </div>
+        <a href="{{ url_for('contas_a_receber_list') }}" class="btn-secondary">Voltar</a>
+    </div>
+    {% if cliente %}
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+        <div>
+            <p class="text-sm text-gray-700">Cliente selecionado</p>
+            <p class="text-lg font-semibold text-dark-blue">{{ cliente.razao_social_nome }}</p>
+            <p class="text-sm text-gray-600 mt-1">Titulos em aberto: {{ titulos|length }}</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <div class="form-group mb-0">
+                <label for="dia-replicar" class="form-label">Replicar dia do vencimento</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" min="1" max="31" id="dia-replicar" class="form-input w-24" placeholder="15">
+                    <button type="button" class="btn-secondary" onclick="aplicarDiaTodos()">Aplicar em todos</button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1" id="replicar-feedback">Escolha um dia e aplique para todos os titulos listados.</p>
+            </div>
+            <div class="self-center sm:self-end bg-indigo-50 text-indigo-800 px-4 py-2 rounded-md text-sm font-semibold" id="alteracoes-count">
+                Nenhuma alteracao pendente
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if cliente and titulos %}
+    <form method="POST" action="{{ url_for('contas_a_receber_ajustar_vencimentos') }}" class="space-y-4">
+        <input type="hidden" name="cliente_id" value="{{ cliente.id }}">
+        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+            <table class="min-w-full bg-white">
+                <thead class="bg-gray-100 text-gray-700">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">ID</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">Titulo</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">Receita</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">Vencimento atual</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">Novo vencimento</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">Valor</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">Status</th>
+                        <th class="px-4 py-3 text-left text-sm font-semibold">Mudanca</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for t in titulos %}
+                    {% set venc_iso = t.data_vencimento.strftime('%Y-%m-%d') %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ t.id }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ t.titulo or '' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ t.receita or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ t.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-700">
+                            <input
+                                type="date"
+                                name="vencimento_{{ t.id }}"
+                                class="form-input vencimento-input"
+                                value="{{ venc_iso }}"
+                                data-original="{{ venc_iso }}"
+                                data-base="{{ venc_iso }}"
+                                required
+                            >
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-700">{{ t.valor_previsto | currency }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-700">{{ t.status_conta }}</span>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="text-yellow-700 font-semibold change-badge"></span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="flex justify-end">
+            <button type="submit" class="btn-primary flex items-center">
+                <i class="fas fa-save mr-2"></i>Salvar alteracoes
+            </button>
+        </div>
+    </form>
+    {% elif cliente %}
+    <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4">
+        Nenhum titulo em aberto encontrado para o cliente selecionado.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function aplicarDiaTodos(){
+    const diaInput = document.getElementById('dia-replicar');
+    const feedbackEl = document.getElementById('replicar-feedback');
+    const dia = parseInt(diaInput.value, 10);
+    if(!dia || dia < 1 || dia > 31){
+        feedbackEl.textContent = 'Informe um dia entre 1 e 31.';
+        feedbackEl.classList.remove('text-gray-500');
+        feedbackEl.classList.add('text-red-600');
+        return;
+    }
+    feedbackEl.textContent = 'Aplicado para todos os titulos listados.';
+    feedbackEl.classList.remove('text-red-600');
+    feedbackEl.classList.add('text-gray-500');
+    document.querySelectorAll('.vencimento-input').forEach(input => {
+        const base = input.value || input.dataset.base || input.dataset.original;
+        if(!base){ return; }
+        const partes = base.split('-');
+        if(partes.length !== 3){ return; }
+        const ano = partes[0];
+        const mes = partes[1];
+        const ultimoDia = new Date(parseInt(ano, 10), parseInt(mes, 10), 0).getDate();
+        const diaFinal = Math.min(dia, ultimoDia);
+        const novoValor = `${ano}-${mes}-${String(diaFinal).padStart(2, '0')}`;
+        input.value = novoValor;
+        marcarAlteracao(input);
+    });
+}
+
+function marcarAlteracao(input){
+    const original = input.dataset.original;
+    const row = input.closest('tr');
+    const badge = row ? row.querySelector('.change-badge') : null;
+    const alterado = Boolean(original && input.value !== original);
+    if(row){
+        row.classList.toggle('bg-yellow-50', alterado);
+    }
+    if(badge){
+        badge.textContent = alterado ? 'Alterado' : '';
+    }
+    atualizarResumo();
+}
+
+function atualizarResumo(){
+    const alterados = Array.from(document.querySelectorAll('.vencimento-input')).filter(el => el.dataset.original && el.value !== el.dataset.original).length;
+    const label = document.getElementById('alteracoes-count');
+    if(!label){ return; }
+    if(alterados > 0){
+        label.textContent = `${alterados} alteracao(oes) pendente(s)`;
+        label.classList.remove('bg-indigo-50', 'text-indigo-800');
+        label.classList.add('bg-yellow-50', 'text-yellow-800');
+    } else {
+        label.textContent = 'Nenhuma alteracao pendente';
+        label.classList.remove('bg-yellow-50', 'text-yellow-800');
+        label.classList.add('bg-indigo-50', 'text-indigo-800');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.vencimento-input').forEach(input => {
+        input.addEventListener('change', () => marcarAlteracao(input));
+        input.addEventListener('input', () => marcarAlteracao(input));
+    });
+    atualizarResumo();
+});
+</script>
+{% endblock %}

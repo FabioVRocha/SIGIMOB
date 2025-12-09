@@ -158,6 +158,7 @@
     <div class="modal-content">
         <span class="close-button" onclick="closeImovelModal()">&times;</span>
         <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
+        <input type="text" id="imovel-search" class="form-input mb-4" placeholder="Digite para filtrar por ID, endereço ou bairro">
         <div class="overflow-y-auto" style="max-height:400px;">
             <table class="min-w-full bg-white rounded-lg overflow-hidden">
                 <thead class="bg-gray-200">
@@ -169,7 +170,7 @@
                 </thead>
                 <tbody>
                     {% for imovel in imoveis %}
-                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <tr class="border-b border-gray-200 hover:bg-gray-50" data-search="{{ imovel.id }} {{ imovel.endereco | default('') }} {{ imovel.bairro | default('') }}">
                         <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.id }}</td>
                         <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
                         <td class="py-2 px-3 text-right">
@@ -187,6 +188,7 @@
     <div class="modal-content">
         <span class="close-button" onclick="closeClienteModal()">&times;</span>
         <h2 class="text-lg font-semibold mb-4">Selecionar Cliente</h2>
+        <input type="text" id="cliente-search" class="form-input mb-4" placeholder="Digite para filtrar por ID ou nome">
         <div class="overflow-y-auto" style="max-height:400px;">
             <table class="min-w-full bg-white rounded-lg overflow-hidden">
                 <thead class="bg-gray-200">
@@ -198,7 +200,7 @@
                 </thead>
                 <tbody>
                     {% for cli in clientes %}
-                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <tr class="border-b border-gray-200 hover:bg-gray-50" data-search="{{ cli.id }} {{ cli.razao_social_nome | default('') }}">
                         <td class="py-2 px-3 text-sm text-gray-700">{{ cli.id }}</td>
                         <td class="py-2 px-3 text-sm text-gray-700">{{ cli.razao_social_nome }}</td>
                         <td class="py-2 px-3 text-right">
@@ -253,8 +255,34 @@ function toggleCamposPorFinalidade() {
     });
 }
 
+function filterImovelTable() {
+    const searchInput = document.getElementById('imovel-search');
+    if (!searchInput) return;
+    const term = searchInput.value.toLowerCase().trim();
+    document.querySelectorAll('#imovel-modal tbody tr').forEach(row => {
+        const text = (row.dataset.search || row.textContent || '').toLowerCase();
+        row.style.display = term ? (text.includes(term) ? '' : 'none') : '';
+    });
+}
+
+function filterClienteTable() {
+    const searchInput = document.getElementById('cliente-search');
+    if (!searchInput) return;
+    const term = searchInput.value.toLowerCase().trim();
+    document.querySelectorAll('#cliente-modal tbody tr').forEach(row => {
+        const text = (row.dataset.search || row.textContent || '').toLowerCase();
+        row.style.display = term ? (text.includes(term) ? '' : 'none') : '';
+    });
+}
+
 function openImovelModal(){
     document.getElementById('imovel-modal').style.display = 'flex';
+    const searchInput = document.getElementById('imovel-search');
+    if (searchInput) {
+        searchInput.value = '';
+        filterImovelTable();
+        setTimeout(() => searchInput.focus(), 50);
+    }
 }
 function closeImovelModal(){
     document.getElementById('imovel-modal').style.display = 'none';
@@ -283,6 +311,12 @@ async function selectImovel(id, texto){
 
 function openClienteModal(){
     document.getElementById('cliente-modal').style.display = 'flex';
+    const searchInput = document.getElementById('cliente-search');
+    if (searchInput) {
+        searchInput.value = '';
+        filterClienteTable();
+        setTimeout(() => searchInput.focus(), 50);
+    }
 }
 function closeClienteModal(){
     document.getElementById('cliente-modal').style.display = 'none';
@@ -340,6 +374,26 @@ document.addEventListener('DOMContentLoaded', () => {
             selectImovel(btn.dataset.id, btn.dataset.text);
         });
     });
+    const imovelSearchInput = document.getElementById('imovel-search');
+    if (imovelSearchInput) {
+        imovelSearchInput.addEventListener('input', filterImovelTable);
+        imovelSearchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                imovelSearchInput.value = '';
+                filterImovelTable();
+            }
+        });
+    }
+    const clienteSearchInput = document.getElementById('cliente-search');
+    if (clienteSearchInput) {
+        clienteSearchInput.addEventListener('input', filterClienteTable);
+        clienteSearchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                clienteSearchInput.value = '';
+                filterClienteTable();
+            }
+        });
+    }
     document.querySelectorAll('.select-cliente-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             selectCliente(btn);
@@ -374,4 +428,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
-
