@@ -11,7 +11,7 @@
 
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{% if usuario.id %}{{ url_for('usuarios_edit', id=usuario.id) }}{% else %}{{ url_for('usuarios_add') }}{% endif %}" method="POST">
+    <form action="{% if usuario.id %}{{ url_for('usuarios_edit', id=usuario.id) }}{% else %}{{ url_for('usuarios_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="form-group">
                 <label for="username" class="form-label">Usuário:</label>
@@ -34,6 +34,22 @@
                     <option value="Ativo" {% if usuario.status == 'Ativo' %}selected{% endif %}>Ativo</option>
                     <option value="Inativo" {% if usuario.status == 'Inativo' %}selected{% endif %}>Inativo</option>
                 </select>
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="foto_perfil" class="form-label">Foto do Usuário:</label>
+                <div class="flex items-center gap-4">
+                    <div class="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-xl">
+                        {% if usuario.foto_perfil %}
+                            <img src="{{ url_for('uploaded_file', filename=usuario.foto_perfil) }}" alt="Foto atual do usuário" class="w-full h-full object-cover">
+                        {% else %}
+                            <span>Foto</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex-1">
+                        <input type="file" id="foto_perfil" name="foto_perfil" accept="image/*" class="form-input">
+                        <p class="text-sm text-gray-600 mt-1">Formatos suportados: PNG, JPG, JPEG ou GIF.</p>
+                    </div>
+                </div>
             </div>
         </div>
         <div class="flex justify-end space-x-4 mt-6">

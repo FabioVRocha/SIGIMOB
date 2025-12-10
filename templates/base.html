@@ -59,10 +59,90 @@
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
             position: fixed; /* Fixa a sidebar na tela */
             height: 100vh; /* Altura total da viewport */
-            overflow-y: auto; /* Adiciona scroll se o conteúdo for maior que a tela */
-            overflow-x: visible;
+            display: flex;
+            flex-direction: column;
+            overflow: visible; /* permite que o botão de recolher ultrapasse a sidebar */
             transition: width 0.2s ease-in-out, padding 0.2s ease-in-out;
             z-index: 50;
+        }
+
+        .sidebar-menu {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            margin-right: -0.5rem;
+            padding-right: 0.5rem;
+        }
+
+        .sidebar-user-panel {
+            margin-top: auto;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .sidebar-user-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .sidebar-user-avatar {
+            width: 3.25rem;
+            height: 3.25rem;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255,255,255,0.1);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .sidebar-user-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .sidebar-user-name {
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--clr-white);
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .sidebar-user-version {
+            font-size: 0.875rem;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .sidebar-logout-btn {
+            margin-left: auto;
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--clr-white);
+            border: 1px solid rgba(255,255,255,0.25);
+            background: transparent;
+            transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+        }
+
+        .sidebar-logout-btn:hover,
+        .sidebar-logout-btn:focus-visible {
+            background-color: rgba(255,255,255,0.15);
+            color: var(--clr-white);
         }
 
         .sidebar-header {
@@ -70,9 +150,12 @@
             font-weight: 700;
             margin-bottom: 2rem;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             gap: 0.75rem;
+            position: relative;
+            padding-right: calc(var(--sidebar-toggle-size) + 0.5rem);
         }
 
         .sidebar-nav-item {
@@ -97,8 +180,19 @@
 
         .sidebar-header-brand {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 0.75rem;
+            justify-content: center;
+            text-align: center;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .sidebar-logo-space {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .sidebar-logo {
@@ -107,6 +201,7 @@
             max-width: 160px;
             display: block;
             object-fit: contain;
+            margin: 0 auto;
         }
 
         .sidebar.collapsed .sidebar-logo {
@@ -116,6 +211,7 @@
         .sidebar-header-title {
             font-size: 1.5rem;
             font-weight: 700;
+            text-align: center;
         }
 
         .collapse-btn {
@@ -129,6 +225,10 @@
             height: var(--sidebar-toggle-size);
             border-radius: 0.5rem;
             transition: background-color 0.2s ease-in-out;
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
             z-index: 60; /* garante que o botão fique clicável mesmo com parte fora da sidebar */
         }
 
@@ -152,6 +252,9 @@
                 background-color: var(--clr-sidebar-bg);
                 box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
                 border: 1px solid rgba(255, 255, 255, 0.25);
+            }
+            .sidebar-header {
+                padding-right: 0;
             }
             body.sidebar-collapsed .collapse-btn {
                 left: calc(var(--sidebar-collapsed-width) - (var(--sidebar-toggle-size) / 2));
@@ -191,6 +294,21 @@
         .sidebar.collapsed .sidebar-nav-item {
             justify-content: center;
             gap: 0;
+        }
+
+        .sidebar.collapsed .sidebar-user-meta {
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .sidebar.collapsed .sidebar-user-info,
+        .sidebar.collapsed .sidebar-user-version {
+            display: none;
+        }
+
+        .sidebar.collapsed .sidebar-logout-btn {
+            margin-left: 0;
         }
 
         .sidebar.collapsed .sidebar-nav-item i {
@@ -466,18 +584,6 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             transform: translateY(-2px);
         }
-        .sidebar-btn {
-            background-image: linear-gradient(120deg, var(--clr-medium-gray), #6b7280);
-            background-size: 200% 100%;
-            background-position: left;
-            color: var(--clr-white);
-            transition: background-position 0.2s, box-shadow 0.2s;
-        }
-        .sidebar-btn:hover {
-            background-position: right;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
         /* Estilos para o modal de confirmação */
         .modal {
             display: none; /* Hidden by default */
@@ -636,15 +742,18 @@
     <div class="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-header-brand">
-                <img src="{{ url_for('static', filename='logo2.png') }}" alt="Logo SIGIMOB" class="sidebar-logo">
+                <div class="sidebar-logo-space">
+                    <img src="{{ url_for('static', filename='logo2.png') }}" alt="Logo SIGIMOB" class="sidebar-logo">
+                </div>
                 <span class="sidebar-header-title">SIGIMOB</span>
             </div>
             <button id="sidebarCollapseToggle" class="collapse-btn" type="button" aria-label="Recolher menu lateral" aria-expanded="true">
                 <i class="fas fa-angle-double-left"></i>
             </button>
         </div>
-        <nav>
-            <ul>
+        <div class="sidebar-menu">
+            <nav>
+                <ul>
                 <li>
                     <a href="{{ url_for('dashboard') }}" class="sidebar-nav-item">
                         <i class="fas fa-home"></i>
@@ -868,15 +977,27 @@
                         </li>
                     </ul>
                 </li>
-            </ul>
-        </nav>
-        <div class="flex justify-end mt-8">
-            <a href="{{ url_for('logout') }}" class="sidebar-btn text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center gap-2">
-                <i class="fas fa-sign-out-alt"></i>
-                <span class="sidebar-item-label">Sair</span>
-            </a>
+                </ul>
+            </nav>
         </div>
-        <div class="mt-4 text-xs text-center text-white">Versão {{ system_version }} / Usuário: {{ usuario_logado }}</div>
+        <div class="sidebar-user-panel">
+            <div class="sidebar-user-meta">
+                <div class="sidebar-user-avatar" aria-hidden="true">
+                    {% if usuario_foto_url %}
+                        <img src="{{ usuario_foto_url }}" alt="Foto do usuário atual">
+                    {% else %}
+                        <span>{{ usuario_iniciais }}</span>
+                    {% endif %}
+                </div>
+                <div class="sidebar-user-info">
+                    <span class="sidebar-user-name">{{ usuario_logado }}</span>
+                    <span class="sidebar-user-version">Versão {{ system_version }}</span>
+                </div>
+                <a href="{{ url_for('logout') }}" class="sidebar-logout-btn" title="Sair" aria-label="Sair">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
     </div>
     <!-- Overlay para quando a sidebar estiver aberta no mobile -->
     <div id="sidebar-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40"></div>

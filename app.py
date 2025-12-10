@@ -35,6 +35,7 @@ from fpdf import FPDF
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
+import uuid
 
 # Importa a configuração do banco de dados e outras variáveis
 from config import DATABASE_URL, SECRET_KEY, UPLOAD_FOLDER, ALLOWED_EXTENSIONS
@@ -83,6 +84,10 @@ os.makedirs(
 os.makedirs(
     os.path.join(UPLOAD_FOLDER, "imoveis_vendas_anexos"), exist_ok=True
 )  # Pasta para anexos de vendas de imóveis
+
+USER_PHOTOS_SUBDIR = "usuarios_fotos"
+USER_PHOTOS_DIR = os.path.join(UPLOAD_FOLDER, USER_PHOTOS_SUBDIR)
+os.makedirs(USER_PHOTOS_DIR, exist_ok=True)
 
 # ------------------ Utilidades para Modelos/Placeholders ------------------
 PLACEHOLDER_PATTERN = re.compile(r"\[([^\[\]]+)\]")
@@ -1001,6 +1006,71 @@ def gerencial_logs():
 # Função auxiliar para verificar extensões de arquivo permitidas
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
+
+
+def save_user_profile_photo(file_storage):
+    """Persist a user's profile photo and return its relative path."""
+
+    if not file_storage or not file_storage.filename:
+        return None
+
+    filename = secure_filename(file_storage.filename)
+    if not filename or "." not in filename:
+        raise ValueError("Arquivo de imagem inválido.")
+
+    extension = filename.rsplit(".", 1)[1].lower()
+    if extension not in IMAGE_EXTENSIONS:
+        raise ValueError("Envie uma imagem nos formatos PNG, JPG, JPEG ou GIF.")
+
+    unique_name = f"{uuid.uuid4().hex}.{extension}"
+    destination = os.path.join(USER_PHOTOS_DIR, unique_name)
+    file_storage.save(destination)
+    return posixpath.join(USER_PHOTOS_SUBDIR, unique_name)
+
+
+def remove_uploaded_file(relative_path):
+    """Delete a previously stored upload if it exists."""
+
+    if not relative_path:
+        return
+
+    uploads_root = os.path.abspath(app.config["UPLOAD_FOLDER"])
+    full_path = os.path.abspath(os.path.join(uploads_root, relative_path))
+    if not full_path.startswith(uploads_root):
+        return
+    if os.path.exists(full_path):
+        os.remove(full_path)
+
+
+def _get_user_initials(username: str) -> str:
+    parts = [segment for segment in re.split(r"\s+", (username or "").strip()) if segment]
+    if parts:
+        letters = "".join(segment[0] for segment in parts)
+    else:
+        letters = (username or "").strip()[:2]
+    letters = (letters or "U").upper()
+    return letters[:2]
+
+
+def _load_user_photo_from_db(user_id):
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT foto_perfil FROM usuarios WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        return row[0] if row else None
+    except Exception:
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 # Converte valores decimais enviados pelo formulário, aceitando vírgulas ou
 # pontos como separadores de milhares e decimais. Retorna None se o valor
@@ -2246,6 +2316,24 @@ def ensure_pessoas_responsavel_columns():
 ensure_pessoas_responsavel_columns()
 
 
+def ensure_usuarios_foto_column():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        ensure_column_exists(cur, "usuarios", "foto_perfil", "VARCHAR(255)")
+        conn.commit()
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+ensure_usuarios_foto_column()
+
+
 def ensure_contas_a_pagar_columns():
     """Guarantee contas_a_pagar exposes valor_pendente and is backfilled."""
 
@@ -2483,9 +2571,21 @@ def imoveis_fotos(imovel_id):
 # Context processor para injetar variáveis em todos os templates
 @app.context_processor
 def inject_global_vars():
+    username = session.get("username", "Convidado")
+    user_id = session.get("user_id")
+    if user_id and "user_photo" not in session:
+        session["user_photo"] = _load_user_photo_from_db(user_id)
+    photo_path = session.get("user_photo") if user_id else None
+    photo_url = (
+        url_for("uploaded_file", filename=photo_path)
+        if photo_path
+        else None
+    )
     return {
         "system_version": SYSTEM_VERSION,
-        "usuario_logado": session.get("username", "Convidado"),
+        "usuario_logado": username,
+        "usuario_foto_url": photo_url,
+        "usuario_iniciais": _get_user_initials(username),
     }
 
 
@@ -2503,7 +2603,7 @@ def login():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         cur.execute(
-            "SELECT id, nome_usuario, senha_hash, status FROM usuarios WHERE nome_usuario = %s",
+            "SELECT id, nome_usuario, senha_hash, status, foto_perfil FROM usuarios WHERE nome_usuario = %s",
             (username,),
         )
         user = cur.fetchone()
@@ -2517,6 +2617,7 @@ def login():
         ):
             session["user_id"] = user["id"]
             session["username"] = user["nome_usuario"]
+            session["user_photo"] = user.get("foto_perfil")
             log_user_action(
                 "Acesso",
                 "Autenticação",
@@ -2606,6 +2707,7 @@ def logout():
     )
     session.pop("user_id", None)
     session.pop("username", None)
+    session.pop("user_photo", None)
     flash("Você foi desconectado.", "info")
     return redirect(url_for("login"))
 
@@ -12284,24 +12386,43 @@ def usuarios_add():
         password = request.form["password"]
         tipo = request.form.get("tipo_usuario", "Operador")
         status = request.form.get("status", "Ativo")
+        foto_file = request.files.get("foto_perfil")
 
         hashed_password = generate_password_hash(password)
+        foto_path = None
+        if foto_file and foto_file.filename:
+            try:
+                foto_path = save_user_profile_photo(foto_file)
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return render_template(
+                    "admin/usuarios/add_list.html",
+                    usuario={
+                        "nome_usuario": username,
+                        "tipo_usuario": tipo,
+                        "status": status,
+                    },
+                )
 
         conn = get_db_connection()
         cur = conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO usuarios (nome_usuario, senha_hash, tipo_usuario, status) VALUES (%s, %s, %s, %s)",
-                (username, hashed_password, tipo, status),
+                "INSERT INTO usuarios (nome_usuario, senha_hash, tipo_usuario, status, foto_perfil) VALUES (%s, %s, %s, %s, %s)",
+                (username, hashed_password, tipo, status, foto_path),
             )
             conn.commit()
             flash("Usuário cadastrado com sucesso!", "success")
             return redirect(url_for("usuarios_list"))
         except psycopg2.errors.UniqueViolation:
             conn.rollback()
+            if foto_path:
+                remove_uploaded_file(foto_path)
             flash("Nome de usuário já existe.", "danger")
         except Exception as e:
             conn.rollback()
+            if foto_path:
+                remove_uploaded_file(foto_path)
             flash(f"Erro ao cadastrar usuário: {e}", "danger")
         finally:
             cur.close()
@@ -12315,39 +12436,69 @@ def usuarios_add():
 def usuarios_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM usuarios WHERE id = %s", (id,))
+    usuario = cur.fetchone()
+    if usuario is None:
+        cur.close()
+        conn.close()
+        flash("Usuário não encontrado.", "danger")
+        return redirect(url_for("usuarios_list"))
     if request.method == "POST":
         username = request.form["username"]
         password = request.form.get("password")
         tipo = request.form.get("tipo_usuario")
         status = request.form.get("status")
+        foto_file = request.files.get("foto_perfil")
+        previous_photo = usuario.get("foto_perfil")
+        new_photo_path = None
+        if foto_file and foto_file.filename:
+            try:
+                new_photo_path = save_user_profile_photo(foto_file)
+            except ValueError as exc:
+                flash(str(exc), "danger")
+                return render_template(
+                    "admin/usuarios/add_list.html",
+                    usuario={
+                        "id": id,
+                        "nome_usuario": username,
+                        "tipo_usuario": tipo,
+                        "status": status,
+                        "foto_perfil": previous_photo,
+                    },
+                )
+        foto_path = new_photo_path or previous_photo
         try:
             if password:
                 hashed_password = generate_password_hash(password)
                 cur.execute(
-                    "UPDATE usuarios SET nome_usuario = %s, senha_hash = %s, tipo_usuario = %s, status = %s WHERE id = %s",
-                    (username, hashed_password, tipo, status, id),
+                    "UPDATE usuarios SET nome_usuario = %s, senha_hash = %s, tipo_usuario = %s, status = %s, foto_perfil = %s WHERE id = %s",
+                    (username, hashed_password, tipo, status, foto_path, id),
                 )
             else:
                 cur.execute(
-                    "UPDATE usuarios SET nome_usuario = %s, tipo_usuario = %s, status = %s WHERE id = %s",
-                    (username, tipo, status, id),
+                    "UPDATE usuarios SET nome_usuario = %s, tipo_usuario = %s, status = %s, foto_perfil = %s WHERE id = %s",
+                    (username, tipo, status, foto_path, id),
                 )
             conn.commit()
+            if new_photo_path and previous_photo and previous_photo != new_photo_path:
+                remove_uploaded_file(previous_photo)
+            if id == session.get("user_id"):
+                session["username"] = username
+                session["user_photo"] = foto_path
             flash("Usuário atualizado com sucesso!", "success")
             return redirect(url_for("usuarios_list"))
         except psycopg2.errors.UniqueViolation:
             conn.rollback()
+            if new_photo_path:
+                remove_uploaded_file(new_photo_path)
             flash("Nome de usuário já existe.", "danger")
         except Exception as e:
             conn.rollback()
+            if new_photo_path:
+                remove_uploaded_file(new_photo_path)
             flash(f"Erro ao atualizar usuário: {e}", "danger")
-    cur.execute("SELECT * FROM usuarios WHERE id = %s", (id,))
-    usuario = cur.fetchone()
     cur.close()
     conn.close()
-    if usuario is None:
-        flash("Usuário não encontrado.", "danger")
-        return redirect(url_for("usuarios_list"))
     return render_template("admin/usuarios/add_list.html", usuario=usuario)
 
 
@@ -12358,8 +12509,12 @@ def usuarios_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        cur.execute("SELECT foto_perfil FROM usuarios WHERE id = %s", (id,))
+        row = cur.fetchone()
         cur.execute("DELETE FROM usuarios WHERE id = %s", (id,))
         conn.commit()
+        if row and row[0]:
+            remove_uploaded_file(row[0])
         flash("Usuário excluído com sucesso!", "success")
     except Exception as e:
         conn.rollback()
