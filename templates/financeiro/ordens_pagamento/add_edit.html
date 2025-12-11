@@ -19,21 +19,31 @@
             </div>
             <div>
                 <label for="imovel_id" class="form-label">Imóvel</label>
-                <select id="imovel_id" name="imovel_id" class="form-input">
-                    <option value="">Selecione</option>
-                    {% for i in imoveis %}
-                    <option value="{{ i.id }}" {% if ordem and ordem.imovel_id == i.id %}selected{% endif %}>{{ i.endereco }} - {{ i.bairro }}</option>
-                    {% endfor %}
-                </select>
+                <div class="flex">
+                    <select id="imovel_id" name="imovel_id" class="form-input flex-grow">
+                        <option value="">Selecione</option>
+                        {% for i in imoveis %}
+                        <option value="{{ i.id }}" {% if ordem and ordem.imovel_id == i.id %}selected{% endif %}>{{ i.endereco }} - {{ i.bairro }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn-secondary ml-2 px-4" onclick="openImovelModal()" aria-label="Buscar imóvel">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
             </div>
             <div>
                 <label for="fornecedor_id" class="form-label">Fornecedor</label>
-                <select id="fornecedor_id" name="fornecedor_id" class="form-input" required>
-                    <option value="">Selecione</option>
-                    {% for f in fornecedores %}
-                    <option value="{{ f.id }}" data-documento="{{ f.documento }}" {% if ordem and ordem.fornecedor_id == f.id %}selected{% endif %}>{{ f.razao_social_nome }}</option>
-                    {% endfor %}
-                </select>
+                <div class="flex">
+                    <select id="fornecedor_id" name="fornecedor_id" class="form-input flex-grow" required>
+                        <option value="">Selecione</option>
+                        {% for f in fornecedores %}
+                        <option value="{{ f.id }}" data-documento="{{ f.documento }}" {% if ordem and ordem.fornecedor_id == f.id %}selected{% endif %}>{{ f.razao_social_nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn-secondary ml-2 px-4" onclick="openFornecedorModal()" aria-label="Buscar fornecedor">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
             </div>
             <div>
                 <label class="form-label">CNPJ/CPF do Fornecedor</label>
@@ -213,6 +223,72 @@
         </div>
     </form>
 </div>
+
+<div id="imovel-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeImovelModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
+        <div class="mb-4">
+            <input type="text" id="imovel-search" class="form-input" placeholder="Buscar por endereço ou bairro">
+        </div>
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Endereço</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Bairro</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Cidade</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for imo in imoveis %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50 imovel-row" data-search="{{ (imo.endereco ~ ' ' ~ (imo.bairro or '') ~ ' ' ~ (imo.cidade or '')) | lower }}">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imo.endereco }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imo.bairro or '-' }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imo.cidade or '-' }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-imovel-btn" data-id="{{ imo.id }}">Selecionar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="fornecedor-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeFornecedorModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Fornecedor</h2>
+        <div class="mb-4">
+            <input type="text" id="fornecedor-search" class="form-input" placeholder="Buscar por nome ou documento">
+        </div>
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Nome/Razão Social</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Documento</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for forn in fornecedores %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50 fornecedor-row" data-search="{{ (forn.razao_social_nome ~ ' ' ~ (forn.documento or '')) | lower }}">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ forn.razao_social_nome }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ forn.documento or '-' }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-fornecedor-btn" data-id="{{ forn.id }}">Selecionar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -297,6 +373,70 @@ function recalcParcelas(){
     });
     document.getElementById('total_parcelas').value = numberToMoney(total);
 }
+function openImovelModal(){
+    const modal = document.getElementById('imovel-modal');
+    if(!modal) return;
+    modal.style.display = 'flex';
+    const searchInput = document.getElementById('imovel-search');
+    if(searchInput){
+        searchInput.value = '';
+        filterImoveis('');
+        searchInput.focus();
+    }
+}
+function closeImovelModal(){
+    const modal = document.getElementById('imovel-modal');
+    if(!modal) return;
+    modal.style.display = 'none';
+}
+function selectImovel(id){
+    const select = document.getElementById('imovel_id');
+    if(select){
+        select.value = id;
+        select.dispatchEvent(new Event('change'));
+    }
+    closeImovelModal();
+}
+function filterImoveis(term){
+    const rows = document.querySelectorAll('#imovel-modal .imovel-row');
+    const needle = (term || '').toLowerCase();
+    rows.forEach(row=>{
+        const haystack = row.dataset.search || '';
+        row.style.display = haystack.includes(needle) ? '' : 'none';
+    });
+}
+function openFornecedorModal(){
+    const modal = document.getElementById('fornecedor-modal');
+    if(!modal) return;
+    modal.style.display = 'flex';
+    const searchInput = document.getElementById('fornecedor-search');
+    if(searchInput){
+        searchInput.value = '';
+        filterFornecedores('');
+        searchInput.focus();
+    }
+}
+function closeFornecedorModal(){
+    const modal = document.getElementById('fornecedor-modal');
+    if(!modal) return;
+    modal.style.display = 'none';
+}
+function selectFornecedor(id){
+    const select = document.getElementById('fornecedor_id');
+    if(select){
+        select.value = id;
+        select.dispatchEvent(new Event('change'));
+    }
+    closeFornecedorModal();
+}
+function filterFornecedores(term){
+    const rows = document.querySelectorAll('#fornecedor-modal .fornecedor-row');
+    const needle = (term || '').toLowerCase();
+    rows.forEach(row=>{
+        const haystack = row.dataset.search || '';
+        row.style.display = haystack.includes(needle) ? '' : 'none';
+    });
+}
 document.addEventListener('DOMContentLoaded', ()=>{
     const fornSel = document.getElementById('fornecedor_id');
     const fornDoc = document.getElementById('fornecedor_documento');
@@ -308,6 +448,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
     updateDoc();
     recalc();
     recalcParcelas();
+    document.querySelectorAll('.select-imovel-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=> selectImovel(btn.dataset.id));
+    });
+    const imovelSearchInput = document.getElementById('imovel-search');
+    if(imovelSearchInput){
+        imovelSearchInput.addEventListener('input', e=> filterImoveis(e.target.value));
+    }
+    document.querySelectorAll('.select-fornecedor-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=> selectFornecedor(btn.dataset.id));
+    });
+    const fornSearchInput = document.getElementById('fornecedor-search');
+    if(fornSearchInput){
+        fornSearchInput.addEventListener('input', e=> filterFornecedores(e.target.value));
+    }
 });
 </script>
 {% endblock %}

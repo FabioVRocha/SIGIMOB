@@ -24,12 +24,17 @@
             </div>
             <div class="form-group">
                 <label for="fornecedor_id" class="form-label">Fornecedor:</label>
-                <select id="fornecedor_id" name="fornecedor_id" class="form-select" required>
-                    <option value="">Selecione...</option>
-                    {% for forn in fornecedores %}
-                    <option value="{{ forn.id }}" {% if conta.fornecedor_id == forn.id %}selected{% endif %}>{{ forn.razao_social_nome }}</option>
-                    {% endfor %}
-                </select>
+                <div class="flex">
+                    <select id="fornecedor_id" name="fornecedor_id" class="form-select flex-grow" required>
+                        <option value="">Selecione...</option>
+                        {% for forn in fornecedores %}
+                        <option value="{{ forn.id }}" {% if conta.fornecedor_id == forn.id %}selected{% endif %}>{{ forn.razao_social_nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" class="btn-secondary ml-2 px-4" onclick="openFornecedorModal()" aria-label="Buscar fornecedor">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
             </div>
             <div class="form-group">
                 <label for="titulo" class="form-label">Título:</label>
@@ -111,6 +116,38 @@
     </form>
 </div>
 
+<div id="fornecedor-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeFornecedorModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Fornecedor</h2>
+        <div class="mb-4">
+            <input type="text" id="fornecedor-search" class="form-input" placeholder="Buscar por nome ou documento">
+        </div>
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Nome/Razão Social</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Documento</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for forn in fornecedores %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50 fornecedor-row" data-search="{{ (forn.razao_social_nome ~ ' ' ~ (forn.documento or '')) | lower }}">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ forn.razao_social_nome }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ forn.documento or '-' }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-fornecedor-btn" data-id="{{ forn.id }}">Selecionar</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div id="imovel-modal" class="modal">
     <div class="modal-content">
         <span class="close-button" onclick="closeImovelModal()">&times;</span>
@@ -159,6 +196,36 @@ function clearImovel(){
     document.getElementById('imovel_id').value = '';
     document.getElementById('imovel_display').value = '';
 }
+function openFornecedorModal(){
+    const modal = document.getElementById('fornecedor-modal');
+    if(!modal) return;
+    modal.style.display = 'flex';
+    const searchInput = document.getElementById('fornecedor-search');
+    if(searchInput){
+        searchInput.value = '';
+        filterFornecedores('');
+        searchInput.focus();
+    }
+}
+function closeFornecedorModal(){
+    const modal = document.getElementById('fornecedor-modal');
+    if(!modal) return;
+    modal.style.display = 'none';
+}
+function selectFornecedor(id){
+    const select = document.getElementById('fornecedor_id');
+    if(select){
+        select.value = id;
+    }
+    closeFornecedorModal();
+}
+function filterFornecedores(term){
+    const rows = document.querySelectorAll('#fornecedor-modal .fornecedor-row');
+    rows.forEach(row => {
+        const content = row.dataset.search || '';
+        row.style.display = content.includes((term || '').toLowerCase()) ? '' : 'none';
+    });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     // Máscara BRL para campos monetários
@@ -194,6 +261,15 @@ document.addEventListener('DOMContentLoaded', () => {
             selectImovel(btn.dataset.id, btn.dataset.text);
         });
     });
+    document.querySelectorAll('.select-fornecedor-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectFornecedor(btn.dataset.id);
+        });
+    });
+    const fornSearchInput = document.getElementById('fornecedor-search');
+    if(fornSearchInput){
+        fornSearchInput.addEventListener('input', (e) => filterFornecedores(e.target.value));
+    }
 });
 </script>
 {% endblock %}

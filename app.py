@@ -10088,8 +10088,23 @@ def relatorio_recebimento_por_inquilino():
     cur.close()
     conn.close()
 
+    def to_decimal(value):
+        if isinstance(value, Decimal):
+            return value
+        try:
+            return Decimal(str(value or 0))
+        except Exception:
+            return Decimal("0")
+
     # Monta linhas já com campos prontos e totais
     linhas = []
+    totais = {
+        "valor_previsto": Decimal("0"),
+        "multa": Decimal("0"),
+        "juros": Decimal("0"),
+        "desconto": Decimal("0"),
+        "total_recebido": Decimal("0"),
+    }
     for r in rows:
         imovel = ""
         if r.get("tipo_imovel") or r.get("endereco"):
@@ -10101,10 +10116,16 @@ def relatorio_recebimento_por_inquilino():
                 imovel = f"{tipo} / {ender} / {cid}/{uf}".strip()
             else:
                 imovel = f"{tipo} / {ender}".strip(" /")
-        total_recebido = r.get("valor_mov")
-        if total_recebido is None:
+        valor_previsto = to_decimal(r.get("valor_previsto"))
+        multa = to_decimal(r.get("valor_multa"))
+        juros = to_decimal(r.get("valor_juros"))
+        desconto = to_decimal(r.get("valor_desconto"))
+        valor_mov = r.get("valor_mov")
+        if valor_mov is None:
             # Fallback quando não houver movimento associado
-            total_recebido = (r.get("valor_pago") or 0) + (r.get("valor_juros") or 0) + (r.get("valor_multa") or 0) - (r.get("valor_desconto") or 0)
+            total_recebido = to_decimal(r.get("valor_pago")) + juros + multa - desconto
+        else:
+            total_recebido = to_decimal(valor_mov)
         linhas.append(
             {
                 "data": r["data_pagamento"],
@@ -10112,14 +10133,19 @@ def relatorio_recebimento_por_inquilino():
                 "cpf": r["cpf"],
                 "imovel": imovel,
                 "receita": r["receita"],
-                "valor_previsto": r["valor_previsto"],
-                "multa": r["valor_multa"],
-                "juros": r["valor_juros"],
-                "desconto": r["valor_desconto"],
+                "valor_previsto": valor_previsto,
+                "multa": multa,
+                "juros": juros,
+                "desconto": desconto,
                 "total_recebido": total_recebido,
                 "historico": r.get("historico") or "",
             }
         )
+        totais["valor_previsto"] += valor_previsto
+        totais["multa"] += multa
+        totais["juros"] += juros
+        totais["desconto"] += desconto
+        totais["total_recebido"] += total_recebido
 
     periodo_txt = (
         datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
@@ -10188,6 +10214,13 @@ def relatorio_recebimento_por_inquilino():
     pdf.ln(8)
 
     pdf.set_font("Arial", "", 9)
+    value_columns = {
+        5: "valor_previsto",
+        6: "multa",
+        7: "juros",
+        8: "desconto",
+        9: "total_recebido",
+    }
     for l in linhas:
         pdf.cell(headers[0][1], 7, l["data"].strftime("%d/%m/%Y"), 1)
         pdf.cell(headers[1][1], 7, truncate_text(pdf, l["cliente"], headers[1][1] - 2), 1)
@@ -10201,6 +10234,17 @@ def relatorio_recebimento_por_inquilino():
         pdf.cell(headers[9][1], 7, format_currency(l["total_recebido"]), 1, 0, "R")
         pdf.cell(headers[10][1], 7, truncate_text(pdf, l["historico"], headers[10][1] - 2), 1)
         pdf.ln(7)
+
+    # Linha de totalização final
+    pdf.set_font("Arial", "B", 9)
+    for idx, (_, width) in enumerate(headers):
+        if idx == 0:
+            pdf.cell(width, 7, "Totais", 1)
+        elif idx in value_columns:
+            pdf.cell(width, 7, format_currency(totais[value_columns[idx]]), 1, 0, "R")
+        else:
+            pdf.cell(width, 7, "", 1)
+    pdf.ln(7)
 
     pdf_bytes = pdf.output(dest="S").encode("latin1")
     return send_file(

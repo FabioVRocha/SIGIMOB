@@ -6,7 +6,7 @@ import os
 # Configurações do Banco de Dados PostgreSQL
 # Exemplo: 'postgresql://user:password@host:port/dbname'
 # certifique-se de substituir com suas credenciais reais
-DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@45.161.184.156:5433/sigimob_db')
+DATABASE_URL = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@192.168.0.252:5433/sigimob_db')
 
 # Chave secreta para sessões Flask (MUITO IMPORTANTE para segurança)
 # Gere uma chave forte e a mantenha em segredo.
