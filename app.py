@@ -29,7 +29,7 @@ import json
 import re
 from collections import OrderedDict
 from werkzeug.utils import secure_filename  # Para lidar com nomes de arquivos de upload
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import io
 from fpdf import FPDF
 from openpyxl import Workbook
@@ -448,6 +448,26 @@ def ensure_status_contrato_enum_values():
 
 
 ensure_status_contrato_enum_values()
+
+
+def ensure_status_conta_enum_values():
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        conn.autocommit = True
+        cur = conn.cursor()
+        cur.execute("ALTER TYPE status_conta_enum ADD VALUE IF NOT EXISTS 'Negociado'")
+    except Exception:
+        pass
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+ensure_status_conta_enum_values()
 
 
 def ensure_auditoria_table():
@@ -1731,6 +1751,7 @@ def atualizar_status_contas_a_receber(cur):
         UPDATE contas_a_receber cr
            SET status_conta = CASE
                 WHEN cr.status_conta = 'Cancelada'::status_conta_enum THEN 'Cancelada'::status_conta_enum
+                WHEN cr.status_conta = 'Negociado'::status_conta_enum THEN 'Negociado'::status_conta_enum
                 WHEN cr.valor_pago >= cr.valor_previsto AND cr.valor_pago IS NOT NULL THEN 'Paga'::status_conta_enum
                 WHEN cr.valor_pago > 0 THEN 'Parcial'::status_conta_enum
                 WHEN cr.data_vencimento < CURRENT_DATE THEN 'Vencida'::status_conta_enum
@@ -1738,6 +1759,7 @@ def atualizar_status_contas_a_receber(cur):
            END,
                valor_pendente = CASE
                    WHEN cr.status_conta = 'Cancelada'::status_conta_enum THEN 0
+                   WHEN cr.status_conta = 'Negociado'::status_conta_enum THEN 0
                    ELSE cr.valor_previsto - COALESCE(cr.valor_pago,0)
                END
         """
@@ -6434,6 +6456,345 @@ def contas_a_receber_ajustar_vencimentos():
         titulos=titulos,
         cliente_id=cliente_id,
     )
+
+
+def _negociacao_parse_ids(raw):
+    if raw is None:
+        return []
+    if isinstance(raw, (int, float)):
+        return [int(raw)]
+    if isinstance(raw, str):
+        raw = raw.strip()
+        if not raw:
+            return []
+        if raw.startswith("[") and raw.endswith("]"):
+            raw = raw[1:-1]
+        items = raw.split(",")
+    elif isinstance(raw, (list, tuple, set)):
+        items = raw
+    else:
+        raise ValueError("Formato de ids invalido")
+    ids = []
+    for item in items:
+        texto = str(item).strip()
+        if not texto:
+            continue
+        ids.append(int(texto))
+    return ids
+
+
+def _negociacao_calcular_parcelas(total, quantidade):
+    if quantidade <= 0:
+        return []
+    base = (total / quantidade).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    valores = [base for _ in range(max(quantidade - 1, 0))]
+    ultimo = total - base * (quantidade - 1)
+    valores.append(ultimo.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    return valores
+
+
+@app.route("/contas-a-receber/negociacao")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def contas_a_receber_negociacao():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE tipo IN ('Cliente', 'Cliente/Fornecedor') ORDER BY razao_social_nome"
+    )
+    clientes = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "financeiro/contas_a_receber/negociacao.html",
+        clientes=clientes,
+    )
+
+
+@app.route("/contas-a-receber/negociacao/titulos")
+@login_required
+@permission_required("Financeiro", "Consultar")
+def contas_a_receber_negociacao_titulos():
+    cliente_id_raw = request.args.get("cliente_id")
+    try:
+        cliente_id = int(cliente_id_raw)
+    except (TypeError, ValueError):
+        flash("Cliente invalido.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        "SELECT id, razao_social_nome FROM pessoas WHERE id = %s",
+        (cliente_id,),
+    )
+    cliente = cur.fetchone()
+    if not cliente:
+        cur.close()
+        conn.close()
+        flash("Cliente nao encontrado.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+
+    cur.execute(
+        """
+        SELECT cr.id, cr.titulo, cr.data_vencimento, cr.valor_previsto, cr.valor_pendente,
+               cr.status_conta, cr.contrato_id, ca.nome_inquilino AS contrato_nome
+        FROM contas_a_receber cr
+        LEFT JOIN contratos_aluguel ca ON cr.contrato_id = ca.id
+        WHERE cr.cliente_id = %s
+          AND cr.status_conta IN ('Aberta','Vencida')
+        ORDER BY cr.data_vencimento ASC, cr.id ASC
+        """,
+        (cliente_id,),
+    )
+    titulos = cur.fetchall()
+    cur.close()
+    conn.close()
+    if not titulos:
+        flash("Nenhum titulo em Aberta ou Vencida para o cliente escolhido.", "info")
+        return redirect(url_for("contas_a_receber_negociacao"))
+
+    return render_template(
+        "financeiro/contas_a_receber/negociacao_titulos.html",
+        cliente=cliente,
+        titulos=titulos,
+        cliente_id=cliente_id,
+    )
+
+
+@app.route("/contas-a-receber/negociacao/preview", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_receber_negociacao_preview():
+    cliente_id = request.form.get("cliente_id")
+    try:
+        cliente_id = int(cliente_id)
+    except (TypeError, ValueError):
+        flash("Cliente invalido.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+
+    try:
+        ids = _negociacao_parse_ids(request.form.getlist("titulo_ids"))
+    except ValueError:
+        ids = []
+    quantidade = int(request.form.get("quantidade") or 0)
+    intervalo_dias = int(request.form.get("intervalo_dias") or 0)
+    dia_base = int(request.form.get("dia_base") or 0)
+    if not ids:
+        flash("Selecione ao menos um titulo para negociar.", "warning")
+        return redirect(
+            url_for("contas_a_receber_negociacao_titulos", cliente_id=cliente_id)
+        )
+    if quantidade <= 0:
+        flash("Informe a quantidade de parcelas.", "warning")
+        return redirect(
+            url_for("contas_a_receber_negociacao_titulos", cliente_id=cliente_id)
+        )
+    if (intervalo_dias > 0 and dia_base > 0) or (intervalo_dias <= 0 and dia_base <= 0):
+        flash("Informe o intervalo em dias ou o dia base do vencimento.", "warning")
+        return redirect(
+            url_for("contas_a_receber_negociacao_titulos", cliente_id=cliente_id)
+        )
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT cr.id, cr.titulo, cr.data_vencimento, cr.valor_previsto, cr.valor_pendente,
+               cr.contrato_id, cr.receita_id, cr.origem_id, p.razao_social_nome AS cliente_nome
+        FROM contas_a_receber cr
+        JOIN pessoas p ON cr.cliente_id = p.id
+        WHERE cr.id = ANY(%s)
+          AND cr.cliente_id = %s
+          AND cr.status_conta IN ('Aberta','Vencida')
+        ORDER BY cr.data_vencimento ASC, cr.id ASC
+        """,
+        (ids, cliente_id),
+    )
+    titulos = cur.fetchall()
+    cur.close()
+    conn.close()
+    if not titulos:
+        flash("Nenhum titulo valido encontrado para negociar.", "warning")
+        return redirect(
+            url_for("contas_a_receber_negociacao_titulos", cliente_id=cliente_id)
+        )
+
+    contrato_ids = {t["contrato_id"] for t in titulos if t["contrato_id"]}
+    if len(contrato_ids) > 1:
+        flash("Selecione titulos do mesmo contrato para negociar.", "warning")
+        return redirect(
+            url_for("contas_a_receber_negociacao_titulos", cliente_id=cliente_id)
+        )
+    contrato_id = next(iter(contrato_ids), None)
+    contrato_ref = contrato_id or cliente_id
+
+    total = sum(
+        Decimal(str(t["valor_pendente"] or t["valor_previsto"] or 0))
+        for t in titulos
+    )
+    valores = _negociacao_calcular_parcelas(total, quantidade)
+
+    datas = [t["data_vencimento"] for t in titulos if t["data_vencimento"]]
+    base_date = min(datas) if datas else datetime.today().date()
+    if dia_base > 0:
+        last_day = calendar.monthrange(base_date.year, base_date.month)[1]
+        base_date = base_date.replace(day=min(dia_base, last_day))
+
+    parcelas = []
+    for idx, valor in enumerate(valores, start=1):
+        if intervalo_dias > 0:
+            vencimento = base_date + timedelta(days=intervalo_dias * (idx - 1))
+        else:
+            vencimento = add_months(base_date, idx - 1)
+        parcelas.append(
+            {
+                "parcela": idx,
+                "total_parcelas": quantidade,
+                "titulo": f"N{contrato_ref}-{idx}/{quantidade}",
+                "data_vencimento": vencimento,
+                "valor": valor,
+            }
+        )
+
+    return render_template(
+        "financeiro/contas_a_receber/negociacao_preview.html",
+        cliente_nome=titulos[0]["cliente_nome"],
+        cliente_id=cliente_id,
+        titulos=titulos,
+        parcelas=parcelas,
+        total=total,
+        quantidade=quantidade,
+        intervalo_dias=intervalo_dias,
+        dia_base=dia_base,
+        ids=ids,
+        contrato_ref=contrato_ref,
+    )
+
+
+@app.route("/contas-a-receber/negociacao/confirmar", methods=["POST"])
+@login_required
+@permission_required("Financeiro", "Incluir")
+def contas_a_receber_negociacao_confirmar():
+    cliente_id = request.form.get("cliente_id")
+    try:
+        cliente_id = int(cliente_id)
+    except (TypeError, ValueError):
+        flash("Cliente invalido.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+
+    try:
+        ids = _negociacao_parse_ids(request.form.getlist("titulo_ids"))
+    except ValueError:
+        ids = []
+    quantidade = int(request.form.get("quantidade") or 0)
+    intervalo_dias = int(request.form.get("intervalo_dias") or 0)
+    dia_base = int(request.form.get("dia_base") or 0)
+    if not ids or quantidade <= 0:
+        flash("Parametros invalidos para confirmar a negociacao.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+    if (intervalo_dias > 0 and dia_base > 0) or (intervalo_dias <= 0 and dia_base <= 0):
+        flash("Informe o intervalo em dias ou o dia base do vencimento.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT cr.id, cr.titulo, cr.data_vencimento, cr.valor_previsto, cr.valor_pendente,
+               cr.contrato_id, cr.receita_id, cr.origem_id, cr.observacao
+        FROM contas_a_receber cr
+        WHERE cr.id = ANY(%s)
+          AND cr.cliente_id = %s
+          AND cr.status_conta IN ('Aberta','Vencida')
+        ORDER BY cr.data_vencimento ASC, cr.id ASC
+        """,
+        (ids, cliente_id),
+    )
+    titulos = cur.fetchall()
+    if not titulos:
+        cur.close()
+        conn.close()
+        flash("Nenhum titulo valido encontrado para negociar.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+
+    contrato_ids = {t["contrato_id"] for t in titulos if t["contrato_id"]}
+    if len(contrato_ids) > 1:
+        cur.close()
+        conn.close()
+        flash("Selecione titulos do mesmo contrato para negociar.", "warning")
+        return redirect(url_for("contas_a_receber_negociacao"))
+    contrato_id = next(iter(contrato_ids), None)
+    contrato_ref = contrato_id or cliente_id
+
+    total = sum(
+        Decimal(str(t["valor_pendente"] or t["valor_previsto"] or 0))
+        for t in titulos
+    )
+    valores = _negociacao_calcular_parcelas(total, quantidade)
+    datas = [t["data_vencimento"] for t in titulos if t["data_vencimento"]]
+    base_date = min(datas) if datas else datetime.today().date()
+    if dia_base > 0:
+        last_day = calendar.monthrange(base_date.year, base_date.month)[1]
+        base_date = base_date.replace(day=min(dia_base, last_day))
+
+    observacao_base = "Negociacao de titulos: " + ", ".join(str(t["id"]) for t in titulos)
+    receita_id = titulos[0]["receita_id"]
+    origem_id = titulos[0]["origem_id"]
+
+    try:
+        for idx, valor in enumerate(valores, start=1):
+            if intervalo_dias > 0:
+                vencimento = base_date + timedelta(days=intervalo_dias * (idx - 1))
+            else:
+                vencimento = add_months(base_date, idx - 1)
+            titulo = f"N{contrato_ref}-{idx}/{quantidade}"
+            cur.execute(
+                """
+                INSERT INTO contas_a_receber (
+                    contrato_id, receita_id, cliente_id, titulo,
+                    data_vencimento, valor_previsto, data_pagamento, valor_pago,
+                    valor_pendente, valor_desconto, valor_multa, valor_juros, observacao,
+                    status_conta, origem_id
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    contrato_id,
+                    receita_id,
+                    cliente_id,
+                    titulo,
+                    vencimento,
+                    valor,
+                    None,
+                    None,
+                    valor,
+                    Decimal("0"),
+                    Decimal("0"),
+                    Decimal("0"),
+                    observacao_base,
+                    "Aberta",
+                    origem_id,
+                ),
+            )
+        cur.execute(
+            """
+            UPDATE contas_a_receber
+               SET status_conta = 'Negociado',
+                   valor_pendente = 0
+             WHERE id = ANY(%s)
+            """,
+            (ids,),
+        )
+        conn.commit()
+        flash("Negociacao criada com sucesso!", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao criar negociacao: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for("contas_a_receber_list"))
 
 
 @app.route("/contas-a-receber/delete/<int:id>", methods=["POST"])

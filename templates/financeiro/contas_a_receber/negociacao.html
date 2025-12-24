@@ -1,0 +1,98 @@
+<!-- templates/financeiro/contas_a_receber/negociacao.html -->
+{% extends "base.html" %}
+
+{% block title %}Negociação de Títulos{% endblock %}
+
+{% block page_title %}Negociação de Títulos{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Negociação de Títulos</h2>
+        <div class="flex items-center space-x-2">
+            <button type="button" class="btn-primary flex items-center" onclick="openNegociacaoModal()">
+                <i class="fas fa-plus mr-2"></i> Incluir negociação
+            </button>
+            <a href="{{ url_for('contas_a_receber_list') }}" class="btn-secondary">Voltar</a>
+        </div>
+    </div>
+    <p class="text-gray-600">Escolha um cliente para iniciar uma nova negociação.</p>
+</div>
+
+<div id="negociacao-modal" class="modal" style="display:none;">
+    <div class="modal-content max-w-xl">
+        <span class="close-button" onclick="closeNegociacaoModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar cliente</h2>
+        <div class="form-group mb-4">
+            <label for="negociacao-busca" class="form-label">Buscar cliente</label>
+            <input type="text" id="negociacao-busca" class="form-input" placeholder="Digite para filtrar" oninput="filtrarClientesNegociacao()">
+        </div>
+        <div class="form-group mb-4">
+            <label for="negociacao-cliente" class="form-label">Cliente</label>
+            <select id="negociacao-cliente" class="form-input" size="8">
+                {% for c in clientes %}
+                <option value="{{ c.id }}">{{ c.razao_social_nome }}</option>
+                {% endfor %}
+            </select>
+            <p id="negociacao-feedback" class="text-xs text-red-600 mt-2" style="display:none;"></p>
+        </div>
+        <div class="flex justify-end space-x-3">
+            <button type="button" class="btn-secondary" onclick="closeNegociacaoModal()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="selecionarClienteNegociacao()">Selecionar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openNegociacaoModal(){
+    const modal = document.getElementById('negociacao-modal');
+    const busca = document.getElementById('negociacao-busca');
+    const select = document.getElementById('negociacao-cliente');
+    const feedback = document.getElementById('negociacao-feedback');
+    if(!modal || !busca || !select){ return; }
+    busca.value = '';
+    feedback.style.display = 'none';
+    Array.from(select.options).forEach(opt => opt.style.display = 'block');
+    select.selectedIndex = select.options.length ? 0 : -1;
+    modal.style.display = 'flex';
+    busca.focus();
+}
+function closeNegociacaoModal(){
+    const modal = document.getElementById('negociacao-modal');
+    if(modal){ modal.style.display = 'none'; }
+}
+function filtrarClientesNegociacao(){
+    const termo = (document.getElementById('negociacao-busca').value || '').toLowerCase();
+    const select = document.getElementById('negociacao-cliente');
+    if(!select){ return; }
+    let firstVisible = null;
+    Array.from(select.options).forEach(opt => {
+        const match = opt.text.toLowerCase().includes(termo);
+        opt.style.display = match ? 'block' : 'none';
+        if(match && firstVisible === null){
+            firstVisible = opt;
+        }
+    });
+    if(firstVisible){
+        firstVisible.selected = true;
+    }
+}
+function selecionarClienteNegociacao(){
+    const select = document.getElementById('negociacao-cliente');
+    const feedback = document.getElementById('negociacao-feedback');
+    if(!select){ return; }
+    const option = Array.from(select.options).find(opt => opt.selected && opt.style.display !== 'none');
+    if(!option){
+        if(feedback){
+            feedback.textContent = 'Escolha um cliente para continuar.';
+            feedback.style.display = 'block';
+        }
+        return;
+    }
+    const id = option.value;
+    window.location.href = "{{ url_for('contas_a_receber_negociacao_titulos') }}?cliente_id=" + encodeURIComponent(id);
+}
+</script>
+{% endblock %}

@@ -13,6 +13,9 @@
             <button type="button" class="btn-secondary flex items-center" onclick="openAjusteModal()">
                 <i class="fas fa-calendar-alt mr-2"></i> Ajustar vencimentos
             </button>
+            <a href="{{ url_for('contas_a_receber_negociacao') }}" class="btn-secondary flex items-center">
+                <i class="fas fa-handshake mr-2"></i> Negociação
+            </a>
             <button type="button" class="btn-secondary flex items-center" onclick="openFiltroModal()">
                 <i class="fas fa-filter mr-2"></i> Filtros
             </button>
@@ -232,7 +235,7 @@
                     <label for="status_conta" class="form-label">Status:</label>
                     <select id="status_conta" name="status_conta" class="form-input">
                         <option value="">Todos</option>
-                        {% set status_opts = ['Aberta','Vencida','Parcial','Paga','Cancelada'] %}
+                        {% set status_opts = ['Aberta','Vencida','Parcial','Paga','Cancelada','Negociado'] %}
                         {% for st in status_opts %}
                         <option value="{{ st }}" {% if filtros.status_conta == st %}selected{% endif %}>{{ st }}</option>
                         {% endfor %}

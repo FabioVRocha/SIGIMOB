@@ -1,0 +1,164 @@
+<!-- templates/financeiro/contas_a_receber/negociacao_titulos.html -->
+{% extends "base.html" %}
+
+{% block title %}Negociação - Selecionar Títulos{% endblock %}
+
+{% block page_title %}Negociação de Títulos{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h2 class="text-2xl font-semibold text-dark-blue">Selecionar títulos</h2>
+            <p class="text-sm text-gray-600">Cliente: {{ cliente.razao_social_nome }}</p>
+        </div>
+        <div class="flex items-center space-x-2">
+            <a href="{{ url_for('contas_a_receber_negociacao') }}" class="btn-secondary">Voltar</a>
+        </div>
+    </div>
+
+    <form id="negociacao-form" method="POST" action="{{ url_for('contas_a_receber_negociacao_preview') }}">
+        <input type="hidden" name="cliente_id" value="{{ cliente_id }}">
+        <input type="hidden" name="quantidade" id="negociacao-quantidade">
+        <input type="hidden" name="intervalo_dias" id="negociacao-intervalo">
+        <input type="hidden" name="dia_base" id="negociacao-dia-base">
+
+        <div class="flex items-center justify-between mb-3">
+            <label class="flex items-center space-x-2 text-sm text-gray-700">
+                <input type="checkbox" id="negociacao-select-all" class="form-checkbox" onchange="toggleSelectAllNegociacao(this)">
+                <span>Selecionar todos</span>
+            </label>
+            <div id="negociacao-total-selecionado" class="text-sm font-semibold text-dark-blue"></div>
+        </div>
+        <div class="overflow-y-auto max-h-96 border border-gray-200 rounded-lg">
+            <table class="min-w-full text-sm">
+                <thead class="bg-gray-100 text-gray-700">
+                    <tr>
+                        <th class="px-3 py-2 text-left">Selecionar</th>
+                        <th class="px-3 py-2 text-left">#</th>
+                        <th class="px-3 py-2 text-left">Título</th>
+                        <th class="px-3 py-2 text-left">Vencimento</th>
+                        <th class="px-3 py-2 text-left">Valor</th>
+                        <th class="px-3 py-2 text-left">Status</th>
+                        <th class="px-3 py-2 text-left">Contrato</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for titulo in titulos %}
+                    <tr>
+                        <td class="px-3 py-2">
+                            <input type="checkbox" name="titulo_ids" class="form-checkbox negociacao-item" value="{{ titulo.id }}" onchange="atualizarResumoNegociacao()">
+                        </td>
+                        <td class="px-3 py-2">{{ titulo.id }}</td>
+                        <td class="px-3 py-2">{{ titulo.titulo or '' }}</td>
+                        <td class="px-3 py-2">{{ titulo.data_vencimento.strftime('%d/%m/%Y') if titulo.data_vencimento else '' }}</td>
+                        <td class="px-3 py-2">{{ (titulo.valor_pendente or titulo.valor_previsto) | currency }}</td>
+                        <td class="px-3 py-2">{{ titulo.status_conta }}</td>
+                        <td class="px-3 py-2">{{ titulo.contrato_nome or (titulo.contrato_id and ('Contrato ' ~ titulo.contrato_id)) or '' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex justify-end mt-4">
+            <button type="button" class="btn-primary" onclick="abrirNegociacaoParametros()">Negociar selecionados</button>
+        </div>
+    </form>
+</div>
+
+<div id="negociacao-parametros-modal" class="modal" style="display:none;">
+    <div class="modal-content max-w-xl">
+        <span class="close-button" onclick="closeNegociacaoParametros()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Definir parcelas</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="form-group">
+                <label for="param-quantidade" class="form-label">Quantidade de parcelas</label>
+                <input type="number" id="param-quantidade" min="1" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label for="param-intervalo" class="form-label">Intervalo entre boletos (dias)</label>
+                <input type="number" id="param-intervalo" min="0" class="form-input" oninput="toggleNegociacaoParametros()">
+            </div>
+            <div class="form-group md:col-span-2">
+                <label for="param-dia-base" class="form-label">Dia base para vencimento (1-31)</label>
+                <input type="number" id="param-dia-base" min="0" max="31" class="form-input" oninput="toggleNegociacaoParametros()">
+            </div>
+        </div>
+        <p id="negociacao-parametros-feedback" class="text-sm text-red-600 mb-3" style="display:none;"></p>
+        <div class="flex justify-end space-x-3">
+            <button type="button" class="btn-secondary" onclick="closeNegociacaoParametros()">Cancelar</button>
+            <button type="button" class="btn-primary" onclick="confirmarNegociacaoParametros()">Continuar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSelectAllNegociacao(checkbox){
+    document.querySelectorAll('.negociacao-item').forEach(item => {
+        item.checked = checkbox.checked;
+    });
+    atualizarResumoNegociacao();
+}
+function atualizarResumoNegociacao(){
+    const total = document.querySelectorAll('.negociacao-item:checked').length;
+    const label = document.getElementById('negociacao-total-selecionado');
+    if(label){
+        label.textContent = total ? total + ' título(s) selecionado(s)' : '';
+    }
+}
+function abrirNegociacaoParametros(){
+    const selecionados = document.querySelectorAll('.negociacao-item:checked').length;
+    const feedback = document.getElementById('negociacao-parametros-feedback');
+    if(!selecionados){
+        if(feedback){
+            feedback.textContent = 'Selecione ao menos um título.';
+            feedback.style.display = 'block';
+        }
+        const modal = document.getElementById('negociacao-parametros-modal');
+        if(modal){ modal.style.display = 'flex'; }
+        return;
+    }
+    if(feedback){ feedback.style.display = 'none'; }
+    const modal = document.getElementById('negociacao-parametros-modal');
+    if(modal){ modal.style.display = 'flex'; }
+}
+function closeNegociacaoParametros(){
+    const modal = document.getElementById('negociacao-parametros-modal');
+    if(modal){ modal.style.display = 'none'; }
+}
+function toggleNegociacaoParametros(){
+    const intervalo = document.getElementById('param-intervalo');
+    const diaBase = document.getElementById('param-dia-base');
+    if(!intervalo || !diaBase){ return; }
+    const intervaloVal = parseInt(intervalo.value || '0', 10);
+    const diaBaseVal = parseInt(diaBase.value || '0', 10);
+    intervalo.disabled = diaBaseVal > 0;
+    diaBase.disabled = intervaloVal > 0;
+}
+function confirmarNegociacaoParametros(){
+    const quantidade = document.getElementById('param-quantidade');
+    const intervalo = document.getElementById('param-intervalo');
+    const diaBase = document.getElementById('param-dia-base');
+    const feedback = document.getElementById('negociacao-parametros-feedback');
+    const qtdVal = parseInt(quantidade.value || '0', 10);
+    const intervaloVal = parseInt(intervalo.value || '0', 10);
+    const diaBaseVal = parseInt(diaBase.value || '0', 10);
+    if(qtdVal <= 0 || ((intervaloVal <= 0) && (diaBaseVal <= 0)) || (intervaloVal > 0 && diaBaseVal > 0)){
+        if(feedback){
+            feedback.textContent = 'Informe a quantidade de parcelas e o intervalo ou o dia base.';
+            feedback.style.display = 'block';
+        }
+        return;
+    }
+    if(feedback){ feedback.style.display = 'none'; }
+    document.getElementById('negociacao-quantidade').value = qtdVal;
+    document.getElementById('negociacao-intervalo').value = intervaloVal;
+    document.getElementById('negociacao-dia-base').value = diaBaseVal;
+    document.getElementById('negociacao-form').submit();
+}
+document.addEventListener('DOMContentLoaded', atualizarResumoNegociacao);
+</script>
+{% endblock %}
