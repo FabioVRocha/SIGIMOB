@@ -70,6 +70,27 @@ CREATE TABLE imovel_anexos (
     data_upload TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- Tabelas para Loteamentos
+CREATE TABLE loteamentos (
+    id SERIAL PRIMARY KEY,
+    imovel_id INTEGER NOT NULL REFERENCES imoveis(id) ON DELETE CASCADE,
+    autorizado BOOLEAN NOT NULL DEFAULT FALSE,
+    quantidade_lotes INTEGER,
+    mascara_lote VARCHAR(120),
+    autorizado_em TIMESTAMP,
+    autorizado_por INTEGER REFERENCES usuarios(id),
+    loteado_em TIMESTAMP,
+    planta_nome_arquivo VARCHAR(255),
+    planta_caminho_arquivo VARCHAR(500)
+);
+
+CREATE TABLE loteamentos_lotes (
+    id SERIAL PRIMARY KEY,
+    loteamento_id INTEGER NOT NULL REFERENCES loteamentos(id) ON DELETE CASCADE,
+    imovel_id INTEGER NOT NULL REFERENCES imoveis(id) ON DELETE CASCADE,
+    nome_lote VARCHAR(120) NOT NULL
+);
+
 -- Tabela para Cadastro de Despesas
 CREATE TABLE despesas_cadastro (
     id SERIAL PRIMARY KEY,

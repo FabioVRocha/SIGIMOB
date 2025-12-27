@@ -1,0 +1,49 @@
+<!-- templates/imoveis/loteamentos/edit.html -->
+{% extends "base.html" %}
+
+{% block title %}Editar Loteamento{% endblock %}
+
+{% block page_title %}Editar Loteamento{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Editar Loteamento</h2>
+        <a href="{{ url_for('loteamentos_list') }}" class="btn-secondary flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Voltar
+        </a>
+    </div>
+
+    <div class="mb-6 text-sm text-gray-600">
+        <div><span class="font-semibold">Imóvel:</span> {{ loteamento.endereco }}</div>
+        <div><span class="font-semibold">Cidade/Estado:</span> {{ loteamento.cidade }}/{{ loteamento.estado }}</div>
+    </div>
+
+    <form action="{{ url_for('loteamentos_edit', loteamento_id=loteamento.id) }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <div>
+            <label for="mascara_lote" class="form-label">Máscara do nome do lote *</label>
+            <input type="text" id="mascara_lote" name="mascara_lote" class="form-input w-full" value="{{ loteamento.mascara_lote }}" required>
+            <p class="text-xs text-gray-500 mt-1">Os nomes e endereços dos lotes serão atualizados.</p>
+        </div>
+
+        <div>
+            <label for="planta_baixa" class="form-label">Planta baixa</label>
+            <input type="file" id="planta_baixa" name="planta_baixa" class="form-input w-full">
+            {% if loteamento.planta_nome_arquivo %}
+            <p class="text-xs text-gray-500 mt-2">
+                Arquivo atual:
+                <a href="{{ url_for('loteamentos_planta', loteamento_id=loteamento.id) }}" class="text-blue-600 hover:text-blue-800">
+                    {{ loteamento.planta_nome_arquivo }}
+                </a>
+            </p>
+            {% endif %}
+        </div>
+
+        <div class="flex justify-end">
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-save mr-2"></i> Salvar alterações
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Registrar Venda{% endblock %}
-{% block page_title %}Registrar Venda de Imóvel{% endblock %}
+{% block title %}{% if is_edit %}Editar Venda{% else %}Registrar Venda{% endif %}{% endblock %}
+{% block page_title %}{% if is_edit %}Editar Venda de Imóvel{% else %}Registrar Venda de Imóvel{% endif %}{% endblock %}
 
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{{ url_for('imoveis_vendas_add') }}" method="POST" enctype="multipart/form-data">
+    <form action="{% if is_edit %}{{ url_for('imoveis_vendas_edit', id=venda.id) }}{% else %}{{ url_for('imoveis_vendas_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
         {% if not imoveis_disponiveis %}
         <div class="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded">
             Nenhum imóvel disponível para venda no momento. Verifique se existem contratos ativos ou cadastre novos imóveis.
@@ -88,7 +88,7 @@
 
         <div class="flex justify-end space-x-4 mt-6">
             <a href="{{ url_for('imoveis_vendas_list') }}" class="btn-secondary">Cancelar</a>
-            <button type="submit" class="btn-primary">Confirmar Venda</button>
+            <button type="submit" class="btn-primary">{% if is_edit %}Atualizar Venda{% else %}Confirmar Venda{% endif %}</button>
         </div>
     </form>
 </div>

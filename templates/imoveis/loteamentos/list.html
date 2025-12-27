@@ -1,0 +1,76 @@
+<!-- templates/imoveis/loteamentos/list.html -->
+{% extends "base.html" %}
+
+{% block title %}Loteamentos{% endblock %}
+
+{% block page_title %}Loteamentos{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-semibold text-dark-blue">Loteamentos</h2>
+            <p class="text-sm text-gray-600">Após o loteamento, ele aparecerá listado aqui.</p>
+        </div>
+        <div class="flex space-x-2">
+            <a href="{{ url_for('loteamentos_add') }}" class="btn-primary flex items-center">
+                <i class="fas fa-plus mr-2"></i> Incluir Loteamento
+            </a>
+            <a href="{{ url_for('imoveis_list') }}" class="btn-secondary flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i> Voltar para Imóveis
+            </a>
+        </div>
+    </div>
+
+    {% if loteamentos %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg overflow-hidden">
+            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                <tr>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cidade/Estado</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Qtd. Lotes</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Máscara</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Loteado em</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for loteamento in loteamentos %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ loteamento.id }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ loteamento.endereco }}, {{ loteamento.bairro }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ loteamento.cidade }}/{{ loteamento.estado }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ loteamento.total_lotes }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">{{ loteamento.mascara_lote }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-700">
+                        {% if loteamento.loteado_em %}
+                            {{ loteamento.loteado_em.strftime('%d/%m/%Y %H:%M') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm">
+                        <a href="{{ url_for('loteamentos_view', loteamento_id=loteamento.id) }}" class="text-green-600 hover:text-green-800 mr-3" title="Visualizar">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('loteamentos_edit', loteamento_id=loteamento.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('loteamentos_delete', loteamento_id=loteamento.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este loteamento e todos os seus lotes?');">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-center text-gray-600">Nenhum loteamento cadastrado.</p>
+    {% endif %}
+</div>
+{% endblock %}

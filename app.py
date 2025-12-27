@@ -84,6 +84,9 @@ os.makedirs(
 os.makedirs(
     os.path.join(UPLOAD_FOLDER, "imoveis_vendas_anexos"), exist_ok=True
 )  # Pasta para anexos de vendas de imóveis
+os.makedirs(
+    os.path.join(UPLOAD_FOLDER, "loteamentos_anexos"), exist_ok=True
+)  # Pasta para anexos de loteamentos
 
 USER_PHOTOS_SUBDIR = "usuarios_fotos"
 USER_PHOTOS_DIR = os.path.join(UPLOAD_FOLDER, USER_PHOTOS_SUBDIR)
@@ -1855,7 +1858,9 @@ def ensure_imovel_status_columns():
     try:
         cur.execute("SELECT 1 FROM pg_type WHERE typname = 'status_imovel_enum'")
         if cur.fetchone() is None:
-            cur.execute("CREATE TYPE status_imovel_enum AS ENUM ('Ativo', 'Vendido')")
+            cur.execute(
+                "CREATE TYPE status_imovel_enum AS ENUM ('Ativo', 'Vendido', 'Loteado')"
+            )
         else:
             cur.execute(
                 """
@@ -1873,6 +1878,14 @@ def ensure_imovel_status_columns():
             )
             if cur.fetchone() is None:
                 cur.execute("ALTER TYPE status_imovel_enum ADD VALUE 'Vendido'")
+            cur.execute(
+                """
+                SELECT 1 FROM pg_enum
+                WHERE enumtypid = 'status_imovel_enum'::regtype AND enumlabel = 'Loteado'
+                """
+            )
+            if cur.fetchone() is None:
+                cur.execute("ALTER TYPE status_imovel_enum ADD VALUE 'Loteado'")
 
         cur.execute(
             """
@@ -1945,6 +1958,43 @@ def ensure_imovel_vendas_tables():
                 nome_arquivo VARCHAR(255) NOT NULL,
                 caminho_arquivo VARCHAR(500) NOT NULL,
                 data_upload TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        cur.close()
+        conn.close()
+
+
+def ensure_loteamentos_tables():
+    """Cria tabelas de loteamentos e seus lotes, se necessário."""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS loteamentos (
+                id SERIAL PRIMARY KEY,
+                imovel_id INTEGER NOT NULL REFERENCES imoveis(id) ON DELETE CASCADE,
+                autorizado BOOLEAN NOT NULL DEFAULT FALSE,
+                quantidade_lotes INTEGER,
+                mascara_lote VARCHAR(120),
+                autorizado_em TIMESTAMP,
+                autorizado_por INTEGER REFERENCES usuarios(id),
+                loteado_em TIMESTAMP,
+                planta_nome_arquivo VARCHAR(255),
+                planta_caminho_arquivo VARCHAR(500)
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS loteamentos_lotes (
+                id SERIAL PRIMARY KEY,
+                loteamento_id INTEGER NOT NULL REFERENCES loteamentos(id) ON DELETE CASCADE,
+                imovel_id INTEGER NOT NULL REFERENCES imoveis(id) ON DELETE CASCADE,
+                nome_lote VARCHAR(120) NOT NULL
             )
             """
         )
@@ -2085,6 +2135,7 @@ ensure_max_contratos_column()
 ensure_imoveis_video_url_column()
 ensure_imovel_status_columns()
 ensure_imovel_vendas_tables()
+ensure_loteamentos_tables()
 ensure_venda_imovel_receita()
 ensure_calcao_columns()
 ensure_contrato_renovacoes_table()
@@ -3315,6 +3366,697 @@ def imoveis_list():
     )
 
 
+@app.route("/imoveis/loteamentos")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def loteamentos_list():
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT
+            l.*,
+            i.endereco,
+            i.bairro,
+            i.cidade,
+            i.estado,
+            i.status AS status_imovel,
+            COUNT(ll.id) AS total_lotes
+        FROM loteamentos l
+        JOIN imoveis i ON i.id = l.imovel_id
+        LEFT JOIN loteamentos_lotes ll ON ll.loteamento_id = l.id
+        WHERE l.loteado_em IS NOT NULL
+        GROUP BY l.id, i.id
+        ORDER BY l.loteado_em DESC
+        """
+    )
+    loteamentos = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template("imoveis/loteamentos/list.html", loteamentos=loteamentos)
+
+
+@app.route("/imoveis/loteamentos/add", methods=["GET", "POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Incluir")
+def loteamentos_add():
+    if request.method == "POST":
+        imovel_id = request.form.get("imovel_id")
+        quantidade_raw = (request.form.get("quantidade_lotes") or "").strip()
+        mascara_lote = (request.form.get("mascara_lote") or "").strip()
+        try:
+            quantidade_lotes = int(quantidade_raw)
+        except ValueError:
+            quantidade_lotes = 0
+
+        if not imovel_id:
+            flash("Selecione um imóvel para loteamento.", "danger")
+            return redirect(url_for("loteamentos_add"))
+        if quantidade_lotes <= 0:
+            flash("Informe uma quantidade de lotes válida.", "danger")
+            return redirect(url_for("loteamentos_add"))
+        if not mascara_lote:
+            flash("Informe a máscara do nome do lote.", "danger")
+            return redirect(url_for("loteamentos_add"))
+
+        planta_baixa = request.files.get("planta_baixa")
+        if planta_baixa and not allowed_file(planta_baixa.filename):
+            flash("Arquivo de planta baixa inválido.", "danger")
+            return redirect(url_for("loteamentos_add"))
+
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        try:
+            cur.execute("SELECT * FROM imoveis WHERE id = %s", (imovel_id,))
+            imovel = cur.fetchone()
+            if not imovel:
+                flash("Imóvel não encontrado.", "danger")
+                return redirect(url_for("loteamentos_add"))
+
+            if imovel["tipo_imovel"] != "Terreno":
+                flash("Somente imóveis do tipo Terreno podem ser loteados.", "danger")
+                return redirect(url_for("loteamentos_add"))
+
+            if imovel.get("status") == "Loteado":
+                flash("Imóvel já está loteado.", "warning")
+                return redirect(url_for("loteamentos_add"))
+
+            cur.execute(
+                "SELECT * FROM loteamentos WHERE imovel_id = %s",
+                (imovel_id,),
+            )
+            loteamento = cur.fetchone()
+            if loteamento and loteamento.get("loteado_em"):
+                flash("Imóvel já possui loteamento concluído.", "warning")
+                return redirect(url_for("loteamentos_add"))
+
+            planta_nome_arquivo = None
+            planta_caminho_arquivo = None
+            if planta_baixa and planta_baixa.filename:
+                safe_name = secure_filename(planta_baixa.filename)
+                unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+                planta_nome_arquivo = safe_name
+                planta_caminho_arquivo = os.path.join(
+                    app.config["UPLOAD_FOLDER"], "loteamentos_anexos", unique_name
+                )
+                planta_baixa.save(planta_caminho_arquivo)
+
+            if loteamento:
+                cur.execute(
+                    """
+                    UPDATE loteamentos
+                       SET autorizado = TRUE,
+                           quantidade_lotes = %s,
+                           mascara_lote = %s,
+                           autorizado_em = NOW(),
+                           autorizado_por = %s,
+                           loteado_em = NOW(),
+                           planta_nome_arquivo = %s,
+                           planta_caminho_arquivo = %s
+                     WHERE id = %s
+                    """,
+                    (
+                        quantidade_lotes,
+                        mascara_lote,
+                        session.get("user_id"),
+                        planta_nome_arquivo,
+                        planta_caminho_arquivo,
+                        loteamento["id"],
+                    ),
+                )
+                loteamento_id = loteamento["id"]
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO loteamentos (
+                        imovel_id, autorizado, quantidade_lotes, mascara_lote,
+                        autorizado_em, autorizado_por, loteado_em,
+                        planta_nome_arquivo, planta_caminho_arquivo
+                    )
+                    VALUES (%s, TRUE, %s, %s, NOW(), %s, NOW(), %s, %s)
+                    RETURNING id
+                    """,
+                    (
+                        imovel_id,
+                        quantidade_lotes,
+                        mascara_lote,
+                        session.get("user_id"),
+                        planta_nome_arquivo,
+                        planta_caminho_arquivo,
+                    ),
+                )
+                loteamento_id = cur.fetchone()[0]
+
+            for index in range(1, quantidade_lotes + 1):
+                nome_lote = f"{mascara_lote}-{index}/{quantidade_lotes}"
+                endereco_lote = f"{imovel['endereco']}, {nome_lote}"
+                cur.execute(
+                    """
+                    INSERT INTO imoveis (
+                        tipo_imovel, endereco, bairro, cidade, estado, cep, registro,
+                        livro, folha, matricula, inscricao_iptu, latitude, longitude,
+                        data_aquisicao, valor_imovel, valor_previsto_aluguel, max_contratos,
+                        destinacao, observacao, video_url, status, disponivel
+                    )
+                    VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s
+                    )
+                    RETURNING id
+                    """,
+                    (
+                        imovel["tipo_imovel"],
+                        endereco_lote,
+                        imovel["bairro"],
+                        imovel["cidade"],
+                        imovel["estado"],
+                        imovel["cep"],
+                        imovel["registro"],
+                        imovel["livro"],
+                        imovel["folha"],
+                        imovel["matricula"],
+                        imovel["inscricao_iptu"],
+                        imovel["latitude"],
+                        imovel["longitude"],
+                        imovel["data_aquisicao"],
+                        imovel["valor_imovel"],
+                        imovel["valor_previsto_aluguel"],
+                        imovel.get("max_contratos") or 1,
+                        imovel["destinacao"],
+                        imovel["observacao"],
+                        imovel["video_url"],
+                        "Ativo",
+                        imovel.get("disponivel")
+                        if imovel.get("disponivel") is not None
+                        else True,
+                    ),
+                )
+                novo_imovel_id = cur.fetchone()[0]
+                cur.execute(
+                    """
+                    INSERT INTO loteamentos_lotes (loteamento_id, imovel_id, nome_lote)
+                    VALUES (%s, %s, %s)
+                    """,
+                    (loteamento_id, novo_imovel_id, nome_lote),
+                )
+
+            cur.execute(
+                """
+                UPDATE imoveis
+                   SET status = 'Loteado',
+                       disponivel = FALSE
+                 WHERE id = %s
+                """,
+                (imovel_id,),
+            )
+
+            conn.commit()
+            flash("Loteamento concluído com sucesso.", "success")
+            return redirect(url_for("loteamentos_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao lotear imóvel: {e}", "danger")
+            return redirect(url_for("loteamentos_add"))
+        finally:
+            cur.close()
+            conn.close()
+    else:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute(
+            """
+            SELECT i.*
+            FROM imoveis i
+            LEFT JOIN loteamentos l ON l.imovel_id = i.id
+            WHERE i.tipo_imovel = 'Terreno'
+              AND (l.id IS NULL OR l.loteado_em IS NULL)
+              AND (i.status IS NULL OR i.status <> 'Loteado')
+            ORDER BY i.data_cadastro DESC
+            """
+        )
+        imoveis = cur.fetchall()
+        cur.close()
+        conn.close()
+        return render_template("imoveis/loteamentos/add.html", imoveis=imoveis)
+
+
+@app.route("/imoveis/loteamentos/view/<int:loteamento_id>")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def loteamentos_view(loteamento_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT l.*, i.endereco, i.bairro, i.cidade, i.estado, i.status AS status_imovel
+        FROM loteamentos l
+        JOIN imoveis i ON i.id = l.imovel_id
+        WHERE l.id = %s
+        """,
+        (loteamento_id,),
+    )
+    loteamento = cur.fetchone()
+    if not loteamento:
+        cur.close()
+        conn.close()
+        flash("Loteamento não encontrado.", "danger")
+        return redirect(url_for("loteamentos_list"))
+
+    cur.execute(
+        """
+        SELECT ll.nome_lote, i.id AS imovel_id, i.endereco
+        FROM loteamentos_lotes ll
+        JOIN imoveis i ON i.id = ll.imovel_id
+        WHERE ll.loteamento_id = %s
+        ORDER BY ll.id
+        """,
+        (loteamento_id,),
+    )
+    lotes = cur.fetchall()
+    cur.close()
+    conn.close()
+    return render_template(
+        "imoveis/loteamentos/view.html",
+        loteamento=loteamento,
+        lotes=lotes,
+    )
+
+
+@app.route("/imoveis/loteamentos/edit/<int:loteamento_id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Editar")
+def loteamentos_edit(loteamento_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if request.method == "POST":
+        mascara_lote = (request.form.get("mascara_lote") or "").strip()
+        planta_baixa = request.files.get("planta_baixa")
+        if not mascara_lote:
+            flash("Informe a máscara do nome do lote.", "danger")
+            return redirect(url_for("loteamentos_edit", loteamento_id=loteamento_id))
+        if planta_baixa and not allowed_file(planta_baixa.filename):
+            flash("Arquivo de planta baixa inválido.", "danger")
+            return redirect(url_for("loteamentos_edit", loteamento_id=loteamento_id))
+
+        try:
+            cur.execute(
+                """
+                SELECT l.*, i.endereco
+                FROM loteamentos l
+                JOIN imoveis i ON i.id = l.imovel_id
+                WHERE l.id = %s
+                """,
+                (loteamento_id,),
+            )
+            loteamento = cur.fetchone()
+            if not loteamento:
+                flash("Loteamento não encontrado.", "danger")
+                return redirect(url_for("loteamentos_list"))
+
+            planta_nome_arquivo = loteamento.get("planta_nome_arquivo")
+            planta_caminho_arquivo = loteamento.get("planta_caminho_arquivo")
+            if planta_baixa and planta_baixa.filename:
+                if planta_caminho_arquivo and os.path.exists(planta_caminho_arquivo):
+                    os.remove(planta_caminho_arquivo)
+                safe_name = secure_filename(planta_baixa.filename)
+                unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+                planta_nome_arquivo = safe_name
+                planta_caminho_arquivo = os.path.join(
+                    app.config["UPLOAD_FOLDER"], "loteamentos_anexos", unique_name
+                )
+                planta_baixa.save(planta_caminho_arquivo)
+
+            cur.execute(
+                """
+                UPDATE loteamentos
+                   SET mascara_lote = %s,
+                       planta_nome_arquivo = %s,
+                       planta_caminho_arquivo = %s
+                 WHERE id = %s
+                """,
+                (
+                    mascara_lote,
+                    planta_nome_arquivo,
+                    planta_caminho_arquivo,
+                    loteamento_id,
+                ),
+            )
+
+            quantidade_lotes = loteamento.get("quantidade_lotes") or 0
+            if quantidade_lotes > 0:
+                cur.execute(
+                    """
+                    SELECT ll.id, ll.imovel_id
+                    FROM loteamentos_lotes ll
+                    WHERE ll.loteamento_id = %s
+                    ORDER BY ll.id
+                    """,
+                    (loteamento_id,),
+                )
+                lotes = cur.fetchall()
+                for index, lote in enumerate(lotes, start=1):
+                    nome_lote = f"{mascara_lote}-{index}/{quantidade_lotes}"
+                    endereco_lote = f"{loteamento['endereco']}, {nome_lote}"
+                    cur.execute(
+                        """
+                        UPDATE loteamentos_lotes
+                           SET nome_lote = %s
+                         WHERE id = %s
+                        """,
+                        (nome_lote, lote["id"]),
+                    )
+                    cur.execute(
+                        "UPDATE imoveis SET endereco = %s WHERE id = %s",
+                        (endereco_lote, lote["imovel_id"]),
+                    )
+
+            conn.commit()
+            flash("Loteamento atualizado com sucesso.", "success")
+            return redirect(url_for("loteamentos_list"))
+        except Exception as e:
+            conn.rollback()
+            flash(f"Erro ao atualizar loteamento: {e}", "danger")
+            return redirect(url_for("loteamentos_edit", loteamento_id=loteamento_id))
+    else:
+        cur.execute(
+            """
+            SELECT l.*, i.endereco, i.cidade, i.estado
+            FROM loteamentos l
+            JOIN imoveis i ON i.id = l.imovel_id
+            WHERE l.id = %s
+            """,
+            (loteamento_id,),
+        )
+        loteamento = cur.fetchone()
+        cur.close()
+        conn.close()
+        if not loteamento:
+            flash("Loteamento não encontrado.", "danger")
+            return redirect(url_for("loteamentos_list"))
+        return render_template("imoveis/loteamentos/edit.html", loteamento=loteamento)
+
+
+@app.route("/imoveis/loteamentos/delete/<int:loteamento_id>", methods=["POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Excluir")
+def loteamentos_delete(loteamento_id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            "SELECT imovel_id, planta_caminho_arquivo FROM loteamentos WHERE id = %s",
+            (loteamento_id,),
+        )
+        loteamento = cur.fetchone()
+        if not loteamento:
+            flash("Loteamento não encontrado.", "danger")
+            return redirect(url_for("loteamentos_list"))
+
+        cur.execute(
+            "SELECT imovel_id FROM loteamentos_lotes WHERE loteamento_id = %s",
+            (loteamento_id,),
+        )
+        lotes = cur.fetchall()
+        if lotes:
+            lote_ids = tuple(lote["imovel_id"] for lote in lotes)
+            cur.execute("DELETE FROM imoveis WHERE id IN %s", (lote_ids,))
+
+        cur.execute("DELETE FROM loteamentos WHERE id = %s", (loteamento_id,))
+        cur.execute(
+            """
+            UPDATE imoveis
+               SET status = 'Ativo',
+                   disponivel = TRUE
+             WHERE id = %s
+            """,
+            (loteamento["imovel_id"],),
+        )
+        conn.commit()
+
+        planta_path = loteamento.get("planta_caminho_arquivo")
+        if planta_path and os.path.exists(planta_path):
+            os.remove(planta_path)
+
+        flash("Loteamento excluído com sucesso.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao excluir loteamento: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for("loteamentos_list"))
+
+
+@app.route("/imoveis/loteamentos/planta/<int:loteamento_id>")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def loteamentos_planta(loteamento_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT planta_caminho_arquivo, planta_nome_arquivo FROM loteamentos WHERE id = %s",
+        (loteamento_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if not row or not row[0] or not os.path.exists(row[0]):
+        flash("Planta não encontrada.", "danger")
+        return redirect(url_for("loteamentos_list"))
+    return send_file(row[0], as_attachment=True, download_name=row[1])
+
+
+@app.route("/imoveis/loteamentos/autorizar/<int:imovel_id>", methods=["POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Editar")
+def loteamentos_autorizar(imovel_id):
+    quantidade_raw = (request.form.get("quantidade_lotes") or "").strip()
+    try:
+        quantidade_lotes = int(quantidade_raw)
+    except ValueError:
+        quantidade_lotes = 0
+
+    if quantidade_lotes <= 0:
+        flash("Informe uma quantidade de lotes válida.", "danger")
+        return redirect(url_for("loteamentos_list"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute(
+            "SELECT id, tipo_imovel, status FROM imoveis WHERE id = %s",
+            (imovel_id,),
+        )
+        imovel = cur.fetchone()
+        if not imovel:
+            flash("Imóvel não encontrado.", "danger")
+            return redirect(url_for("loteamentos_list"))
+
+        if imovel["tipo_imovel"] != "Terreno":
+            flash("Somente imóveis do tipo Terreno podem ser loteados.", "danger")
+            return redirect(url_for("loteamentos_list"))
+
+        if imovel.get("status") == "Loteado":
+            flash("Imóvel já está loteado.", "warning")
+            return redirect(url_for("loteamentos_list"))
+
+        cur.execute(
+            "SELECT id, loteado_em FROM loteamentos WHERE imovel_id = %s",
+            (imovel_id,),
+        )
+        loteamento = cur.fetchone()
+        if loteamento and loteamento["loteado_em"] is not None:
+            flash("Loteamento já foi concluído para este imóvel.", "warning")
+            return redirect(url_for("loteamentos_list"))
+
+        if loteamento:
+            cur.execute(
+                """
+                UPDATE loteamentos
+                   SET autorizado = TRUE,
+                       quantidade_lotes = %s,
+                       autorizado_em = NOW(),
+                       autorizado_por = %s
+                 WHERE id = %s
+                """,
+                (quantidade_lotes, session.get("user_id"), loteamento["id"]),
+            )
+        else:
+            cur.execute(
+                """
+                INSERT INTO loteamentos
+                    (imovel_id, autorizado, quantidade_lotes, autorizado_em, autorizado_por)
+                VALUES (%s, TRUE, %s, NOW(), %s)
+                """,
+                (imovel_id, quantidade_lotes, session.get("user_id")),
+            )
+
+        conn.commit()
+        flash("Imóvel liberado para loteamento.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao autorizar loteamento: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for("loteamentos_list"))
+
+
+@app.route("/imoveis/loteamentos/lotear/<int:imovel_id>", methods=["POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Editar")
+def loteamentos_lotear(imovel_id):
+    mascara_lote = (request.form.get("mascara_lote") or "").strip()
+    if not mascara_lote:
+        flash("Informe a máscara do nome do lote.", "danger")
+        return redirect(url_for("loteamentos_list"))
+
+    planta_baixa = request.files.get("planta_baixa")
+    if planta_baixa and not allowed_file(planta_baixa.filename):
+        flash("Arquivo de planta baixa inválido.", "danger")
+        return redirect(url_for("loteamentos_list"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute("SELECT * FROM imoveis WHERE id = %s", (imovel_id,))
+        imovel = cur.fetchone()
+        if not imovel:
+            flash("Imóvel não encontrado.", "danger")
+            return redirect(url_for("loteamentos_list"))
+
+        if imovel["tipo_imovel"] != "Terreno":
+            flash("Somente imóveis do tipo Terreno podem ser loteados.", "danger")
+            return redirect(url_for("loteamentos_list"))
+
+        if imovel.get("status") == "Loteado":
+            flash("Imóvel já está loteado.", "warning")
+            return redirect(url_for("loteamentos_list"))
+
+        cur.execute(
+            """
+            SELECT * FROM loteamentos
+            WHERE imovel_id = %s
+            """,
+            (imovel_id,),
+        )
+        loteamento = cur.fetchone()
+        if not loteamento or not loteamento.get("autorizado"):
+            flash("Imóvel ainda não foi autorizado para loteamento.", "danger")
+            return redirect(url_for("loteamentos_list"))
+
+        quantidade_lotes = loteamento.get("quantidade_lotes") or 0
+        if quantidade_lotes <= 0:
+            flash("Quantidade de lotes inválida para este imóvel.", "danger")
+            return redirect(url_for("loteamentos_list"))
+
+        if loteamento.get("loteado_em"):
+            flash("Loteamento já foi concluído para este imóvel.", "warning")
+            return redirect(url_for("loteamentos_list"))
+
+        planta_nome_arquivo = None
+        planta_caminho_arquivo = None
+        if planta_baixa and planta_baixa.filename:
+            safe_name = secure_filename(planta_baixa.filename)
+            unique_name = f"{uuid.uuid4().hex}_{safe_name}"
+            planta_nome_arquivo = safe_name
+            planta_caminho_arquivo = os.path.join(
+                app.config["UPLOAD_FOLDER"], "loteamentos_anexos", unique_name
+            )
+            planta_baixa.save(planta_caminho_arquivo)
+
+        cur.execute(
+            """
+            UPDATE loteamentos
+               SET mascara_lote = %s,
+                   loteado_em = NOW(),
+                   planta_nome_arquivo = %s,
+                   planta_caminho_arquivo = %s
+             WHERE id = %s
+            """,
+            (
+                mascara_lote,
+                planta_nome_arquivo,
+                planta_caminho_arquivo,
+                loteamento["id"],
+            ),
+        )
+
+        for index in range(1, quantidade_lotes + 1):
+            nome_lote = f"{mascara_lote}-{index}/{quantidade_lotes}"
+            endereco_lote = f"{imovel['endereco']}, {nome_lote}"
+            cur.execute(
+                """
+                INSERT INTO imoveis (
+                    tipo_imovel, endereco, bairro, cidade, estado, cep, registro,
+                    livro, folha, matricula, inscricao_iptu, latitude, longitude,
+                    data_aquisicao, valor_imovel, valor_previsto_aluguel, max_contratos,
+                    destinacao, observacao, video_url, status, disponivel
+                )
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s
+                )
+                RETURNING id
+                """,
+                (
+                    imovel["tipo_imovel"],
+                    endereco_lote,
+                    imovel["bairro"],
+                    imovel["cidade"],
+                    imovel["estado"],
+                    imovel["cep"],
+                    imovel["registro"],
+                    imovel["livro"],
+                    imovel["folha"],
+                    imovel["matricula"],
+                    imovel["inscricao_iptu"],
+                    imovel["latitude"],
+                    imovel["longitude"],
+                    imovel["data_aquisicao"],
+                    imovel["valor_imovel"],
+                    imovel["valor_previsto_aluguel"],
+                    imovel.get("max_contratos") or 1,
+                    imovel["destinacao"],
+                    imovel["observacao"],
+                    imovel["video_url"],
+                    "Ativo",
+                    imovel.get("disponivel") if imovel.get("disponivel") is not None else True,
+                ),
+            )
+            novo_imovel_id = cur.fetchone()[0]
+            cur.execute(
+                """
+                INSERT INTO loteamentos_lotes (loteamento_id, imovel_id, nome_lote)
+                VALUES (%s, %s, %s)
+                """,
+                (loteamento["id"], novo_imovel_id, nome_lote),
+            )
+
+        cur.execute(
+            """
+            UPDATE imoveis
+               SET status = 'Loteado',
+                   disponivel = FALSE
+             WHERE id = %s
+            """,
+            (imovel_id,),
+        )
+
+        conn.commit()
+        flash("Loteamento concluído com sucesso.", "success")
+    except Exception as e:
+        conn.rollback()
+        flash(f"Erro ao lotear imóvel: {e}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for("loteamentos_list"))
+
+
 @app.route("/imoveis/mapa")
 @login_required
 @permission_required("Cadastro Imoveis", "Consultar")
@@ -3754,6 +4496,60 @@ def imoveis_vendas_list():
     )
 
 
+def venda_tem_pagamentos(cur, venda_id):
+    cur.execute(
+        """
+        SELECT 1
+        FROM contas_a_receber
+        WHERE titulo LIKE %s
+          AND COALESCE(valor_pago, 0) > 0
+        """,
+        (f"VENDA-{venda_id}-%",),
+    )
+    return cur.fetchone() is not None
+
+
+@app.route("/imoveis/vendas/view/<int:id>")
+@login_required
+@permission_required("Cadastro Imoveis", "Consultar")
+def imoveis_vendas_view(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT
+            v.*,
+            i.endereco,
+            i.bairro,
+            i.cidade,
+            i.estado,
+            p.razao_social_nome AS cliente_nome
+        FROM imoveis_vendas v
+        JOIN imoveis i ON v.imovel_id = i.id
+        JOIN pessoas p ON v.cliente_id = p.id
+        WHERE v.id = %s
+        """,
+        (id,),
+    )
+    venda = cur.fetchone()
+    cur.execute(
+        """
+        SELECT id, nome_arquivo
+        FROM imovel_venda_anexos
+        WHERE venda_id = %s
+        ORDER BY data_upload
+        """,
+        (id,),
+    )
+    anexos = cur.fetchall()
+    cur.close()
+    conn.close()
+    if not venda:
+        flash("Venda não encontrada.", "danger")
+        return redirect(url_for("imoveis_vendas_list"))
+    return render_template("imoveis/vendas/view.html", venda=venda, anexos=anexos)
+
+
 @app.route("/imoveis/vendas/add", methods=["GET", "POST"])
 @login_required
 @permission_required("Cadastro Imoveis", "Editar")
@@ -3761,6 +4557,8 @@ def imoveis_vendas_add():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     venda_data = request.form.to_dict() if request.method == "POST" else {}
+    if request.method == "POST":
+        venda_data["id"] = id
     try:
         if request.method == "POST":
             imovel_id = parse_int(request.form.get("imovel_id"))
@@ -3955,7 +4753,307 @@ def imoveis_vendas_add():
         venda=venda_data,
         imoveis_disponiveis=imoveis_disponiveis,
         clientes=clientes,
+        is_edit=False,
     )
+
+
+@app.route("/imoveis/vendas/edit/<int:id>", methods=["GET", "POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Editar")
+def imoveis_vendas_edit(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    def carregar_imoveis_disponiveis(imovel_atual_id):
+        cur.execute(
+            """
+            SELECT
+                i.id,
+                i.endereco,
+                i.bairro
+            FROM imoveis i
+            WHERE (
+                i.status <> 'Vendido'
+                AND COALESCE(i.disponivel, TRUE)
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM contratos_aluguel c
+                    WHERE c.imovel_id = i.id AND c.status_contrato = 'Ativo'
+                )
+            )
+            OR i.id = %s
+            ORDER BY i.endereco
+            """,
+            (imovel_atual_id,),
+        )
+        return cur.fetchall()
+
+    cur.execute("SELECT * FROM imoveis_vendas WHERE id = %s", (id,))
+    venda_atual = cur.fetchone()
+    if not venda_atual:
+        cur.close()
+        conn.close()
+        flash("Venda não encontrada.", "danger")
+        return redirect(url_for("imoveis_vendas_list"))
+
+    venda_data = request.form.to_dict() if request.method == "POST" else {}
+    try:
+        if request.method == "POST":
+            if venda_tem_pagamentos(cur, id):
+                raise ValueError(
+                    "Não é possível editar uma venda com parcelas pagas."
+                )
+
+            imovel_id = parse_int(request.form.get("imovel_id"))
+            cliente_id = parse_int(request.form.get("cliente_id"))
+            if not imovel_id:
+                raise ValueError("Selecione o imóvel a ser vendido.")
+            if not cliente_id:
+                raise ValueError("Selecione o comprador da venda.")
+
+            data_venda = parse_date(request.form.get("data_venda"))
+            if not data_venda:
+                raise ValueError("Informe a data da venda.")
+            data_primeira_parcela = parse_date(
+                request.form.get("data_primeira_parcela")
+            ) or data_venda
+
+            quantidade_parcelas = parse_int(request.form.get("quantidade_parcelas")) or 1
+            if quantidade_parcelas <= 0:
+                raise ValueError("A quantidade de parcelas deve ser maior que zero.")
+
+            valor_total = parse_decimal(request.form.get("valor_total"))
+            if valor_total is None or valor_total <= 0:
+                raise ValueError("Informe o valor total da venda.")
+
+            valor_parcela = parse_decimal(request.form.get("valor_parcela"))
+            if valor_parcela is None:
+                valor_parcela = (valor_total / quantidade_parcelas).quantize(
+                    Decimal("0.01")
+                )
+            else:
+                valor_parcela = valor_parcela.quantize(Decimal("0.01"))
+            if valor_parcela <= 0:
+                raise ValueError("O valor da parcela deve ser maior que zero.")
+
+            observacao = request.form.get("observacao")
+
+            cur.execute(
+                "SELECT id, status, disponivel FROM imoveis WHERE id = %s FOR UPDATE",
+                (imovel_id,),
+            )
+            imovel = cur.fetchone()
+            if not imovel:
+                raise ValueError("Imóvel não encontrado.")
+            if imovel_id != venda_atual["imovel_id"]:
+                if imovel["status"] == "Vendido":
+                    raise ValueError("Este imóvel já está marcado como vendido.")
+                if imovel["disponivel"] is False:
+                    raise ValueError("Imóvel marcado como indisponível para venda.")
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM contratos_aluguel
+                    WHERE imovel_id = %s AND status_contrato = 'Ativo'
+                    """,
+                    (imovel_id,),
+                )
+                if cur.fetchone():
+                    raise ValueError("Imóvel possui contrato de aluguel ativo.")
+
+            cur.execute(
+                "SELECT id FROM receitas_cadastro WHERE descricao = %s",
+                ("Venda de Imóvel",),
+            )
+            receita = cur.fetchone()
+            if receita is None:
+                raise ValueError(
+                    "Categoria de receita 'Venda de Imóvel' não encontrada."
+                )
+            receita_id = receita["id"] if isinstance(receita, dict) else receita[0]
+
+            cur.execute(
+                """
+                UPDATE imoveis_vendas
+                SET imovel_id = %s,
+                    cliente_id = %s,
+                    data_venda = %s,
+                    valor_total = %s,
+                    quantidade_parcelas = %s,
+                    valor_parcela = %s,
+                    observacao = %s
+                WHERE id = %s
+                """,
+                (
+                    imovel_id,
+                    cliente_id,
+                    data_venda,
+                    valor_total,
+                    quantidade_parcelas,
+                    valor_parcela,
+                    observacao,
+                    id,
+                ),
+            )
+
+            if imovel_id != venda_atual["imovel_id"]:
+                cur.execute(
+                    "UPDATE imoveis SET status = 'Ativo', disponivel = TRUE WHERE id = %s",
+                    (venda_atual["imovel_id"],),
+                )
+                cur.execute(
+                    "UPDATE imoveis SET status = 'Vendido', disponivel = FALSE WHERE id = %s",
+                    (imovel_id,),
+                )
+
+            cur.execute(
+                "DELETE FROM contas_a_receber WHERE titulo LIKE %s",
+                (f"VENDA-{id}-%",),
+            )
+            gerar_contas_a_receber_venda(
+                cur,
+                venda_id=id,
+                imovel_id=imovel_id,
+                receita_id=receita_id,
+                cliente_id=cliente_id,
+                quantidade_parcelas=quantidade_parcelas,
+                valor_total=valor_total,
+                valor_parcela=valor_parcela,
+                data_primeira_parcela=data_primeira_parcela,
+                observacao=observacao,
+            )
+
+            if "anexos" in request.files:
+                files = request.files.getlist("anexos")
+                base_dir = os.path.join(
+                    app.config["UPLOAD_FOLDER"], "imoveis_vendas_anexos"
+                )
+                os.makedirs(base_dir, exist_ok=True)
+                for file in files:
+                    if file and allowed_file(file.filename):
+                        original_name = secure_filename(file.filename)
+                        stored_name = (
+                            f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{original_name}"
+                        )
+                        filepath = os.path.join(base_dir, stored_name)
+                        try:
+                            file.save(filepath)
+                        except Exception:
+                            if os.path.exists(filepath):
+                                os.remove(filepath)
+                            raise
+                        cur.execute(
+                            """
+                            INSERT INTO imovel_venda_anexos (
+                                venda_id,
+                                nome_arquivo,
+                                caminho_arquivo
+                            ) VALUES (%s, %s, %s)
+                            """,
+                            (id, original_name, filepath),
+                        )
+
+            conn.commit()
+            cur.close()
+            conn.close()
+            flash("Venda atualizada com sucesso!", "success")
+            return redirect(url_for("imoveis_vendas_list"))
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "danger")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Erro ao atualizar venda: {exc}", "danger")
+
+    imoveis_disponiveis = carregar_imoveis_disponiveis(
+        parse_int(venda_data.get("imovel_id")) or venda_atual["imovel_id"]
+    )
+
+    cur.execute(
+        """
+        SELECT id, razao_social_nome
+        FROM pessoas
+        WHERE tipo IN ('Cliente', 'Cliente/Fornecedor')
+        ORDER BY razao_social_nome
+        """
+    )
+    clientes = cur.fetchall()
+
+    if request.method != "POST":
+        venda_data = dict(venda_atual)
+        venda_data["data_venda"] = (
+            venda_atual["data_venda"].strftime("%Y-%m-%d")
+            if venda_atual["data_venda"]
+            else ""
+        )
+        venda_data["data_primeira_parcela"] = venda_data["data_venda"]
+        if venda_atual["valor_total"] is not None:
+            venda_data["valor_total"] = str(venda_atual["valor_total"])
+        if venda_atual["valor_parcela"] is not None:
+            venda_data["valor_parcela"] = str(venda_atual["valor_parcela"])
+
+    cur.close()
+    conn.close()
+    return render_template(
+        "imoveis/vendas/add.html",
+        venda=venda_data,
+        imoveis_disponiveis=imoveis_disponiveis,
+        clientes=clientes,
+        is_edit=True,
+    )
+
+
+@app.route("/imoveis/vendas/delete/<int:id>", methods=["POST"])
+@login_required
+@permission_required("Cadastro Imoveis", "Excluir")
+def imoveis_vendas_delete(id):
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    try:
+        cur.execute("SELECT id, imovel_id FROM imoveis_vendas WHERE id = %s", (id,))
+        venda = cur.fetchone()
+        if not venda:
+            flash("Venda não encontrada.", "danger")
+            return redirect(url_for("imoveis_vendas_list"))
+
+        if venda_tem_pagamentos(cur, id):
+            raise ValueError("Não é possível excluir uma venda com parcelas pagas.")
+
+        cur.execute(
+            """
+            SELECT caminho_arquivo
+            FROM imovel_venda_anexos
+            WHERE venda_id = %s
+            """,
+            (id,),
+        )
+        anexos = cur.fetchall()
+        for anexo in anexos:
+            caminho = anexo.get("caminho_arquivo")
+            if caminho and os.path.exists(caminho):
+                os.remove(caminho)
+
+        cur.execute(
+            "DELETE FROM contas_a_receber WHERE titulo LIKE %s",
+            (f"VENDA-{id}-%",),
+        )
+        cur.execute("DELETE FROM imoveis_vendas WHERE id = %s", (id,))
+        cur.execute(
+            "UPDATE imoveis SET status = 'Ativo', disponivel = TRUE WHERE id = %s",
+            (venda["imovel_id"],),
+        )
+        conn.commit()
+        flash("Venda excluída com sucesso!", "success")
+    except ValueError as exc:
+        conn.rollback()
+        flash(str(exc), "danger")
+    except Exception as exc:
+        conn.rollback()
+        flash(f"Erro ao excluir venda: {exc}", "danger")
+    finally:
+        cur.close()
+        conn.close()
+    return redirect(url_for("imoveis_vendas_list"))
 
 
 @app.route("/imoveis/vendas/anexo/<int:anexo_id>")

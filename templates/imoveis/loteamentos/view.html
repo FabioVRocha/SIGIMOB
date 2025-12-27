@@ -1,0 +1,79 @@
+<!-- templates/imoveis/loteamentos/view.html -->
+{% extends "base.html" %}
+
+{% block title %}Visualizar Loteamento{% endblock %}
+
+{% block page_title %}Visualizar Loteamento{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl max-w-5xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Detalhes do Loteamento</h2>
+        <div class="flex space-x-2">
+            <a href="{{ url_for('loteamentos_edit', loteamento_id=loteamento.id) }}" class="btn-primary flex items-center">
+                <i class="fas fa-edit mr-2"></i> Editar
+            </a>
+            <a href="{{ url_for('loteamentos_list') }}" class="btn-secondary flex items-center">
+                <i class="fas fa-arrow-left mr-2"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="space-y-2">
+            <div><span class="font-semibold">Imóvel:</span> {{ loteamento.endereco }}, {{ loteamento.bairro }}</div>
+            <div><span class="font-semibold">Cidade/Estado:</span> {{ loteamento.cidade }}/{{ loteamento.estado }}</div>
+            <div><span class="font-semibold">Status do imóvel:</span> {{ loteamento.status_imovel or 'Ativo' }}</div>
+        </div>
+        <div class="space-y-2">
+            <div><span class="font-semibold">Quantidade de lotes:</span> {{ loteamento.quantidade_lotes }}</div>
+            <div><span class="font-semibold">Máscara:</span> {{ loteamento.mascara_lote }}</div>
+            <div><span class="font-semibold">Loteado em:</span>
+                {% if loteamento.loteado_em %}
+                    {{ loteamento.loteado_em.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+            <div>
+                <span class="font-semibold">Planta baixa:</span>
+                {% if loteamento.planta_nome_arquivo %}
+                    <a href="{{ url_for('loteamentos_planta', loteamento_id=loteamento.id) }}" class="text-blue-600 hover:text-blue-800">
+                        {{ loteamento.planta_nome_arquivo }}
+                    </a>
+                {% else %}
+                    -
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <h3 class="text-lg font-semibold mb-4">Lotes Criados</h3>
+        {% if lotes %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+                    <tr>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel ID</th>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-white">Nome do Lote</th>
+                        <th class="py-3 px-4 text-left text-sm font-semibold text-white">Endereço</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lote in lotes %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-3 px-4 text-sm text-gray-700">{{ lote.imovel_id }}</td>
+                        <td class="py-3 px-4 text-sm text-gray-700">{{ lote.nome_lote }}</td>
+                        <td class="py-3 px-4 text-sm text-gray-700">{{ lote.endereco }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-600">Nenhum lote encontrado.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

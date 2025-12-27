@@ -24,6 +24,7 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Parcelamento</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Observação</th>
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Anexos</th>
+                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -74,6 +75,19 @@
                         {% else %}
                         <span class="text-gray-400">Nenhum</span>
                         {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm">
+                        <a href="{{ url_for('imoveis_vendas_view', id=venda.id) }}" class="text-green-600 hover:text-green-800 mr-3" title="Visualizar">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('imoveis_vendas_edit', id=venda.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('imoveis_vendas_delete', id=venda.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta venda?');">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}

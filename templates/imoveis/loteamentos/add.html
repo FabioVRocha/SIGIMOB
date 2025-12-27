@@ -1,0 +1,130 @@
+<!-- templates/imoveis/loteamentos/add.html -->
+{% extends "base.html" %}
+
+{% block title %}Incluir Loteamento{% endblock %}
+
+{% block page_title %}Incluir Loteamento{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-dark-blue">Novo Loteamento</h2>
+        <a href="{{ url_for('loteamentos_list') }}" class="btn-secondary flex items-center">
+            <i class="fas fa-arrow-left mr-2"></i> Voltar
+        </a>
+    </div>
+
+    <form action="{{ url_for('loteamentos_add') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <div>
+            <label for="imovel_display" class="form-label">Imóvel (Terreno) *</label>
+            <div class="flex">
+                <input type="text" id="imovel_display" class="form-input flex-grow" readonly>
+                <button type="button" class="btn-secondary ml-2 px-4" onclick="openImovelModal()" aria-label="Buscar imóvel">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <input type="hidden" id="imovel_id" name="imovel_id">
+            {% if not imoveis %}
+            <p class="text-sm text-gray-500 mt-2">Nenhum terreno disponível para loteamento.</p>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="quantidade_lotes" class="form-label">Quantidade de lotes *</label>
+                <input type="number" min="1" id="quantidade_lotes" name="quantidade_lotes" class="form-input w-full" required>
+            </div>
+            <div>
+                <label for="mascara_lote" class="form-label">Máscara do nome do lote *</label>
+                <input type="text" id="mascara_lote" name="mascara_lote" class="form-input w-full" placeholder="Ex: Quadra A" required>
+                <p class="text-xs text-gray-500 mt-1">Formato gerado: mascara-1/quantidade</p>
+            </div>
+        </div>
+
+        <div>
+            <label for="planta_baixa" class="form-label">Planta baixa</label>
+            <input type="file" id="planta_baixa" name="planta_baixa" class="form-input w-full">
+        </div>
+
+        <div class="flex justify-end">
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-check mr-2"></i> Lotear Imóvel
+            </button>
+        </div>
+    </form>
+</div>
+
+<div id="imovel-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-button" onclick="closeImovelModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
+        <input type="text" id="imovel-search" class="form-input mb-4" placeholder="Digite para filtrar por ID, endereço ou bairro">
+        <div class="overflow-y-auto" style="max-height:400px;">
+            <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Endereço</th>
+                        <th class="py-2 px-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for imovel in imoveis %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50" data-search="{{ imovel.id }} {{ imovel.endereco | default('') }} {{ imovel.bairro | default('') }}">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.id }}</td>
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <button type="button" class="btn-primary select-imovel-btn" data-id="{{ imovel.id }}" data-text="{{ imovel.endereco }}, {{ imovel.bairro }}">Escolher</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterImovelTable() {
+    const searchInput = document.getElementById('imovel-search');
+    if (!searchInput) return;
+    const term = searchInput.value.toLowerCase().trim();
+    document.querySelectorAll('#imovel-modal tbody tr').forEach(row => {
+        const text = (row.dataset.search || row.textContent || '').toLowerCase();
+        row.style.display = term ? (text.includes(term) ? '' : 'none') : '';
+    });
+}
+
+function openImovelModal(){
+    document.getElementById('imovel-modal').style.display = 'flex';
+    const searchInput = document.getElementById('imovel-search');
+    if (searchInput) {
+        searchInput.value = '';
+        filterImovelTable();
+        setTimeout(() => searchInput.focus(), 50);
+    }
+}
+function closeImovelModal(){
+    document.getElementById('imovel-modal').style.display = 'none';
+}
+function selectImovel(id, texto){
+    document.getElementById('imovel_id').value = id;
+    document.getElementById('imovel_display').value = texto;
+    closeImovelModal();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('imovel-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', filterImovelTable);
+    }
+    document.querySelectorAll('.select-imovel-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectImovel(btn.dataset.id, btn.dataset.text);
+        });
+    });
+});
+</script>
+{% endblock %}

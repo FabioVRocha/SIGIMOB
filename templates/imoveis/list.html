@@ -38,13 +38,19 @@
                 </tr>
                 <tr>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4">
+                        <select class="form-select column-search w-full min-w-0" data-column="1"></select>
+                    </th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4">
+                        <select class="form-select column-search w-full min-w-0" data-column="6"></select>
+                    </th>
+                    <th class="py-2 px-4">
+                        <select class="form-select column-search w-full min-w-0" data-column="7"></select>
+                    </th>
                     <th class="py-2 px-4"></th>
                 </tr>
             </thead>
@@ -285,7 +291,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let visible = true;
             inputs.forEach((input, index) => {
                 const filter = (input.value || '').toLowerCase();
-                const cell = row.querySelectorAll('td')[index];
+                const columnIndex = input.dataset.column ? Number(input.dataset.column) : index;
+                const cell = row.querySelectorAll('td')[columnIndex];
                 if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
                     visible = false;
                 }
@@ -293,7 +300,45 @@ document.addEventListener('DOMContentLoaded', () => {
             row.style.display = visible ? '' : 'none';
         });
     }
-    inputs.forEach(input => input.addEventListener('input', filterTable));
+    function setupColumnSelect(selectEl) {
+        if (!selectEl) {
+            return;
+        }
+        const columnIndex = selectEl.dataset.column ? Number(selectEl.dataset.column) : null;
+        if (columnIndex === null || Number.isNaN(columnIndex)) {
+            return;
+        }
+        const values = new Set();
+        rows.forEach(row => {
+            const cell = row.querySelectorAll('td')[columnIndex];
+            if (!cell) {
+                return;
+            }
+            const text = cell.textContent.trim();
+            if (text) {
+                values.add(text);
+            }
+        });
+        const options = Array.from(values).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        selectEl.innerHTML = '';
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'Todos';
+        selectEl.appendChild(allOption);
+        options.forEach(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            selectEl.appendChild(option);
+        });
+    }
+    inputs.forEach(input => {
+        input.addEventListener('input', filterTable);
+        input.addEventListener('change', filterTable);
+        if (input.tagName === 'SELECT') {
+            setupColumnSelect(input);
+        }
+    });
 });
 function closePhotosModal(){
     document.getElementById('photos-modal').style.display='none';
