@@ -20,7 +20,16 @@
     </div>
 
     {% if contas %}
-    <div class="overflow-x-auto">
+    <div class="relative overflow-x-auto">
+        <div class="absolute top-2 right-2 z-10">
+            <div class="relative">
+                <button id="column-toggle-btn" type="button" class="text-white/90 hover:text-white" title="Selecionar colunas">
+                    <i class="fas fa-columns"></i>
+                </button>
+                <div id="column-toggle-menu" class="hidden absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg p-2 text-gray-700">
+                </div>
+            </div>
+        </div>
         <table class="min-w-full bg-white rounded-lg overflow-hidden">
             <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
                 <tr>
@@ -262,14 +271,32 @@ document.addEventListener('DOMContentLoaded', function(){
         el.addEventListener('blur', () => formatCurrencyInput(el));
     });
 
-    const inputs = document.querySelectorAll('.column-search');
-    const rows = document.querySelectorAll('tbody tr');
+    const table = document.querySelector('table');
+    const headerCells = table ? table.querySelectorAll('thead tr:first-child th') : [];
+    const searchRow = table ? table.querySelector('thead tr:nth-child(2)') : null;
+    if(searchRow){
+        Array.from(searchRow.children).forEach((cell, index) => {
+            cell.dataset.colIndex = index;
+            const input = cell.querySelector('input.column-search');
+            if(input){
+                input.dataset.colIndex = index;
+            }
+        });
+    }
+    headerCells.forEach((cell, index) => {
+        cell.dataset.colIndex = index;
+    });
+
+    const inputs = searchRow ? searchRow.querySelectorAll('.column-search') : [];
+    const rows = table ? table.querySelectorAll('tbody tr') : [];
     function filterTable(){
         rows.forEach(row => {
             let visible = true;
-            inputs.forEach((input, index) => {
+            inputs.forEach((input) => {
+                if(input.disabled){ return; }
                 const filter = input.value.toLowerCase();
-                const cell = row.querySelectorAll('td')[index];
+                const colIndex = parseInt(input.dataset.colIndex || '0', 10);
+                const cell = row.querySelectorAll('td')[colIndex];
                 if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
                     visible = false;
                 }
@@ -278,6 +305,67 @@ document.addEventListener('DOMContentLoaded', function(){
         });
     }
     inputs.forEach(input => input.addEventListener('input', filterTable));
+
+    const columnToggleBtn = document.getElementById('column-toggle-btn');
+    const columnToggleMenu = document.getElementById('column-toggle-menu');
+    if(table && columnToggleBtn && columnToggleMenu && headerCells.length){
+        columnToggleMenu.innerHTML = '';
+        const allRows = table.querySelectorAll('tr');
+
+        headerCells.forEach((cell, index) => {
+            const label = cell.textContent.trim() || `Coluna ${index + 1}`;
+            const item = document.createElement('label');
+            item.className = 'flex items-center space-x-2 px-2 py-1 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 rounded';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.dataset.colIndex = index;
+            checkbox.className = 'form-checkbox';
+
+            const text = document.createElement('span');
+            text.textContent = label;
+
+            item.appendChild(checkbox);
+            item.appendChild(text);
+            columnToggleMenu.appendChild(item);
+
+            checkbox.addEventListener('change', () => {
+                const visible = checkbox.checked;
+                allRows.forEach(row => {
+                    const cellAtIndex = row.children[index];
+                    if(cellAtIndex){
+                        cellAtIndex.style.display = visible ? '' : 'none';
+                    }
+                });
+                if(searchRow){
+                    const searchCell = searchRow.children[index];
+                    if(searchCell){
+                        const input = searchCell.querySelector('input.column-search');
+                        if(input){
+                            if(!visible){
+                                input.value = '';
+                                input.disabled = true;
+                            }else{
+                                input.disabled = false;
+                            }
+                        }
+                    }
+                }
+                filterTable();
+            });
+        });
+
+        columnToggleBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            columnToggleMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (event) => {
+            if(!columnToggleMenu.classList.contains('hidden') && !columnToggleMenu.contains(event.target) && !columnToggleBtn.contains(event.target)){
+                columnToggleMenu.classList.add('hidden');
+            }
+        });
+    }
 });
 
 function openPagarModal(id){

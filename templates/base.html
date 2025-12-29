@@ -43,6 +43,11 @@
             background-color: var(--clr-dashboard-bg); /* Fundo geral */
         }
 
+        img, svg {
+            max-width: 100%;
+            height: auto;
+        }
+
         .flash-message { padding: 1rem; margin-bottom: 1rem; border-radius: 0.5rem; font-weight: 600; }
         .flash-message.success { background-color: var(--clr-success); color: var(--clr-white); border: 1px solid var(--clr-success); }
         .flash-message.danger { background-color: var(--clr-error); color: var(--clr-white); border: 1px solid var(--clr-error); }
@@ -419,26 +424,62 @@
             color: var(--clr-dark-blue);
         }
 
-        .main-header .search-bar {
+        .search-bar {
             display: flex;
             align-items: center;
             border: 1px solid var(--clr-border);
             border-radius: 0.5rem;
             padding: 0.5rem 1rem;
             background-color: var(--clr-light-gray);
+            position: relative;
         }
 
-        .main-header .search-bar input {
+        .search-bar input {
             border: none;
             outline: none;
             background: transparent;
             font-size: 1rem;
             color: var(--clr-text-main);
+            width: 100%;
         }
 
-        .main-header .search-bar i {
+        .search-bar i {
             color: var(--clr-medium-gray);
             margin-right: 0.5rem;
+        }
+
+        .search-suggestions {
+            position: absolute;
+            top: calc(100% + 0.35rem);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border: 1px solid var(--clr-border);
+            border-radius: 0.5rem;
+            box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+            z-index: 50;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .search-suggestion-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            color: var(--clr-text-main);
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        .search-suggestion-item:hover,
+        .search-suggestion-item:focus {
+            background: var(--clr-light-gray);
+        }
+
+        .search-suggestion-empty {
+            padding: 0.5rem 0.75rem;
+            color: var(--clr-medium-gray);
+            font-size: 0.85rem;
         }
 
         /* Cards do Dashboard */
@@ -709,6 +750,17 @@
         .table-header-bg { background-color: var(--clr-dark-blue); color: var(--clr-white); }
         .table-row-odd { background-color: var(--clr-white); }
         .table-row-even { background-color: var(--clr-light-gray); }
+        .table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table-scroll table {
+            width: 100%;
+        }
+        .overflow-x-auto {
+            -webkit-overflow-scrolling: touch;
+        }
         /* Campo de filtro/pesquisa */
         .filter-input { border-color: var(--clr-medium-gray); color: var(--clr-dark-blue); }
         .filter-input:focus { border-color: var(--clr-light-blue); box-shadow: 0 0 0 1px var(--clr-light-blue); }
@@ -731,6 +783,49 @@
         #editor li p, #preview li p {
             margin: 0 !important;
             text-indent: 0 !important;
+        }
+
+        @media (max-width: 640px) {
+            .main-content {
+                padding: 1rem;
+            }
+            .main-header {
+                padding: 1rem;
+            }
+            .main-header h1 {
+                font-size: 1.4rem;
+            }
+            .dashboard-card {
+                padding: 1rem;
+            }
+            .category-content {
+                padding: 1rem;
+                gap: 1rem;
+            }
+            .modal-content {
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+            .flex.justify-between.items-center.mb-6 {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+            .flex.justify-between.items-center.mb-6 > * {
+                width: 100%;
+            }
+            .flex.justify-end.space-x-4 {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+            .flex.justify-end.space-x-4 > * {
+                width: 100%;
+            }
+            .table-scroll table,
+            .overflow-x-auto table {
+                min-width: 640px;
+            }
         }
 
         @media print {
@@ -1029,7 +1124,8 @@
             <!-- Barra de busca: visível no desktop/tablet (>= md) -->
             <div class="search-bar hidden md:flex">
                 <i class="fas fa-search"></i>
-                <input type="text" placeholder="Pesquisar...">
+                <input id="headerSearchInput" type="text" placeholder="Pesquisar rotinas..." autocomplete="off">
+                <div id="header-search-suggestions" class="search-suggestions hidden"></div>
             </div>
             <!-- Ícone de busca no mobile -->
             <button id="mobileSearchToggle" class="md:hidden inline-flex items-center justify-center ml-1 hamburger-btn" aria-label="Abrir busca">
@@ -1040,10 +1136,11 @@
         <div id="mobile-search-container" class="md:hidden mt-2 mobile-search">
             <div class="search-bar" style="width: 100%;">
                 <i class="fas fa-search"></i>
-                <input id="mobileSearchInput" type="text" placeholder="Pesquisar...">
+                <input id="mobileSearchInput" type="text" placeholder="Pesquisar rotinas..." autocomplete="off">
                 <button id="mobileSearchClose" class="ml-2 hamburger-btn" aria-label="Fechar busca">
                     <i class="fas fa-times"></i>
                 </button>
+                <div id="mobile-search-suggestions" class="search-suggestions hidden"></div>
             </div>
         </div>
 
@@ -1170,6 +1267,7 @@
                 if (ev.key === 'Escape') {
                     closeSidebar();
                     closeMobileSearch();
+                    hideAllSearchSuggestions();
                 }
             });
 
@@ -1187,6 +1285,14 @@
             const mobileSearchContainer = document.getElementById('mobile-search-container');
             const mobileSearchClose = document.getElementById('mobileSearchClose');
             const mobileSearchInput = document.getElementById('mobileSearchInput');
+            const headerSearchInput = document.getElementById('headerSearchInput');
+            const headerSearchSuggestions = document.getElementById('header-search-suggestions');
+            const mobileSearchSuggestions = document.getElementById('mobile-search-suggestions');
+
+            function hideAllSearchSuggestions() {
+                hideSuggestions(headerSearchSuggestions);
+                hideSuggestions(mobileSearchSuggestions);
+            }
 
             const openMobileSearch = () => {
                 if (!mobileSearchContainer) return;
@@ -1196,6 +1302,7 @@
             };
             const closeMobileSearch = () => {
                 mobileSearchContainer && mobileSearchContainer.classList.remove('open');
+                hideAllSearchSuggestions();
             };
             mobileSearchToggleBtn && mobileSearchToggleBtn.addEventListener('click', () => {
                 if (mobileSearchContainer.classList.contains('open')) {
@@ -1205,6 +1312,123 @@
                 }
             });
             mobileSearchClose && mobileSearchClose.addEventListener('click', closeMobileSearch);
+
+            const normalizeSearchText = (value) => {
+                return value
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+            };
+
+            const routineLinks = Array.from(document.querySelectorAll('.sidebar a.sidebar-nav-item[href]'));
+            const routineMap = new Map();
+            routineLinks.forEach((link) => {
+                const labelEl = link.querySelector('.sidebar-item-label');
+                const label = labelEl ? labelEl.textContent.trim() : link.textContent.trim();
+                const href = link.getAttribute('href');
+                if (!label || !href) return;
+                if (!routineMap.has(href)) {
+                    routineMap.set(href, label);
+                }
+            });
+
+            const routineSuggestions = Array.from(routineMap.entries()).map(([href, label]) => {
+                const linkEl = routineLinks.find(link => link.getAttribute('href') === href);
+                let groupLabel = '';
+                if (linkEl) {
+                    const submenu = linkEl.closest('ul[id$=\"-submenu\"]');
+                    if (submenu && submenu.id) {
+                        const toggleId = submenu.id.replace('-submenu', '-toggle');
+                        const toggleEl = document.getElementById(toggleId);
+                        const toggleLabelEl = toggleEl ? toggleEl.querySelector('.sidebar-item-label') : null;
+                        groupLabel = toggleLabelEl ? toggleLabelEl.textContent.trim() : '';
+                    }
+                }
+                const searchLabel = groupLabel ? `${label} ${groupLabel}` : label;
+                return {
+                    href,
+                    label,
+                    group: groupLabel,
+                    search: normalizeSearchText(searchLabel)
+                };
+            });
+
+            const labelCount = routineSuggestions.reduce((acc, item) => {
+                acc[item.label] = (acc[item.label] || 0) + 1;
+                return acc;
+            }, {});
+
+            routineSuggestions.forEach((item) => {
+                item.showGroup = labelCount[item.label] > 1 && item.group;
+            });
+
+            function hideSuggestions(container) {
+                if (container) container.classList.add('hidden');
+            }
+
+            const renderSuggestions = (container, matches) => {
+                if (!container) return;
+                container.innerHTML = '';
+                if (!matches.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'search-suggestion-empty';
+                    empty.textContent = 'Nenhuma rotina encontrada';
+                    container.appendChild(empty);
+                    return;
+                }
+                matches.forEach((item) => {
+                    const link = document.createElement('a');
+                    link.className = 'search-suggestion-item';
+                    link.href = item.href;
+                    link.textContent = item.showGroup ? `${item.label} - ${item.group}` : item.label;
+                    container.appendChild(link);
+                });
+            };
+
+            const setupSearchSuggestions = (inputEl, containerEl) => {
+                if (!inputEl || !containerEl) return;
+                const searchWrapper = inputEl.closest('.search-bar');
+
+                const updateSuggestions = () => {
+                    const query = normalizeSearchText(inputEl.value.trim());
+                    if (!query) {
+                        hideSuggestions(containerEl);
+                        return;
+                    }
+                    const matches = routineSuggestions
+                        .filter(item => item.search.includes(query))
+                        .slice(0, 8);
+                    renderSuggestions(containerEl, matches);
+                    containerEl.classList.remove('hidden');
+                };
+
+                inputEl.addEventListener('input', updateSuggestions);
+                inputEl.addEventListener('focus', updateSuggestions);
+
+                document.addEventListener('click', (event) => {
+                    const target = event.target;
+                    if (containerEl.contains(target) || inputEl === target) return;
+                    if (searchWrapper && searchWrapper.contains(target)) return;
+                    hideSuggestions(containerEl);
+                });
+            };
+
+            setupSearchSuggestions(headerSearchInput, headerSearchSuggestions);
+            setupSearchSuggestions(mobileSearchInput, mobileSearchSuggestions);
+
+            const wrapResponsiveTables = () => {
+                const tables = document.querySelectorAll('.main-content table');
+                tables.forEach((table) => {
+                    if (table.closest('.table-scroll') || table.closest('.overflow-x-auto')) {
+                        return;
+                    }
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'table-scroll';
+                    table.parentNode.insertBefore(wrapper, table);
+                    wrapper.appendChild(table);
+                });
+            };
+            wrapResponsiveTables();
 
             // Função para ativar o item da sidebar
             const activateSidebarItem = (path) => {

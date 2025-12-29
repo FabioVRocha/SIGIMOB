@@ -34,10 +34,26 @@
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4">
+                        <select class="form-select column-search w-full min-w-0">
+                            <option value="">Todas</option>
+                            <option value="Comercial">Comercial</option>
+                            <option value="Residencial">Residencial</option>
+                            <option value="Comodato">Comodato</option>
+                        </select>
+                    </th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4">
+                        <select class="form-select column-search w-full min-w-0">
+                            <option value="">Todos</option>
+                            <option value="Ativo">Ativo</option>
+                            <option value="Encerrado">Encerrado</option>
+                            <option value="Finalizado">Finalizado</option>
+                            <option value="Renovar">Renovar</option>
+                            <option value="Pendente">Pendente</option>
+                        </select>
+                    </th>
                     <th class="py-2 px-4"></th>
                 </tr>
             </thead>
@@ -94,7 +110,10 @@ document.addEventListener('DOMContentLoaded', function(){
             row.style.display = visible ? '' : 'none';
         });
     }
-    inputs.forEach(input => input.addEventListener('input', filterTable));
+    inputs.forEach(input => {
+        input.addEventListener('input', filterTable);
+        input.addEventListener('change', filterTable);
+    });
 });
 </script>
 <script>
