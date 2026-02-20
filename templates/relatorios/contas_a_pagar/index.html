@@ -72,11 +72,14 @@
 </div>
 
 <div id="periodo-modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content max-w-3xl">
         <span class="close-button" onclick="closePeriodoModal()">&times;</span>
-        <h2 class="text-lg font-semibold mb-4">Relatório por Período</h2>
+        <h2 class="text-lg font-semibold mb-3">Relatorio por Periodo</h2>
         <form action="{{ url_for('relatorio_contas_a_pagar_periodo') }}" method="POST" target="_blank">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <div class="md:col-span-2">
+                    <div class="text-sm font-semibold text-dark-blue">Filtros principais</div>
+                </div>
                 <div class="form-group md:col-span-2">
                     <label for="fornecedor_id" class="form-label">Fornecedor:</label>
                     <select id="fornecedor_id" name="fornecedor_id" class="form-select">
@@ -87,7 +90,7 @@
                     </select>
                 </div>
                 <div class="form-group md:col-span-2">
-                    <label for="imovel_id" class="form-label">Imóvel:</label>
+                    <label for="imovel_id" class="form-label">Imovel:</label>
                     <select id="imovel_id" name="imovel_id" class="form-select">
                         <option value="">Todos</option>
                         {% for imovel in imoveis %}
@@ -96,22 +99,58 @@
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="data_inicio" class="form-label">Data Vencimento Início:</label>
+                    <label for="data_inicio" class="form-label">Vencimento inicio:</label>
                     <input type="date" id="data_inicio" name="data_inicio" class="form-input" required>
                 </div>
                 <div class="form-group">
-                    <label for="data_fim" class="form-label">Data Vencimento Fim:</label>
+                    <label for="data_fim" class="form-label">Vencimento fim:</label>
                     <input type="date" id="data_fim" name="data_fim" class="form-input" required>
                 </div>
+
+                <div class="md:col-span-2">
+                    <div class="text-sm font-semibold text-dark-blue mt-1">Status</div>
+                </div>
                 <div class="form-group md:col-span-2">
-                    <label for="status" class="form-label">Status:</label>
-                    <select id="status" name="status" class="form-select">
-                        <option value="">Todos</option>
-                        <option value="Aberta">Aberta</option>
-                        <option value="Vencida">Vencida</option>
-                        <option value="Paga">Paga</option>
-                        <option value="Cancelada">Cancelada</option>
-                    </select>
+                    <div id="status-multiselect" class="relative">
+                        <button type="button" id="status-toggle" class="form-select w-full text-left">
+                            Todos
+                        </button>
+                        <div id="status-options" class="absolute z-10 mt-1 w-full rounded border border-gray-200 bg-white shadow hidden">
+                            <label class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+                                <input type="checkbox" name="status" value="Aberta">
+                                <span>Aberta</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+                                <input type="checkbox" name="status" value="Vencida">
+                                <span>Vencida</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+                                <input type="checkbox" name="status" value="Paga">
+                                <span>Paga</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+                                <input type="checkbox" name="status" value="Cancelada">
+                                <span>Cancelada</span>
+                            </label>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Selecione um ou mais status. Se nenhum for marcado, todos serao considerados.</p>
+                </div>
+
+                <div class="md:col-span-2">
+                    <div class="text-sm font-semibold text-dark-blue mt-1">Resumo no final do PDF</div>
+                </div>
+                <div class="form-group">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="resumo_pagamentos_por_dia" value="1">
+                        <span>Por dia</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="resumo_pagamentos_por_despesa" value="1">
+                        <span>Por despesa</span>
+                    </label>
                 </div>
             </div>
             <div class="flex justify-end space-x-4">
@@ -136,6 +175,34 @@ function openDetalhadoModal(){
 }
 function closeDetalhadoModal(){
     document.getElementById('detalhado-modal').style.display='none';
+}
+
+const statusToggle = document.getElementById('status-toggle');
+const statusOptions = document.getElementById('status-options');
+const statusContainer = document.getElementById('status-multiselect');
+const statusCheckboxes = document.querySelectorAll('input[name="status"]');
+
+function updateStatusLabel(){
+    const selected = Array.from(statusCheckboxes)
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.value);
+    statusToggle.textContent = selected.length ? selected.join(', ') : 'Todos';
+}
+
+if (statusToggle && statusOptions && statusContainer) {
+    statusToggle.addEventListener('click', () => {
+        statusOptions.classList.toggle('hidden');
+    });
+
+    statusCheckboxes.forEach((checkbox) => {
+        checkbox.addEventListener('change', updateStatusLabel);
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!statusContainer.contains(event.target)) {
+            statusOptions.classList.add('hidden');
+        }
+    });
 }
 </script>
 {% endblock %}

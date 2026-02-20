@@ -7148,6 +7148,7 @@ def contas_a_receber_list():
     receita_id = request.args.get("receita_id")
     imovel_id = request.args.get("imovel_id")
     status_conta = request.args.get("status_conta")
+    status_conta_param_present = "status_conta" in request.args
 
     where = []
     params = []
@@ -7170,6 +7171,9 @@ def contas_a_receber_list():
         # Enum: força cast para status_conta_enum
         where.append("cr.status_conta = %s::status_conta_enum")
         params.append(status_conta)
+    elif not status_conta_param_present:
+        where.append("cr.status_conta IN %s")
+        params.append(("Aberta", "Parcial", "Vencida"))
 
     sql = (
         """
@@ -11713,6 +11717,176 @@ def relatorio_recebimento_por_inquilino():
         download_name="recebimento_por_inquilino.pdf",
     )
 
+
+@app.route("/relatorios/contas-a-receber/recebimento-resumido", methods=["POST"])
+@login_required
+def relatorio_recebimento_resumido():
+    """Relatorio resumido de recebimentos por data de recebimento.
+
+    Colunas: Data | Cliente | Receita | Valor Recebido
+    """
+    data_inicio = request.form.get("data_inicio")
+    data_fim = request.form.get("data_fim")
+    receitas_ids = [int(x) for x in request.form.getlist("receitas_ids") if str(x).strip()]
+
+    if not (data_inicio and data_fim):
+        flash("Informe o periodo.", "warning")
+        return redirect(url_for("relatorios_contas_a_receber"))
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=extras.DictCursor)
+
+    cur.execute("SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1")
+    empresa = cur.fetchone()
+
+    query = (
+        """
+        SELECT cr.id,
+               cr.data_pagamento,
+               p.razao_social_nome AS cliente,
+               r.descricao AS receita,
+               cr.valor_previsto,
+               COALESCE(cr.valor_multa, 0) AS valor_multa,
+               COALESCE(cr.valor_juros, 0) AS valor_juros,
+               COALESCE(cr.valor_desconto, 0) AS valor_desconto,
+               COALESCE(cr.valor_pago, 0) AS valor_pago,
+               mf.valor AS valor_mov
+          FROM contas_a_receber cr
+          JOIN pessoas p ON cr.cliente_id = p.id
+     LEFT JOIN receitas_cadastro r ON r.id = cr.receita_id
+     LEFT JOIN LATERAL (
+                SELECT valor
+                  FROM movimento_financeiro
+                 WHERE documento = 'CR-' || cr.id::text
+                   AND tipo = 'entrada'
+                   AND data_movimento = cr.data_pagamento
+                 ORDER BY id DESC
+                 LIMIT 1
+            ) mf ON TRUE
+         WHERE cr.data_pagamento IS NOT NULL
+           AND cr.data_pagamento BETWEEN %s AND %s
+        """
+    )
+    params = [data_inicio, data_fim]
+    if receitas_ids:
+        placeholders = ",".join(["%s"] * len(receitas_ids))
+        query += f" AND cr.receita_id IN ({placeholders})"
+        params.extend(receitas_ids)
+    query += " ORDER BY cr.data_pagamento ASC, cr.id ASC"
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    def to_decimal(value):
+        if isinstance(value, Decimal):
+            return value
+        try:
+            return Decimal(str(value or 0))
+        except Exception:
+            return Decimal("0")
+
+    linhas = []
+    total_recebido = Decimal("0")
+    for r in rows:
+        multa = to_decimal(r.get("valor_multa"))
+        juros = to_decimal(r.get("valor_juros"))
+        desconto = to_decimal(r.get("valor_desconto"))
+        valor_mov = r.get("valor_mov")
+        if valor_mov is None:
+            valor_recebido = to_decimal(r.get("valor_pago")) + juros + multa - desconto
+        else:
+            valor_recebido = to_decimal(valor_mov)
+        linhas.append(
+            {
+                "data": r["data_pagamento"],
+                "cliente": r["cliente"],
+                "receita": r["receita"],
+                "valor_recebido": valor_recebido,
+            }
+        )
+        total_recebido += valor_recebido
+
+    periodo_txt = (
+        datetime.strptime(data_inicio, "%Y-%m-%d").strftime("%d/%m/%Y")
+        + " a "
+        + datetime.strptime(data_fim, "%Y-%m-%d").strftime("%d/%m/%Y")
+    )
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            page_width = self.w - self.l_margin - self.r_margin
+            self.cell(page_width / 3, 8, "", 0, 0, "L")
+            self.cell(page_width / 3, 8, "Recebimento Resumido", 0, 0, "C")
+            self.set_font("Arial", "", 10)
+            self.cell(page_width / 3, 8, getattr(self, "gerado_em", ""), 0, 1, "R")
+            emp = getattr(self, "empresa", "")
+            if emp:
+                self.cell(0, 6, emp, 0, 1, "C")
+            per = getattr(self, "periodo", "")
+            if per:
+                self.cell(0, 6, f"Periodo: {per}", 0, 1, "C")
+            self.ln(3)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 10)
+            self.cell(0, 10, f"Pagina {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    headers = [
+        ("Data", 22),
+        ("Cliente", 70),
+        ("Receita", 70),
+        ("Valor Recebido", 30),
+    ]
+
+    def truncate_text(pdf, text, max_width):
+        if not text:
+            return ""
+        s = str(text)
+        if pdf.get_string_width(s) <= max_width:
+            return s
+        while s and pdf.get_string_width(s + "...") > max_width:
+            s = s[:-1]
+        return s + "..."
+
+    pdf = PDF(orientation="L")
+    pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.empresa = empresa["razao_social_nome"] if empresa else ""
+    pdf.periodo = periodo_txt
+    pdf.alias_nb_pages()
+    pdf.add_page()
+
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(200, 200, 200)
+    for text, width in headers:
+        pdf.cell(width, 8, text, 1, 0, "C", True)
+    pdf.ln(8)
+
+    pdf.set_font("Arial", "", 9)
+    for l in linhas:
+        pdf.cell(headers[0][1], 7, l["data"].strftime("%d/%m/%Y"), 1)
+        pdf.cell(headers[1][1], 7, truncate_text(pdf, l["cliente"], headers[1][1] - 2), 1)
+        pdf.cell(headers[2][1], 7, truncate_text(pdf, l["receita"] or "", headers[2][1] - 2), 1)
+        pdf.cell(headers[3][1], 7, format_currency(l["valor_recebido"]), 1, 0, "R")
+        pdf.ln(7)
+
+    pdf.set_font("Arial", "B", 9)
+    pdf.cell(headers[0][1], 7, "Totais", 1)
+    pdf.cell(headers[1][1], 7, "", 1)
+    pdf.cell(headers[2][1], 7, "", 1)
+    pdf.cell(headers[3][1], 7, format_currency(total_recebido), 1, 0, "R")
+    pdf.ln(7)
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="recebimento_resumido.pdf",
+    )
+
 @app.route("/relatorios/contas-a-pagar/por-periodo", methods=["POST"])
 @login_required
 def relatorio_contas_a_pagar_periodo():
@@ -11720,15 +11894,17 @@ def relatorio_contas_a_pagar_periodo():
     imovel_id = parse_int(request.form.get("imovel_id"))
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
-    status = request.form.get("status")
+    status_list = request.form.getlist("status")
+    resumo_pagamentos_por_dia = request.form.get("resumo_pagamentos_por_dia") == "1"
+    resumo_pagamentos_por_despesa = request.form.get("resumo_pagamentos_por_despesa") == "1"
 
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
     atualizar_status_contas_a_pagar(cur)
 
     query = (
-        "SELECT cp.titulo, p.razao_social_nome AS fornecedor, d.descricao AS despesa, "
-        "cp.data_vencimento, cp.valor_previsto "
+        "SELECT cp.id, cp.titulo, p.razao_social_nome AS fornecedor, d.descricao AS despesa, "
+        "cp.data_vencimento, cp.valor_previsto, cp.data_pagamento, cp.valor_pago "
         "FROM contas_a_pagar cp "
         "JOIN pessoas p ON cp.fornecedor_id = p.id "
         "LEFT JOIN despesas_cadastro d ON cp.despesa_id = d.id "
@@ -11741,13 +11917,82 @@ def relatorio_contas_a_pagar_periodo():
     if imovel_id:
         query += " AND cp.imovel_id = %s"
         params.append(imovel_id)
-    if status:
-        query += " AND cp.status_conta = %s"
-        params.append(status)
+    if status_list:
+        query += " AND cp.status_conta IN %s"
+        params.append(tuple(status_list))
     query += " ORDER BY cp.data_vencimento ASC"
     cur.execute(query, params)
     contas = cur.fetchall()
     total_valor_previsto = sum(c["valor_previsto"] for c in contas)
+    resumo_pagamentos_dia = []
+    resumo_pagamentos_despesa = []
+    if resumo_pagamentos_por_dia or resumo_pagamentos_por_despesa:
+        pagamentos_itens = []
+        conta_ids = [c["id"] for c in contas]
+        movimentos_por_conta = {}
+        if conta_ids:
+            documentos = [f"CP-{conta_id}" for conta_id in conta_ids]
+            placeholders = ", ".join(["%s"] * len(documentos))
+            cur.execute(
+                f"""
+                SELECT documento, data_movimento, valor
+                  FROM movimento_financeiro
+                 WHERE tipo = 'saida'
+                   AND documento IN ({placeholders})
+                """,
+                documentos,
+            )
+            movimentos = cur.fetchall()
+            doc_to_id = {f"CP-{conta_id}": conta_id for conta_id in conta_ids}
+            for mov in movimentos:
+                conta_id = doc_to_id.get(mov["documento"])
+                if not conta_id:
+                    continue
+                movimentos_por_conta.setdefault(conta_id, []).append(mov)
+
+        for conta in contas:
+            despesa = conta["despesa"] or "Sem despesa"
+            movimentos = movimentos_por_conta.get(conta["id"])
+            if movimentos:
+                for mov in movimentos:
+                    pagamentos_itens.append(
+                        {
+                            "data_pagamento": mov["data_movimento"],
+                            "valor_pago": Decimal(mov["valor"] or 0),
+                            "despesa": despesa,
+                        }
+                    )
+            else:
+                # Quando não há movimento financeiro, usar a data de pagamento; caso ausente, cair para o vencimento.
+                data_pagamento = conta["data_pagamento"] or conta["data_vencimento"]
+                if not data_pagamento:
+                    continue
+                valor_pago = conta["valor_pago"]
+                if valor_pago is None or Decimal(valor_pago) == Decimal("0"):
+                    valor_pago = conta["valor_previsto"] or 0
+                pagamentos_itens.append(
+                    {
+                        "data_pagamento": data_pagamento,
+                        "valor_pago": Decimal(valor_pago),
+                        "despesa": despesa,
+                    }
+                )
+
+        if resumo_pagamentos_por_dia:
+            resumo_por_dia = {}
+            for item in pagamentos_itens:
+                data_pagamento = item["data_pagamento"]
+                valor_pago = Decimal(item["valor_pago"] or 0)
+                resumo_por_dia[data_pagamento] = resumo_por_dia.get(data_pagamento, Decimal("0")) + valor_pago
+            resumo_pagamentos_dia = sorted(resumo_por_dia.items(), key=lambda item: item[0])
+
+        if resumo_pagamentos_por_despesa:
+            resumo_por_despesa = {}
+            for item in pagamentos_itens:
+                despesa = item["despesa"]
+                valor_pago = Decimal(item["valor_pago"] or 0)
+                resumo_por_despesa[despesa] = resumo_por_despesa.get(despesa, Decimal("0")) + valor_pago
+            resumo_pagamentos_despesa = sorted(resumo_por_despesa.items(), key=lambda item: item[0].lower())
 
     cur.execute(
         "SELECT razao_social_nome FROM empresa_licenciada ORDER BY id LIMIT 1"
@@ -11843,6 +12088,40 @@ def relatorio_contas_a_pagar_periodo():
     pdf.set_font("Arial", "B", 10)
     pdf.cell(158, 8, "Total", 1, 0, "R")
     pdf.cell(30, 8, format_currency(total_valor_previsto), 1, 1, "R")
+
+    if resumo_pagamentos_dia or resumo_pagamentos_por_dia:
+        pdf.ln(6)
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(0, 8, "Resumo de Pagamentos por Dia", 0, 1, "L")
+        if resumo_pagamentos_dia:
+            pdf.set_font("Arial", "B", 10)
+            pdf.set_fill_color(200, 200, 200)
+            pdf.cell(40, 8, "Data Pagamento", 1, 0, "L", True)
+            pdf.cell(40, 8, "Total Pago", 1, 1, "R", True)
+            pdf.set_font("Arial", "", 10)
+            for data_pagamento, total_pago in resumo_pagamentos_dia:
+                pdf.cell(40, 8, data_pagamento.strftime("%d/%m/%Y"), 1)
+                pdf.cell(40, 8, format_currency(total_pago), 1, 1, "R")
+        else:
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 8, "Nenhum pagamento encontrado no periodo.", 0, 1, "L")
+
+    if resumo_pagamentos_despesa or resumo_pagamentos_por_despesa:
+        pdf.ln(6)
+        pdf.set_font("Arial", "B", 10)
+        pdf.cell(0, 8, "Resumo de Pagamentos por Despesa", 0, 1, "L")
+        if resumo_pagamentos_despesa:
+            pdf.set_font("Arial", "B", 10)
+            pdf.set_fill_color(200, 200, 200)
+            pdf.cell(110, 8, "Despesa", 1, 0, "L", True)
+            pdf.cell(40, 8, "Total Pago", 1, 1, "R", True)
+            pdf.set_font("Arial", "", 10)
+            for despesa, total_pago in resumo_pagamentos_despesa:
+                pdf.cell(110, 8, truncate_text(despesa, 108), 1)
+                pdf.cell(40, 8, format_currency(total_pago), 1, 1, "R")
+        else:
+            pdf.set_font("Arial", "", 10)
+            pdf.cell(0, 8, "Nenhum pagamento encontrado no periodo.", 0, 1, "L")
 
     pdf_bytes = pdf.output(dest="S").encode("latin1")
     return send_file(
@@ -12514,7 +12793,292 @@ def relatorio_financeiro_fluxo_caixa_visualizar():
 @app.route("/relatorios/gerencial")
 @login_required
 def relatorios_gerencial():
-    return render_template("relatorios/gerencial/index.html")
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute(
+        """
+        SELECT DISTINCT tipo_imovel
+          FROM imoveis
+         WHERE tipo_imovel IS NOT NULL AND tipo_imovel <> ''
+         ORDER BY tipo_imovel
+        """
+    )
+    tipos_imovel = [row["tipo_imovel"] for row in cur.fetchall()]
+    cur.execute(
+        """
+        SELECT DISTINCT cidade, estado
+          FROM imoveis
+         WHERE (cidade IS NOT NULL AND cidade <> '')
+            OR (estado IS NOT NULL AND estado <> '')
+         ORDER BY cidade, estado
+        """
+    )
+    cidades_estados = cur.fetchall()
+    cur.execute(
+        """
+        SELECT DISTINCT status
+          FROM imoveis
+         WHERE status IS NOT NULL
+         ORDER BY status
+        """
+    )
+    status_opcoes = [row["status"] for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+    return render_template(
+        "relatorios/gerencial/index.html",
+        tipos_imovel=tipos_imovel,
+        cidades_estados=cidades_estados,
+        status_opcoes=status_opcoes,
+    )
+
+
+def _parse_filtros_listagem_imoveis(form):
+    tipo_imovel = form.get("tipo_imovel")
+    status = form.get("status")
+    disponivel = form.get("disponivel")
+    registro = form.get("registro", "").strip()
+    cidade = form.get("cidade")
+    estado = form.get("estado")
+    cidade_estado = form.get("cidade_estado")
+
+    if cidade_estado and not (cidade or estado):
+        partes = cidade_estado.split("||")
+        if len(partes) >= 1 and partes[0]:
+            cidade = partes[0]
+        if len(partes) >= 2 and partes[1]:
+            estado = partes[1]
+
+    return {
+        "tipo_imovel": tipo_imovel,
+        "cidade": cidade,
+        "estado": estado,
+        "status": status,
+        "disponivel": disponivel,
+        "registro": registro,
+    }
+
+
+def _consultar_listagem_imoveis(cur, filtros):
+    query = [
+        """
+        SELECT tipo_imovel,
+               matricula,
+               inscricao_iptu,
+               endereco,
+               cidade,
+               estado,
+               registro
+          FROM imoveis
+         WHERE 1=1
+        """
+    ]
+    params = []
+
+    if filtros.get("tipo_imovel"):
+        query.append("AND tipo_imovel = %s")
+        params.append(filtros["tipo_imovel"])
+
+    if filtros.get("cidade"):
+        query.append("AND cidade = %s")
+        params.append(filtros["cidade"])
+
+    if filtros.get("estado"):
+        query.append("AND estado = %s")
+        params.append(filtros["estado"])
+
+    if filtros.get("status"):
+        query.append("AND status = %s")
+        params.append(filtros["status"])
+
+    if filtros.get("disponivel") in ("true", "false"):
+        query.append("AND COALESCE(disponivel, TRUE) = %s")
+        params.append(filtros["disponivel"] == "true")
+
+    if filtros.get("registro"):
+        query.append("AND registro ILIKE %s")
+        params.append(f"%{filtros['registro']}%")
+
+    query.append("ORDER BY endereco")
+    cur.execute(" ".join(query), params)
+    return cur.fetchall()
+
+
+def _formatar_filtros_listagem_imoveis(filtros):
+    disponivel_label = ""
+    if filtros.get("disponivel") == "true":
+        disponivel_label = "Sim"
+    elif filtros.get("disponivel") == "false":
+        disponivel_label = "Nao"
+
+    return {
+        "tipo_imovel": filtros.get("tipo_imovel") or "",
+        "cidade": filtros.get("cidade") or "",
+        "estado": filtros.get("estado") or "",
+        "status": filtros.get("status") or "",
+        "disponivel": disponivel_label,
+        "disponivel_raw": filtros.get("disponivel") or "",
+        "registro": filtros.get("registro") or "",
+    }
+
+
+@app.route("/relatorios/gerencial/listagem-imoveis", methods=["POST"])
+@login_required
+def relatorio_listagem_imoveis():
+    filtros_raw = _parse_filtros_listagem_imoveis(request.form)
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    imoveis = _consultar_listagem_imoveis(cur, filtros_raw)
+    cur.close()
+    conn.close()
+
+    filtros = _formatar_filtros_listagem_imoveis(filtros_raw)
+
+    return render_template(
+        "relatorios/gerencial/listagem_imoveis.html",
+        imoveis=imoveis,
+        filtros=filtros,
+    )
+
+
+@app.route("/relatorios/gerencial/listagem-imoveis/pdf", methods=["POST"])
+@login_required
+def relatorio_listagem_imoveis_pdf():
+    filtros_raw = _parse_filtros_listagem_imoveis(request.form)
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    imoveis = _consultar_listagem_imoveis(cur, filtros_raw)
+    cur.close()
+    conn.close()
+
+    filtros = _formatar_filtros_listagem_imoveis(filtros_raw)
+
+    def to_latin(text):
+        if not text:
+            return ""
+        return str(text).encode("latin-1", "replace").decode("latin-1")
+
+    class PDF(FPDF):
+        def header(self):
+            self.set_font("Arial", "B", 12)
+            largura_util = self.w - self.l_margin - self.r_margin
+            self.cell(largura_util, 8, "Listagem dos Imoveis", 0, 1, "C")
+            self.set_font("Arial", "", 9)
+            gerado_em = getattr(self, "gerado_em", "")
+            if gerado_em:
+                self.cell(largura_util, 5, f"Gerado em: {gerado_em}", 0, 1, "C")
+            filtros_local = getattr(self, "filtros", {})
+            if filtros_local.get("tipo_imovel"):
+                self.cell(
+                    largura_util,
+                    5,
+                    to_latin(f"Tipo: {filtros_local['tipo_imovel']}"),
+                    0,
+                    1,
+                    "C",
+                )
+            if filtros_local.get("cidade") or filtros_local.get("estado"):
+                cidade_estado = filtros_local.get("cidade", "")
+                if filtros_local.get("estado"):
+                    cidade_estado = f"{cidade_estado}/{filtros_local['estado']}"
+                self.cell(
+                    largura_util,
+                    5,
+                    to_latin(f"Cidade/Estado: {cidade_estado}"),
+                    0,
+                    1,
+                    "C",
+                )
+            if filtros_local.get("status"):
+                self.cell(
+                    largura_util,
+                    5,
+                    to_latin(f"Status: {filtros_local['status']}"),
+                    0,
+                    1,
+                    "C",
+                )
+            if filtros_local.get("disponivel"):
+                self.cell(
+                    largura_util,
+                    5,
+                    to_latin(f"Disponivel: {filtros_local['disponivel']}"),
+                    0,
+                    1,
+                    "C",
+                )
+            if filtros_local.get("registro"):
+                self.cell(
+                    largura_util,
+                    5,
+                    to_latin(f"Registro: {filtros_local['registro']}"),
+                    0,
+                    1,
+                    "C",
+                )
+            self.ln(2)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Arial", "", 9)
+            self.cell(0, 10, f"Pagina {self.page_no()}/{{nb}}", 0, 0, "C")
+
+    def truncate_text(pdf_obj, text, max_width):
+        if not text:
+            return ""
+        text = to_latin(text)
+        if pdf_obj.get_string_width(text) <= max_width:
+            return text
+        while pdf_obj.get_string_width(text + "...") > max_width and text:
+            text = text[:-1]
+        return text + "..."
+
+    headers = [
+        ("Tipo de Imovel", 30),
+        ("Matricula", 28),
+        ("Inscricao IPTU", 30),
+        ("Endereco", 90),
+        ("Cidade/UF", 30),
+        ("Registro", 30),
+    ]
+
+    pdf = PDF(orientation="L")
+    pdf.alias_nb_pages()
+    pdf.gerado_em = datetime.now().strftime("%d/%m/%Y %H:%M")
+    pdf.filtros = filtros
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 9)
+    pdf.set_fill_color(200, 200, 200)
+    for titulo, largura in headers:
+        pdf.cell(largura, 8, to_latin(titulo), 1, 0, "C", True)
+    pdf.ln(8)
+    pdf.set_font("Arial", "", 9)
+    for imovel in imoveis:
+        cidade = imovel.get("cidade") or ""
+        estado = imovel.get("estado") or ""
+        cidade_estado = cidade
+        if estado:
+            cidade_estado = f"{cidade}/{estado}" if cidade else estado
+        row = [
+            imovel.get("tipo_imovel") or "",
+            imovel.get("matricula") or "",
+            imovel.get("inscricao_iptu") or "",
+            imovel.get("endereco") or "",
+            cidade_estado,
+            imovel.get("registro") or "",
+        ]
+        for (label, largura), valor in zip(headers, row):
+            pdf.cell(largura, 7, truncate_text(pdf, valor, largura - 2), 1)
+        pdf.ln(7)
+
+    pdf_bytes = pdf.output(dest="S").encode("latin1")
+    filename = "listagem_imoveis.pdf"
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        mimetype="application/pdf",
+        download_name=filename,
+        as_attachment=True,
+    )
 
 
 # ------------------ DRE (Máscara & Relatório) ------------------

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório - Listagem dos Imóveis{% endblock %}
+{% block page_title %}Listagem dos Imóveis{% endblock %}
+
+{% block content %}
+<div class="bg-white p-6 rounded-lg shadow-xl mb-6">
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+    <div class="mb-4 md:mb-0">
+      <div class="text-lg font-semibold text-dark-blue">Listagem dos Imóveis</div>
+      {% if filtros.tipo_imovel %}
+        <div class="text-sm text-gray-700">Tipo: <span class="font-semibold">{{ filtros.tipo_imovel }}</span></div>
+      {% endif %}
+      {% if filtros.cidade or filtros.estado %}
+        <div class="text-sm text-gray-700">Cidade/Estado: <span class="font-semibold">{{ filtros.cidade }}{% if filtros.estado %}/{{ filtros.estado }}{% endif %}</span></div>
+      {% endif %}
+      {% if filtros.status %}
+        <div class="text-sm text-gray-700">Status: <span class="font-semibold">{{ filtros.status }}</span></div>
+      {% endif %}
+      {% if filtros.disponivel %}
+        <div class="text-sm text-gray-700">Disponível: <span class="font-semibold">{{ filtros.disponivel }}</span></div>
+      {% endif %}
+      {% if filtros.registro %}
+        <div class="text-sm text-gray-700">Registro: <span class="font-semibold">{{ filtros.registro }}</span></div>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      <form action="{{ url_for('relatorio_listagem_imoveis_pdf') }}" method="POST" target="_blank">
+        <input type="hidden" name="tipo_imovel" value="{{ filtros.tipo_imovel }}">
+        <input type="hidden" name="cidade" value="{{ filtros.cidade }}">
+        <input type="hidden" name="estado" value="{{ filtros.estado }}">
+        <input type="hidden" name="status" value="{{ filtros.status }}">
+        <input type="hidden" name="disponivel" value="{{ filtros.disponivel_raw }}">
+        <input type="hidden" name="registro" value="{{ filtros.registro }}">
+        <button type="submit" class="btn btn-primary"><i class="fas fa-print mr-2"></i>Imprimir</button>
+      </form>
+      <a href="{{ url_for('relatorios_gerencial') }}" class="btn btn-secondary"><i class="fas fa-arrow-left mr-2"></i>Voltar</a>
+    </div>
+  </div>
+</div>
+
+{% if imoveis %}
+  <div class="overflow-x-auto bg-white p-6 rounded-lg shadow-xl">
+    <table class="min-w-full bg-white rounded-lg overflow-hidden">
+      <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+        <tr>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Tipo de Imóvel</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Matrícula</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Inscrição IPTU</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Endereço</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Cidade/Estado (UF)</th>
+          <th class="py-3 px-4 text-left text-sm font-semibold">Registro</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for imovel in imoveis %}
+          <tr class="border-b border-gray-200 hover:bg-gray-50">
+            <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.tipo_imovel or '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.matricula or '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.inscricao_iptu or '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.endereco or '' }}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.cidade or '' }}{% if imovel.estado %}/{{ imovel.estado }}{% endif %}</td>
+            <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.registro or '' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="bg-white p-6 rounded-lg shadow-xl text-center text-gray-600">
+    Nenhum imóvel encontrado para os filtros informados.
+  </div>
+{% endif %}
+{% endblock %}

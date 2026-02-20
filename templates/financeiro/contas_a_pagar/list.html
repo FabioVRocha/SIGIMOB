@@ -43,8 +43,12 @@
                     <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
                 </tr>
                 <tr>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
+                    <th class="py-2 px-4">
+                        <select class="form-select column-search w-full min-w-0"></select>
+                    </th>
+                    <th class="py-2 px-4">
+                        <select class="form-select column-search w-full min-w-0"></select>
+                    </th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
                     <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
@@ -277,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(searchRow){
         Array.from(searchRow.children).forEach((cell, index) => {
             cell.dataset.colIndex = index;
-            const input = cell.querySelector('input.column-search');
+            const input = cell.querySelector('.column-search');
             if(input){
                 input.dataset.colIndex = index;
             }
@@ -294,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function(){
             let visible = true;
             inputs.forEach((input) => {
                 if(input.disabled){ return; }
-                const filter = input.value.toLowerCase();
+                const filter = (input.value || '').toLowerCase();
                 const colIndex = parseInt(input.dataset.colIndex || '0', 10);
                 const cell = row.querySelectorAll('td')[colIndex];
                 if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
@@ -304,7 +308,37 @@ document.addEventListener('DOMContentLoaded', function(){
             row.style.display = visible ? '' : 'none';
         });
     }
-    inputs.forEach(input => input.addEventListener('input', filterTable));
+    function setupColumnSelect(selectEl){
+        if(!selectEl){ return; }
+        const colIndex = parseInt(selectEl.dataset.colIndex || '0', 10);
+        if(Number.isNaN(colIndex)){ return; }
+        const values = new Set();
+        rows.forEach(row => {
+            const cell = row.querySelectorAll('td')[colIndex];
+            if(!cell){ return; }
+            const text = cell.textContent.trim();
+            if(text){ values.add(text); }
+        });
+        const options = Array.from(values).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        selectEl.innerHTML = '';
+        const allOption = document.createElement('option');
+        allOption.value = '';
+        allOption.textContent = 'Todos';
+        selectEl.appendChild(allOption);
+        options.forEach(value => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = value;
+            selectEl.appendChild(option);
+        });
+    }
+    inputs.forEach(input => {
+        input.addEventListener('input', filterTable);
+        input.addEventListener('change', filterTable);
+        if(input.tagName === 'SELECT'){
+            setupColumnSelect(input);
+        }
+    });
 
     const columnToggleBtn = document.getElementById('column-toggle-btn');
     const columnToggleMenu = document.getElementById('column-toggle-menu');
@@ -341,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 if(searchRow){
                     const searchCell = searchRow.children[index];
                     if(searchCell){
-                        const input = searchCell.querySelector('input.column-search');
+                        const input = searchCell.querySelector('.column-search');
                         if(input){
                             if(!visible){
                                 input.value = '';

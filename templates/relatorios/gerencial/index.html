@@ -16,6 +16,84 @@
                 </div>
             </div>
         </a>
+        <button type="button" class="card block text-left" onclick="openListagemImoveisModal()">
+            <div class="flex items-center">
+                <i class="fas fa-home text-icon-purple text-3xl mr-4"></i>
+                <div>
+                    <h2 class="text-lg font-semibold">Listagem dos Imóveis</h2>
+                    <p class="text-gray-600">Lista imóveis com filtros por tipo, cidade/estado e status.</p>
+                </div>
+            </div>
+        </button>
     </div>
 </div>
+
+<div id="listagem-imoveis-modal" class="modal">
+    <div class="modal-content max-w-2xl">
+        <span class="close-button" onclick="closeListagemImoveisModal()">&times;</span>
+        <h2 class="text-lg font-semibold mb-4">Listagem dos Imóveis</h2>
+        <form action="{{ url_for('relatorio_listagem_imoveis') }}" method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="form-group">
+                    <label for="rel-imoveis-tipo" class="form-label">Tipo:</label>
+                    <select id="rel-imoveis-tipo" name="tipo_imovel" class="form-select">
+                        <option value="">Todos</option>
+                        {% for tipo in tipos_imovel %}
+                            <option value="{{ tipo }}">{{ tipo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rel-imoveis-cidade-estado" class="form-label">Cidade/Estado (UF):</label>
+                    <select id="rel-imoveis-cidade-estado" name="cidade_estado" class="form-select">
+                        <option value="">Todas</option>
+                        {% for row in cidades_estados %}
+                            {% set cidade = row.cidade or '' %}
+                            {% set estado = row.estado or '' %}
+                            <option value="{{ cidade }}||{{ estado }}">
+                                {{ cidade }}{% if estado %}/{{ estado }}{% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rel-imoveis-status" class="form-label">Status:</label>
+                    <select id="rel-imoveis-status" name="status" class="form-select">
+                        <option value="">Todos</option>
+                        {% for status in status_opcoes %}
+                            <option value="{{ status }}">{{ status }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="rel-imoveis-disponivel" class="form-label">Disponível:</label>
+                    <select id="rel-imoveis-disponivel" name="disponivel" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="true">Sim</option>
+                        <option value="false">Não</option>
+                    </select>
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label for="rel-imoveis-registro" class="form-label">Registro:</label>
+                    <input type="text" id="rel-imoveis-registro" name="registro" class="form-input" placeholder="Digite o registro">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" class="btn-secondary" onclick="closeListagemImoveisModal()">Cancelar</button>
+                <button type="submit" class="btn-primary">Gerar Relatório</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openListagemImoveisModal(){
+    document.getElementById('listagem-imoveis-modal').style.display='flex';
+}
+function closeListagemImoveisModal(){
+    document.getElementById('listagem-imoveis-modal').style.display='none';
+}
+</script>
 {% endblock %}
