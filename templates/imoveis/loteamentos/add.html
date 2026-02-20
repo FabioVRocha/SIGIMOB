@@ -1,57 +1,65 @@
 <!-- templates/imoveis/loteamentos/add.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}Incluir Loteamento{% endblock %}
 
 {% block page_title %}Incluir Loteamento{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl max-w-4xl mx-auto">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Novo Loteamento</h2>
-        <a href="{{ url_for('loteamentos_list') }}" class="btn-secondary flex items-center">
-            <i class="fas fa-arrow-left mr-2"></i> Voltar
-        </a>
+<div class="form-page">
+    <div class="main-header">
+        <h1>Novo Loteamento</h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('loteamentos_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
     </div>
+    <div class="content-section">
+        <form action="{{ url_for('loteamentos_add') }}" method="POST" enctype="multipart/form-data" class="space-y-6 flex flex-col h-full">
+            <div>
+                <label for="imovel_display" class="form-label">Imóvel (Terreno) *</label>
+                <div class="flex">
+                    <input type="text" id="imovel_display" class="form-input flex-grow" readonly>
+                    <button type="button" class="btn-secondary ml-2 px-4" onclick="openImovelModal()" aria-label="Buscar imóvel">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <input type="hidden" id="imovel_id" name="imovel_id">
+                {% if not imoveis %}
+                <p class="text-sm text-gray-500 mt-2">Nenhum terreno disponível para loteamento.</p>
+                {% endif %}
+            </div>
 
-    <form action="{{ url_for('loteamentos_add') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
-        <div>
-            <label for="imovel_display" class="form-label">Imóvel (Terreno) *</label>
-            <div class="flex">
-                <input type="text" id="imovel_display" class="form-input flex-grow" readonly>
-                <button type="button" class="btn-secondary ml-2 px-4" onclick="openImovelModal()" aria-label="Buscar imóvel">
-                    <i class="fas fa-search"></i>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="quantidade_lotes" class="form-label">Quantidade de lotes *</label>
+                    <input type="number" min="1" id="quantidade_lotes" name="quantidade_lotes" class="form-input w-full" required>
+                </div>
+                <div>
+                    <label for="mascara_lote" class="form-label">Máscara do nome do lote *</label>
+                    <input type="text" id="mascara_lote" name="mascara_lote" class="form-input w-full" placeholder="Ex: Quadra A" required>
+                    <p class="text-xs text-gray-500 mt-1">Formato gerado: mascara-1/quantidade</p>
+                </div>
+            </div>
+
+            <div>
+                <label for="planta_baixa" class="form-label">Planta baixa</label>
+                <input type="file" id="planta_baixa" name="planta_baixa" class="form-input w-full">
+            </div>
+
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-check mr-2"></i> Lotear Imóvel
                 </button>
+                <a href="{{ url_for('loteamentos_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Voltar
+                </a>
             </div>
-            <input type="hidden" id="imovel_id" name="imovel_id">
-            {% if not imoveis %}
-            <p class="text-sm text-gray-500 mt-2">Nenhum terreno disponível para loteamento.</p>
-            {% endif %}
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label for="quantidade_lotes" class="form-label">Quantidade de lotes *</label>
-                <input type="number" min="1" id="quantidade_lotes" name="quantidade_lotes" class="form-input w-full" required>
-            </div>
-            <div>
-                <label for="mascara_lote" class="form-label">Máscara do nome do lote *</label>
-                <input type="text" id="mascara_lote" name="mascara_lote" class="form-input w-full" placeholder="Ex: Quadra A" required>
-                <p class="text-xs text-gray-500 mt-1">Formato gerado: mascara-1/quantidade</p>
-            </div>
-        </div>
-
-        <div>
-            <label for="planta_baixa" class="form-label">Planta baixa</label>
-            <input type="file" id="planta_baixa" name="planta_baixa" class="form-input w-full">
-        </div>
-
-        <div class="flex justify-end">
-            <button type="submit" class="btn-primary">
-                <i class="fas fa-check mr-2"></i> Lotear Imóvel
-            </button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 <div id="imovel-modal" class="modal">

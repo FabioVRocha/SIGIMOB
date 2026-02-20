@@ -1,11 +1,22 @@
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}{{ 'Editar' if ordem else 'Nova' }} Ordem de Pagamento{% endblock %}
 {% block page_title %}{{ 'Editar' if ordem else 'Nova' }} Ordem de Pagamento{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="" method="POST" id="op-form">
+<div class="form-page">
+    <div class="main-header">
+        <h1>{{ 'Editar' if ordem else 'Nova' }} Ordem de Pagamento</h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('ordens_pagamento_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+    <div class="content-section">
+        <form action="" method="POST" id="op-form" class="flex flex-col h-full">
         <!-- 1. Dados da Ordem -->
         <h2 class="text-xl font-semibold mb-4">Dados da Ordem</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -217,11 +228,14 @@
             </div>
         </div>
 
-        <div class="flex justify-end space-x-4">
-            <a href="{{ url_for('ordens_pagamento_list') }}" class="btn-secondary">Cancelar</a>
-            <button type="submit" class="btn-primary">Salvar Ordem</button>
-        </div>
-    </form>
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">Salvar Ordem</button>
+                <a href="{{ url_for('ordens_pagamento_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div id="imovel-modal" class="modal">

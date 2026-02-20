@@ -4,17 +4,29 @@
 {% block title %}Lançamentos{% endblock %}
 {% block page_title %}Lançamentos{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Lançamentos</h2>
-        <div class="flex items-center gap-3">
-            <button id="btn-open-filtros" type="button" class="btn-secondary flex items-center">
-                <i class="fas fa-filter mr-2"></i> Filtros
-            </button>
-            <a href="{{ url_for('lancamentos_novo') }}" class="btn-primary flex items-center">
-            <i class="fas fa-plus mr-2"></i> Novo Lançamento
-        </a>
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="lancamentosCount">0 lançamentos</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('lancamentos_novo') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Novo Lançamento">
+                <i class="fas fa-plus mr-2"></i> Novo Lançamento
+            </a>
         </div>
     </div>
     
@@ -59,30 +71,30 @@
     </div>
 
     {% if movimentos %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
-                <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Conta Origem</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Conta Destino</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Tipo</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Categoria</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Histórico</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated" id="lancamentosTable">
+            <thead class="table-header-bg">
+                <tr >
+                    <th class="py-2 px-2 text-left">ID</th>
+                    <th class="py-2 px-2 text-left">Data</th>
+                    <th class="py-2 px-2 text-left">Conta Origem</th>
+                    <th class="py-2 px-2 text-left">Conta Destino</th>
+                    <th class="py-2 px-2 text-left">Tipo</th>
+                    <th class="py-2 px-2 text-left">Valor</th>
+                    <th class="py-2 px-2 text-left">Categoria</th>
+                    <th class="py-2 px-2 text-left">Histórico</th>
+                    <th class="py-2 px-2 text-left">Ações</th>
                 </tr>
-                <tr>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"></th>
+                <tr class="table-filters">
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"></th>
                 </tr>
             </thead>
             <tbody id="lancamentos-tbody">
@@ -93,17 +105,17 @@
                 {% elif m.tipo == 'entrada' %}
                     {% set text_color = 'text-blue-600' %}
                 {% endif %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm {{ text_color }}">{{ m.id }}</td>
-                    <td class="py-3 px-4 text-sm {{ text_color }}">{{ m.data_movimento.strftime('%d/%m/%Y') }}</td>
-                    <td class="py-3 px-4 text-sm {{ text_color }}">
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm {{ text_color }}">{{ m.id }}</td>
+                    <td class="py-2 px-2 text-sm {{ text_color }}">{{ m.data_movimento.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-2 px-2 text-sm {{ text_color }}">
                         {% if m.conta_origem_tipo == 'caixa' %}
                             {{ contas_caixa[m.conta_origem_id] }}
                         {% else %}
                             {{ contas_banco[m.conta_origem_id] }}
                         {% endif %}
                     </td>
-                    <td class="py-3 px-4 text-sm {{ text_color }}">
+                    <td class="py-2 px-2 text-sm {{ text_color }}">
                         {% if m.tipo == 'transferencia' and m.conta_destino_id %}
                             {% if m.conta_destino_tipo == 'caixa' %}
                                 {{ contas_caixa[m.conta_destino_id] }}
@@ -114,27 +126,96 @@
                             -
                         {% endif %}
                     </td>
-                    <td class="py-3 px-4 text-sm {{ text_color }}">{{ m.tipo }}</td>
-                    <td class="py-3 px-4 text-sm {{ text_color }}">{{ '{:.2f}'.format(m.valor) }}</td>
-                    <td class="py-3 px-4 text-sm {{ text_color }}">{{ m.categoria or '' }}</td>
-                    <td class="py-3 px-4 text-sm {{ text_color }}">{{ m.historico or '' }}</td>
-                    <td class="py-3 px-4 text-sm">
-                        <a href="{{ url_for('lancamentos_view', id=m.id) }}" class="text-green-600 hover:text-green-800 mr-3" title="Consultar">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        <a href="{{ url_for('lancamentos_edit', id=m.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <form action="{{ url_for('lancamentos_delete', id=m.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este lançamento?');">
-                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+                    <td class="py-2 px-2 text-sm {{ text_color }}">{{ m.tipo }}</td>
+                    <td class="py-2 px-2 text-sm {{ text_color }}">{{ '{:.2f}'.format(m.valor) }}</td>
+                    <td class="py-2 px-2 text-sm {{ text_color }}">{{ m.categoria or '' }}</td>
+                    <td class="py-2 px-2 text-sm {{ text_color }}">{{ m.historico or '' }}</td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('lancamentos_view', id=m.id) }}" title="Consultar" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-eye"></i></a>
+                            <a href="{{ url_for('lancamentos_edit', id=m.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <form action="{{ url_for('lancamentos_delete', id=m.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este lançamento?');"><button type="submit" title="Excluir" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash-alt"></i></button></form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards" id="lancamentosCards">
+        {% for m in movimentos %}
+            {% set card_color = 'text-gray-700' %}
+            {% if m.tipo == 'saida' %}
+                {% set card_color = 'text-red-600' %}
+            {% elif m.tipo == 'entrada' %}
+                {% set card_color = 'text-blue-600' %}
+            {% endif %}
+            <div
+                class="employee-card"
+                data-col-0="{{ m.id }}"
+                data-col-1="{{ m.data_movimento.strftime('%d/%m/%Y') }}"
+                data-col-2="{% if m.conta_origem_tipo == 'caixa' %}{{ contas_caixa[m.conta_origem_id] }}{% else %}{{ contas_banco[m.conta_origem_id] }}{% endif %}"
+                data-col-3="{% if m.tipo == 'transferencia' and m.conta_destino_id %}{% if m.conta_destino_tipo == 'caixa' %}{{ contas_caixa[m.conta_destino_id] }}{% else %}{{ contas_banco[m.conta_destino_id] }}{% endif %}{% else %}-{% endif %}"
+                data-col-4="{{ m.tipo }}"
+                data-col-5="{{ '{:.2f}'.format(m.valor) }}"
+                data-col-6="{{ m.categoria or '' }}"
+                data-col-7="{{ m.historico or '' }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title {{ card_color }}">{{ m.tipo|capitalize }} · #{{ m.id }}</div>
+                        <div class="employee-card-meta">{{ m.data_movimento.strftime('%d/%m/%Y') }}</div>
+                    </div>
+                </div>
+                <div class="employee-card-grid {{ card_color }}">
+                    <div>
+                        <span>Conta Origem</span>
+                        {% if m.conta_origem_tipo == 'caixa' %}
+                            {{ contas_caixa[m.conta_origem_id] }}
+                        {% else %}
+                            {{ contas_banco[m.conta_origem_id] }}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <span>Conta Destino</span>
+                        {% if m.tipo == 'transferencia' and m.conta_destino_id %}
+                            {% if m.conta_destino_tipo == 'caixa' %}
+                                {{ contas_caixa[m.conta_destino_id] }}
+                            {% else %}
+                                {{ contas_banco[m.conta_destino_id] }}
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                    <div>
+                        <span>Valor</span>
+                        {{ '{:.2f}'.format(m.valor) }}
+                    </div>
+                    <div>
+                        <span>Categoria</span>
+                        {{ m.categoria or '-' }}
+                    </div>
+                    <div>
+                        <span>Histórico</span>
+                        {{ m.historico or '-' }}
+                    </div>
+                </div>
+                <div class="employee-card-actions">
+                    <a href="{{ url_for('lancamentos_view', id=m.id) }}" title="Consultar" aria-label="Consultar lançamento">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{{ url_for('lancamentos_edit', id=m.id) }}" title="Editar" aria-label="Editar lançamento">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <form action="{{ url_for('lancamentos_delete', id=m.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este lançamento?');">
+                        <button type="submit" title="Excluir" aria-label="Excluir lançamento">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
     </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhum lançamento encontrado.</p>
@@ -147,6 +228,7 @@
 document.addEventListener('DOMContentLoaded', function(){
     const inputs = document.querySelectorAll('.column-search');
     const rows = Array.from(document.querySelectorAll('#lancamentos-tbody tr'));
+    const cards = Array.from(document.querySelectorAll('#lancamentosCards .employee-card'));
     const modal = document.getElementById('modal-filtros');
     const btnOpen = document.getElementById('btn-open-filtros');
     const btnClose = document.getElementById('btn-close-filtros');
@@ -183,7 +265,16 @@ document.addEventListener('DOMContentLoaded', function(){
         return new Date(y, m - 1, d);
     }
 
+    const countEl = document.getElementById('lancamentosCount');
+
+    function updateCount(visibleRows) {
+        if (!countEl) return;
+        const total = visibleRows;
+        countEl.textContent = total === 1 ? '1 lançamento' : `${total} lançamentos`;
+    }
+
     function applyAllFilters(){
+        let visibleCount = 0;
         const qValues = Array.from(inputs).map(i => (i.value || '').toLowerCase());
         const filtroConta = (selContaOrigem.value || '').toLowerCase();
         const filtroTipo = (selTipo.value || '').toLowerCase();
@@ -227,7 +318,42 @@ document.addEventListener('DOMContentLoaded', function(){
             }
 
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
         });
+        cards.forEach(card => {
+            let visible = true;
+            if(visible){
+                qValues.forEach((filter, index) => {
+                    if(!visible) return;
+                    if(!filter) return;
+                    const value = (card.getAttribute(`data-col-${index}`) || '').toLowerCase();
+                    if(!value.includes(filter)){
+                        visible = false;
+                    }
+                });
+            }
+
+            if(visible && (dtIni || dtFim)){
+                const dataStr = (card.getAttribute('data-col-1') || '').trim();
+                const d = parseBRDate(dataStr);
+                if(!d){ visible = false; }
+                if(visible && dtIni && d < dtIni){ visible = false; }
+                if(visible && dtFim && d > dtFim){ visible = false; }
+            }
+
+            if(visible && filtroConta){
+                const contaStr = (card.getAttribute('data-col-2') || '').toLowerCase();
+                if(!contaStr.includes(filtroConta)) visible = false;
+            }
+
+            if(visible && filtroTipo){
+                const tipoStr = (card.getAttribute('data-col-4') || '').toLowerCase();
+                if(tipoStr !== filtroTipo) visible = false;
+            }
+
+            card.style.display = visible ? '' : 'none';
+        });
+        updateCount(visibleCount);
     }
 
     function openModal(){
@@ -255,6 +381,8 @@ document.addEventListener('DOMContentLoaded', function(){
         modal.classList.remove('hidden');
         modal.classList.add('flex');
     }
+
+    applyAllFilters();
 
     function closeModal(){
         modal.classList.add('hidden');

@@ -405,18 +405,36 @@ SYSTEM_VERSION = "1.0"
 
 # Módulos disponíveis no sistema para configuração de permissões
 MODULES = [
+    "Dashboard",
     "Cadastro Fornecedores/Clientes",
     "Cadastro Imoveis",
     "Cadastro Despesas",
     "Cadastro Origens",
     "Cadastro Receitas",
     "Gestao Contratos",
-    "Financeiro",
-    "Administracao Sistema",
+    "Reajustes de Contrato",
+    "Modelos de Contrato",
+    "Contas a Receber",
+    "Contas a Pagar",
+    "Ordens de Pagamento",
+    "Lancamentos",
+    "Caixa",
+    "Banco",
+    "Cobranca",
+    "Posicoes",
+    "Relatorios Contas a Pagar",
+    "Relatorios Contas a Receber",
+    "Relatorios Financeiro",
+    "Relatorios Gerencial",
+    "DRE (Mascara)",
+    "Backup",
+    "Cadastro Usuarios",
+    "Cadastro Empresa",
+    "Logs do Sistema",
 ]
 
 # Ações possíveis
-ACTIONS = ["Incluir", "Editar", "Consultar", "Excluir", "Bloquear"]
+ACTIONS = ["Incluir", "Editar", "Consultar", "Excluir", "Bloquear", "Visualizar"]
 
 PRESTACAO_RECEITA_DESCR = "PRESTACAO ENCERRAMENTO CONTRATO"
 PRESTACAO_DESPESA_DESCR = "PRESTACAO ENCERRAMENTO CONTRATO"
@@ -890,7 +908,7 @@ def log_user_action(acao, modulo, descricao=None, dados=None):
 
 @app.route("/gerencial/logs")
 @login_required
-@permission_required("Administracao Sistema", "Visualizar")
+@permission_required("Logs do Sistema", "Visualizar")
 def gerencial_logs():
     page = request.args.get("page", 1, type=int)
     if page < 1:
@@ -2600,6 +2618,7 @@ def uploaded_file(filename):
 
 @app.route("/imoveis/fotos/<int:imovel_id>")
 @login_required
+@permission_required("Cadastro Imoveis", "Consultar")
 def imoveis_fotos(imovel_id):
     """Retorna as URLs das fotos de um imóvel em formato JSON."""
     conn = get_db_connection()
@@ -2739,10 +2758,12 @@ def register():
             # Isso pode ser feito de forma mais sofisticada, mas aqui é um exemplo básico.
             # Por exemplo, dar permissão de consulta para alguns módulos.
             modules_to_grant_access = [
+                "Dashboard",
                 "Cadastro Fornecedores/Clientes",
                 "Cadastro Imoveis",
                 "Gestao Contratos",
-                "Financeiro",
+                "Contas a Receber",
+                "Contas a Pagar",
                 "Cadastro Despesas",  # Nova permissão
                 "Cadastro Origens",  # Nova permissão
                 "Cadastro Receitas",  # Nova permissão
@@ -2793,6 +2814,7 @@ def index():
 
 @app.route("/dashboard")
 @login_required
+@permission_required("Dashboard", "Consultar")
 def dashboard():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -6407,20 +6429,21 @@ def contratos_renovar(contrato_id):
                 )
                 renovacao_id = cur.fetchone()[0]
 
-                quantidade_parcelas_atual = contrato.get("quantidade_parcelas")
-                try:
-                    quantidade_parcelas_int = int(quantidade_parcelas_atual or 0)
-                except (TypeError, ValueError):
-                    quantidade_parcelas_int = 0
-                if quantidade_parcelas_int <= 0 and nova_data_inicio and nova_data_fim:
+                if nova_data_inicio and nova_data_fim:
                     quantidade_parcelas_int = max(
                         1,
                         (nova_data_fim.year - nova_data_inicio.year) * 12
                         + (nova_data_fim.month - nova_data_inicio.month)
                         + 1,
                     )
-                elif quantidade_parcelas_int <= 0:
-                    quantidade_parcelas_int = 1
+                else:
+                    quantidade_parcelas_atual = contrato.get("quantidade_parcelas")
+                    try:
+                        quantidade_parcelas_int = int(quantidade_parcelas_atual or 0)
+                    except (TypeError, ValueError):
+                        quantidade_parcelas_int = 0
+                    if quantidade_parcelas_int <= 0:
+                        quantidade_parcelas_int = 1
 
                 cur.execute(
                     """
@@ -6743,7 +6766,7 @@ def contratos_encerrar(id):
 
 @app.route("/contratos/modelos")
 @login_required
-@permission_required("Gestao Contratos", "Consultar")
+@permission_required("Modelos de Contrato", "Consultar")
 def contrato_modelos_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -6763,7 +6786,7 @@ def contrato_modelos_list():
 
 @app.route("/contratos/modelos/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Gestao Contratos", "Incluir")
+@permission_required("Modelos de Contrato", "Incluir")
 def contrato_modelos_add():
     if request.method == "POST":
         nome = request.form.get("nome").strip()
@@ -6790,7 +6813,7 @@ def contrato_modelos_add():
 
 @app.route("/contratos/modelos/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Gestao Contratos", "Editar")
+@permission_required("Modelos de Contrato", "Editar")
 def contrato_modelos_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -6820,7 +6843,7 @@ def contrato_modelos_edit(id):
 
 @app.route("/contratos/modelos/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Gestao Contratos", "Excluir")
+@permission_required("Modelos de Contrato", "Excluir")
 def contrato_modelos_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -6922,7 +6945,7 @@ def contrato_anexo_delete(anexo_id):
 # --- Reajustes de Contrato ---
 @app.route("/reajustes", methods=["GET"])
 @login_required
-@permission_required("Gestao Contratos", "Consultar")
+@permission_required("Reajustes de Contrato", "Consultar")
 def reajustes_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -6957,7 +6980,7 @@ def reajustes_list():
 
 @app.route("/reajustes/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Gestao Contratos", "Incluir")
+@permission_required("Reajustes de Contrato", "Incluir")
 def reajustes_add():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7027,7 +7050,7 @@ def reajustes_add():
 
 @app.route("/reajustes/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Gestao Contratos", "Editar")
+@permission_required("Reajustes de Contrato", "Editar")
 def reajustes_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7094,7 +7117,7 @@ def reajustes_edit(id):
 
 @app.route("/reajustes/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Gestao Contratos", "Excluir")
+@permission_required("Reajustes de Contrato", "Excluir")
 def reajustes_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -7113,6 +7136,7 @@ def reajustes_delete(id):
 
 @app.route("/reajustes/contrato/<int:contrato_id>")
 @login_required
+@permission_required("Reajustes de Contrato", "Consultar")
 def contrato_info(contrato_id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7135,7 +7159,7 @@ def contrato_info(contrato_id):
 # --- Módulo Financeiro ---
 @app.route("/contas-a-receber")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Contas a Receber", "Consultar")
 def contas_a_receber_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7173,7 +7197,7 @@ def contas_a_receber_list():
         params.append(status_conta)
     elif not status_conta_param_present:
         where.append("cr.status_conta IN %s")
-        params.append(("Aberta", "Parcial", "Vencida"))
+        params.append(("Aberta", "Vencida"))
 
     sql = (
         """
@@ -7230,7 +7254,7 @@ def contas_a_receber_list():
 
 @app.route("/contas-a-receber/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Receber", "Incluir")
 def contas_a_receber_add():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7316,7 +7340,7 @@ def contas_a_receber_add():
 
 @app.route("/contas-a-receber/view/<int:id>")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Contas a Receber", "Consultar")
 def contas_a_receber_view(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7347,7 +7371,7 @@ def contas_a_receber_view(id):
 
 @app.route("/contas-a-receber/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Contas a Receber", "Editar")
 def contas_a_receber_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7441,7 +7465,7 @@ def contas_a_receber_edit(id):
 
 @app.route("/contas-a-receber/ajustar-vencimentos", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Contas a Receber", "Editar")
 def contas_a_receber_ajustar_vencimentos():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7597,7 +7621,7 @@ def _negociacao_calcular_parcelas(total, quantidade):
 
 @app.route("/contas-a-receber/negociacao")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Contas a Receber", "Consultar")
 def contas_a_receber_negociacao():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -7615,7 +7639,7 @@ def contas_a_receber_negociacao():
 
 @app.route("/contas-a-receber/negociacao/titulos")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Contas a Receber", "Consultar")
 def contas_a_receber_negociacao_titulos():
     cliente_id_raw = request.args.get("cliente_id")
     try:
@@ -7666,7 +7690,7 @@ def contas_a_receber_negociacao_titulos():
 
 @app.route("/contas-a-receber/negociacao/preview", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Receber", "Incluir")
 def contas_a_receber_negociacao_preview():
     cliente_id = request.form.get("cliente_id")
     try:
@@ -7776,7 +7800,7 @@ def contas_a_receber_negociacao_preview():
 
 @app.route("/contas-a-receber/negociacao/confirmar", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Receber", "Incluir")
 def contas_a_receber_negociacao_confirmar():
     cliente_id = request.form.get("cliente_id")
     try:
@@ -7901,7 +7925,7 @@ def contas_a_receber_negociacao_confirmar():
 
 @app.route("/contas-a-receber/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Excluir")
+@permission_required("Contas a Receber", "Excluir")
 def contas_a_receber_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -7920,7 +7944,7 @@ def contas_a_receber_delete(id):
 
 @app.route("/contas-a-receber/replicar/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Receber", "Incluir")
 def contas_a_receber_replicar(id):
     quantidade = int(request.form.get("quantidade", 0))
     same_day = int(request.form.get("same_day", 0) or 0)
@@ -8047,7 +8071,7 @@ def contas_a_receber_replicar(id):
 
 @app.route("/contas-a-receber/pagar/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Receber", "Incluir")
 def contas_a_receber_pagar(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8141,7 +8165,7 @@ def contas_a_receber_pagar(id):
 
 @app.route("/contas-a-pagar")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Contas a Pagar", "Consultar")
 def contas_a_pagar_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8236,7 +8260,7 @@ def contas_a_pagar_list():
 
 @app.route("/contas-a-pagar/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Pagar", "Incluir")
 def contas_a_pagar_add():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8322,7 +8346,7 @@ def contas_a_pagar_add():
 
 @app.route("/contas-a-pagar/view/<int:id>")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Contas a Pagar", "Consultar")
 def contas_a_pagar_view(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8355,7 +8379,7 @@ def contas_a_pagar_view(id):
 
 @app.route("/contas-a-pagar/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Contas a Pagar", "Editar")
 def contas_a_pagar_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8447,7 +8471,7 @@ def contas_a_pagar_edit(id):
 
 @app.route("/contas-a-pagar/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Excluir")
+@permission_required("Contas a Pagar", "Excluir")
 def contas_a_pagar_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -8466,7 +8490,7 @@ def contas_a_pagar_delete(id):
 
 @app.route("/contas-a-pagar/replicar/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Pagar", "Incluir")
 def contas_a_pagar_replicar(id):
     quantidade = int(request.form.get("quantidade", 0))
     same_day = int(request.form.get("same_day", 0) or 0)
@@ -8596,7 +8620,7 @@ def contas_a_pagar_replicar(id):
 
 @app.route("/contas-a-pagar/pagar/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Contas a Pagar", "Incluir")
 def contas_a_pagar_pagar(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8684,7 +8708,7 @@ def contas_a_pagar_pagar(id):
 
 @app.route("/ordens-pagamento")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Ordens de Pagamento", "Consultar")
 def ordens_pagamento_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8706,7 +8730,7 @@ def ordens_pagamento_list():
 
 @app.route("/ordens-pagamento/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Ordens de Pagamento", "Incluir")
 def ordens_pagamento_add():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -8861,7 +8885,7 @@ def ordens_pagamento_add():
 
 @app.route("/ordens-pagamento/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Ordens de Pagamento", "Editar")
 def ordens_pagamento_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -9050,7 +9074,7 @@ def ordens_pagamento_edit(id):
 
 @app.route("/ordens-pagamento/view/<int:id>")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Ordens de Pagamento", "Consultar")
 def ordens_pagamento_view(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -9091,7 +9115,7 @@ def ordens_pagamento_view(id):
 
 @app.route("/ordens-pagamento/<int:id>/gerar-contas", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Ordens de Pagamento", "Incluir")
 def ordens_pagamento_gerar_contas(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -9778,7 +9802,7 @@ def contratos_prestacao_relatorio(prestacao_id):
 
 @app.route("/ordens-pagamento/print/<int:id>")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Ordens de Pagamento", "Consultar")
 def ordens_pagamento_print(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -9821,7 +9845,7 @@ def ordens_pagamento_print(id):
 
 @app.route("/ordens-pagamento/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Excluir")
+@permission_required("Ordens de Pagamento", "Excluir")
 def ordens_pagamento_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -9840,7 +9864,7 @@ def ordens_pagamento_delete(id):
 
 @app.route("/caixas")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Caixa", "Consultar")
 def caixas_list():
     contas = ContaCaixa.query.all()
     _, saldos = calcular_saldos_atualizados("caixa", contas)
@@ -9851,7 +9875,7 @@ def caixas_list():
 
 @app.route("/caixas/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Caixa", "Incluir")
 def caixas_add():
     if request.method == "POST":
         nome = request.form["nome"]
@@ -9881,7 +9905,7 @@ def caixas_add():
 
 @app.route("/caixas/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Caixa", "Editar")
 def caixas_edit(id):
     conta = ContaCaixa.query.get_or_404(id)
     if request.method == "POST":
@@ -9904,7 +9928,7 @@ def caixas_edit(id):
 
 @app.route("/bancos")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Banco", "Consultar")
 def bancos_list():
     contas = ContaBanco.query.all()
     _, saldos = calcular_saldos_atualizados("banco", contas)
@@ -9915,9 +9939,11 @@ def bancos_list():
 
 @app.route("/bancos/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Banco", "Incluir")
 def bancos_add():
     if request.method == "POST":
+        dias_protesto_raw = (request.form.get("dias_protesto") or "").strip()
+        dias_protesto = int(dias_protesto_raw) if dias_protesto_raw else None
         conta = ContaBanco(
             banco=request.form["banco"],
             nome_banco=request.form.get("nome_banco"),
@@ -9930,7 +9956,7 @@ def bancos_add():
             contrato=request.form.get("contrato"),
             juros_mora=request.form.get("juros_mora"),
             multa=request.form.get("multa"),
-            dias_protesto=request.form.get("dias_protesto"),
+            dias_protesto=dias_protesto,
             especie_documento=request.form.get("especie_documento"),
             saldo_inicial=request.form.get("saldo_inicial") or 0,
             saldo_atual=request.form.get("saldo_inicial") or 0,
@@ -9955,10 +9981,12 @@ def bancos_add():
 
 @app.route("/bancos/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Banco", "Editar")
 def bancos_edit(id):
     conta = ContaBanco.query.get_or_404(id)
     if request.method == "POST":
+        dias_protesto_raw = (request.form.get("dias_protesto") or "").strip()
+        dias_protesto = int(dias_protesto_raw) if dias_protesto_raw else None
         conta.banco = request.form["banco"]
         conta.nome_banco = request.form.get("nome_banco")
         conta.agencia = request.form["agencia"]
@@ -9970,7 +9998,7 @@ def bancos_edit(id):
         conta.contrato = request.form.get("contrato")
         conta.juros_mora = request.form.get("juros_mora")
         conta.multa = request.form.get("multa")
-        conta.dias_protesto = request.form.get("dias_protesto")
+        conta.dias_protesto = dias_protesto
         conta.especie_documento = request.form.get("especie_documento")
         conta.saldo_inicial = request.form.get("saldo_inicial") or 0
         data_saldo = request.form.get("data_saldo_inicial")
@@ -9989,7 +10017,7 @@ def bancos_edit(id):
 
 @app.route("/movimento/<tipo>/<int:conta_id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Lancamentos", "Incluir")
 def movimento_novo(tipo, conta_id):
     conta = ContaCaixa.query.get(conta_id) if tipo == "caixa" else ContaBanco.query.get(conta_id)
     if not conta:
@@ -10040,7 +10068,7 @@ def movimento_novo(tipo, conta_id):
 
 @app.route("/lancamentos/novo", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Lancamentos", "Incluir")
 def lancamentos_novo():
     contas_caixa = ContaCaixa.query.all()
     contas_banco = ContaBanco.query.all()
@@ -10094,7 +10122,7 @@ def lancamentos_novo():
 
 @app.route("/lancamentos/view/<int:id>")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Lancamentos", "Consultar")
 def lancamentos_view(id):
     lancamento = MovimentoFinanceiro.query.get(id)
     if not lancamento:
@@ -10112,7 +10140,7 @@ def lancamentos_view(id):
 
 @app.route("/lancamentos/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Lancamentos", "Editar")
 def lancamentos_edit(id):
     lancamento = MovimentoFinanceiro.query.get(id)
     if not lancamento:
@@ -10166,7 +10194,7 @@ def lancamentos_edit(id):
 
 @app.route("/lancamentos/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Excluir")
+@permission_required("Lancamentos", "Excluir")
 def lancamentos_delete(id):
     lancamento = MovimentoFinanceiro.query.get(id)
     if not lancamento:
@@ -10179,7 +10207,7 @@ def lancamentos_delete(id):
 
 @app.route("/lancamentos")
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Lancamentos", "Consultar")
 def lancamentos_list():
     movimentos = (
         MovimentoFinanceiro.query
@@ -10200,7 +10228,7 @@ def lancamentos_list():
 
 @app.route("/bancos/importar/<int:conta_id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Banco", "Incluir")
 def banco_importar_cnab(conta_id):
     conta = ContaBanco.query.get(conta_id)
     if not conta:
@@ -10217,7 +10245,7 @@ def banco_importar_cnab(conta_id):
 
 @app.route("/cobrancas", methods=["GET"])
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Cobranca", "Consultar")
 def cobrancas_list():
     cobrancas = (
         db.session.query(Cobranca, ContaReceber, Pessoa)
@@ -10231,7 +10259,7 @@ def cobrancas_list():
 
 @app.route("/cobrancas/titulos", methods=["GET"])
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Cobranca", "Consultar")
 def cobrancas_titulos():
     hoje = date.today()
     titulos = (
@@ -10249,7 +10277,7 @@ def cobrancas_titulos():
 
 @app.route("/cobrancas/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Incluir")
+@permission_required("Cobranca", "Incluir")
 def cobrancas_add():
     conta_id = request.args.get("conta_id") or request.form.get("conta_id")
     conta = ContaReceber.query.get(conta_id) if conta_id else None
@@ -10283,7 +10311,7 @@ def cobrancas_add():
 
 @app.route("/cobrancas/view/<int:id>", methods=["GET"])
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Cobranca", "Consultar")
 def cobrancas_view(id):
     cobranca = Cobranca.query.get(id)
     if not cobranca:
@@ -10301,7 +10329,7 @@ def cobrancas_view(id):
 
 @app.route("/cobrancas/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Cobranca", "Editar")
 def cobrancas_edit(id):
     cobranca = Cobranca.query.get(id)
     if not cobranca:
@@ -10335,7 +10363,7 @@ def cobrancas_edit(id):
 
 @app.route("/cobrancas/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Excluir")
+@permission_required("Cobranca", "Excluir")
 def cobrancas_delete(id):
     cobranca = Cobranca.query.get(id)
     if not cobranca:
@@ -10349,7 +10377,7 @@ def cobrancas_delete(id):
 
 @app.route("/posicoes", methods=["GET"])
 @login_required
-@permission_required("Financeiro", "Consultar")
+@permission_required("Posicoes", "Consultar")
 def posicoes_list():
     posicoes = PosicaoDiaria.query.order_by(PosicaoDiaria.data.desc()).all()
     contas_caixa = {c.id: c.nome for c in ContaCaixa.query.all()}
@@ -10366,7 +10394,7 @@ def posicoes_list():
 
 @app.route("/posicoes/recalcular", methods=["POST"])
 @login_required
-@permission_required("Financeiro", "Editar")
+@permission_required("Posicoes", "Editar")
 def posicoes_recalcular():
     inicio_str = request.form.get("inicio")
     inicio = (
@@ -10381,6 +10409,7 @@ def posicoes_recalcular():
 
 @app.route("/relatorios/contas-a-pagar")
 @login_required
+@permission_required("Relatorios Contas a Pagar", "Consultar")
 def relatorios_contas_a_pagar():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
@@ -10574,6 +10603,7 @@ def carregar_dados_relatorio_contas_pagar(form):
 
 @app.route("/relatorios/contas-a-pagar/detalhado", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Pagar", "Consultar")
 def relatorio_contas_a_pagar_detalhado():
     resultado, erro = carregar_dados_relatorio_contas_pagar(request.form)
     if erro:
@@ -10609,6 +10639,7 @@ def relatorio_contas_a_pagar_detalhado():
 
 @app.route("/relatorios/contas-a-pagar/detalhado/excel", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Pagar", "Consultar")
 def relatorio_contas_a_pagar_detalhado_excel():
     resultado, erro = carregar_dados_relatorio_contas_pagar(request.form)
     if erro:
@@ -10736,6 +10767,7 @@ def relatorio_contas_a_pagar_detalhado_excel():
 
 @app.route("/relatorios/contas-a-pagar/detalhado/pdf", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Pagar", "Consultar")
 def relatorio_contas_a_pagar_detalhado_pdf():
     resultado, erro = carregar_dados_relatorio_contas_pagar(request.form)
     if erro:
@@ -10916,6 +10948,7 @@ def relatorio_contas_a_pagar_detalhado_pdf():
 
 @app.route("/relatorios/contas-a-receber")
 @login_required
+@permission_required("Relatorios Contas a Receber", "Consultar")
 def relatorios_contas_a_receber():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
@@ -11144,6 +11177,7 @@ def carregar_dados_relatorio_contas_receber(form):
 
 @app.route("/relatorios/contas-a-receber/detalhado", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Receber", "Consultar")
 def relatorio_contas_a_receber_detalhado():
     resultado, erro = carregar_dados_relatorio_contas_receber(request.form)
     if erro:
@@ -11179,6 +11213,7 @@ def relatorio_contas_a_receber_detalhado():
 
 @app.route("/relatorios/contas-a-receber/detalhado/excel", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Receber", "Consultar")
 def relatorio_contas_a_receber_detalhado_excel():
     resultado, erro = carregar_dados_relatorio_contas_receber(request.form)
     if erro:
@@ -11306,6 +11341,7 @@ def relatorio_contas_a_receber_detalhado_excel():
 
 @app.route("/relatorios/contas-a-receber/detalhado/pdf", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Receber", "Consultar")
 def relatorio_contas_a_receber_detalhado_pdf():
     resultado, erro = carregar_dados_relatorio_contas_receber(request.form)
     if erro:
@@ -11486,6 +11522,7 @@ def relatorio_contas_a_receber_detalhado_pdf():
 
 @app.route("/relatorios/contas-a-receber/recebimento-inquilino", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Receber", "Consultar")
 def relatorio_recebimento_por_inquilino():
     """Relatório de recebimentos por inquilino, filtrado por data de recebimento.
 
@@ -11720,6 +11757,7 @@ def relatorio_recebimento_por_inquilino():
 
 @app.route("/relatorios/contas-a-receber/recebimento-resumido", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Receber", "Consultar")
 def relatorio_recebimento_resumido():
     """Relatorio resumido de recebimentos por data de recebimento.
 
@@ -11889,6 +11927,7 @@ def relatorio_recebimento_resumido():
 
 @app.route("/relatorios/contas-a-pagar/por-periodo", methods=["POST"])
 @login_required
+@permission_required("Relatorios Contas a Pagar", "Consultar")
 def relatorio_contas_a_pagar_periodo():
     fornecedor_id = request.form.get("fornecedor_id")
     imovel_id = parse_int(request.form.get("imovel_id"))
@@ -12134,6 +12173,7 @@ def relatorio_contas_a_pagar_periodo():
 
 @app.route("/relatorios/financeiro")
 @login_required
+@permission_required("Relatorios Financeiro", "Consultar")
 def relatorios_financeiro():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=extras.DictCursor)
@@ -12164,6 +12204,7 @@ def relatorios_financeiro():
 
 @app.route("/relatorios/financeiro/caixa-banco", methods=["POST"])
 @login_required
+@permission_required("Relatorios Financeiro", "Consultar")
 def relatorio_financeiro_caixa_banco():
     tipo_conta = request.form.get("tipo_conta")
     conta_id = request.form.get("conta_id")
@@ -12430,6 +12471,7 @@ def relatorio_financeiro_caixa_banco():
 
 @app.route("/relatorios/financeiro/despesas-imovel", methods=["POST"])
 @login_required
+@permission_required("Relatorios Financeiro", "Consultar")
 def relatorio_financeiro_despesas_imovel():
     imovel_id = request.form.get("imovel_id")
     data_inicio = request.form.get("data_inicio")
@@ -12544,6 +12586,7 @@ def relatorio_financeiro_despesas_imovel():
 
 @app.route("/relatorios/financeiro/fluxo-caixa", methods=["POST"])
 @login_required
+@permission_required("Relatorios Financeiro", "Consultar")
 def relatorio_financeiro_fluxo_caixa():
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
@@ -12689,6 +12732,7 @@ def relatorio_financeiro_fluxo_caixa():
 
 @app.route("/relatorios/financeiro/fluxo-caixa/visualizar", methods=["POST"])
 @login_required
+@permission_required("Relatorios Financeiro", "Consultar")
 def relatorio_financeiro_fluxo_caixa_visualizar():
     data_inicio = request.form.get("data_inicio")
     data_fim = request.form.get("data_fim")
@@ -12792,6 +12836,7 @@ def relatorio_financeiro_fluxo_caixa_visualizar():
 
 @app.route("/relatorios/gerencial")
 @login_required
+@permission_required("Relatorios Gerencial", "Consultar")
 def relatorios_gerencial():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -12922,8 +12967,118 @@ def _formatar_filtros_listagem_imoveis(filtros):
     }
 
 
+def _default_periodo_mensal():
+    hoje = date.today()
+    inicio = date(hoje.year, hoje.month, 1)
+    ultimo_dia = calendar.monthrange(hoje.year, hoje.month)[1]
+    fim = date(hoje.year, hoje.month, ultimo_dia)
+    return inicio, fim
+
+
+def _month_count(inicio: date, fim: date) -> int:
+    if fim < inicio:
+        inicio, fim = fim, inicio
+    return (fim.year - inicio.year) * 12 + (fim.month - inicio.month) + 1
+
+
+def _iter_months(inicio: date, fim: date):
+    if fim < inicio:
+        inicio, fim = fim, inicio
+    year, month = inicio.year, inicio.month
+    while True:
+        current = date(year, month, 1)
+        if current > fim:
+            break
+        yield current
+        if month == 12:
+            year += 1
+            month = 1
+        else:
+            month += 1
+
+
+def _parse_filtros_rentabilidade(args):
+    data_inicio = parse_date(args.get("data_inicio"))
+    data_fim = parse_date(args.get("data_fim"))
+    base_investimento = (args.get("base_investimento") or "avaliacao").strip()
+    if base_investimento not in ("compra", "avaliacao"):
+        base_investimento = "avaliacao"
+    imovel_ids_raw = [parse_int(v) for v in args.getlist("imovel_id")]
+    imovel_ids = [v for v in imovel_ids_raw if v is not None]
+    finalidades = [f for f in args.getlist("finalidades") if f]
+    tipos = [t for t in args.getlist("tipo_imovel") if t]
+    cidades = [c for c in args.getlist("cidade") if c]
+    bairros = [b for b in args.getlist("bairro") if b]
+    return {
+        "data_inicio": data_inicio,
+        "data_fim": data_fim,
+        "base_investimento": base_investimento,
+        "imovel_ids": imovel_ids,
+        "tipo_imovel": tipos,
+        "cidade": cidades,
+        "bairro": bairros,
+        "finalidades": finalidades,
+    }
+
+
+def _consultar_imoveis_rentabilidade(cur, filtros):
+    query = [
+        """
+        SELECT id,
+               endereco,
+               bairro,
+               cidade,
+               estado,
+               tipo_imovel,
+               valor_imovel
+          FROM imoveis
+         WHERE 1=1
+        """
+    ]
+    params = []
+    data_inicio = filtros.get("data_inicio")
+    data_fim = filtros.get("data_fim")
+    finalidades = filtros.get("finalidades") or []
+
+    if filtros.get("imovel_ids"):
+        query.append("AND id = ANY(%s)")
+        params.append(filtros["imovel_ids"])
+
+    if filtros.get("tipo_imovel"):
+        query.append("AND tipo_imovel = ANY(%s)")
+        params.append(filtros["tipo_imovel"])
+
+    if filtros.get("cidade"):
+        query.append("AND cidade = ANY(%s)")
+        params.append(filtros["cidade"])
+
+    if filtros.get("bairro"):
+        query.append("AND bairro = ANY(%s)")
+        params.append(filtros["bairro"])
+
+    if finalidades and data_inicio and data_fim:
+        query.append(
+            """
+            AND EXISTS (
+                SELECT 1
+                  FROM contratos_aluguel c
+                 WHERE c.imovel_id = imoveis.id
+                   AND c.finalidade = ANY(%s::finalidade_contrato_enum[])
+                   AND c.data_inicio <= %s
+                   AND c.data_fim >= %s
+            )
+            """
+        )
+        params.extend([finalidades, data_fim, data_inicio])
+
+    query.append("ORDER BY endereco")
+    cur.execute(" ".join(query), params)
+    return cur.fetchall()
+
+
 @app.route("/relatorios/gerencial/listagem-imoveis", methods=["POST"])
 @login_required
+@permission_required("Relatorios Gerencial", "Consultar")
 def relatorio_listagem_imoveis():
     filtros_raw = _parse_filtros_listagem_imoveis(request.form)
     conn = get_db_connection()
@@ -12943,6 +13098,7 @@ def relatorio_listagem_imoveis():
 
 @app.route("/relatorios/gerencial/listagem-imoveis/pdf", methods=["POST"])
 @login_required
+@permission_required("Relatorios Gerencial", "Consultar")
 def relatorio_listagem_imoveis_pdf():
     filtros_raw = _parse_filtros_listagem_imoveis(request.form)
     conn = get_db_connection()
@@ -13081,6 +13237,340 @@ def relatorio_listagem_imoveis_pdf():
     )
 
 
+@app.route("/relatorios/gerencial/rentabilidade")
+@login_required
+@permission_required("Relatorios Gerencial", "Consultar")
+def relatorio_gerencial_rentabilidade():
+    filtros = _parse_filtros_rentabilidade(request.args)
+    if not filtros["data_inicio"] or not filtros["data_fim"]:
+        di, df = _default_periodo_mensal()
+        filtros["data_inicio"] = filtros["data_inicio"] or di
+        filtros["data_fim"] = filtros["data_fim"] or df
+
+    data_inicio = filtros["data_inicio"]
+    data_fim = filtros["data_fim"]
+    base_investimento = filtros["base_investimento"]
+
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+    cur.execute(
+        """
+        SELECT id, endereco, bairro, cidade, estado, tipo_imovel
+          FROM imoveis
+         ORDER BY endereco
+        """
+    )
+    imoveis_select = cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT DISTINCT tipo_imovel
+          FROM imoveis
+         WHERE tipo_imovel IS NOT NULL AND tipo_imovel <> ''
+         ORDER BY tipo_imovel
+        """
+    )
+    tipos_imovel = [row["tipo_imovel"] for row in cur.fetchall()]
+
+    cur.execute(
+        """
+        SELECT DISTINCT cidade
+          FROM imoveis
+         WHERE cidade IS NOT NULL AND cidade <> ''
+         ORDER BY cidade
+        """
+    )
+    cidades = [row["cidade"] for row in cur.fetchall()]
+
+    cur.execute(
+        """
+        SELECT DISTINCT bairro
+          FROM imoveis
+         WHERE bairro IS NOT NULL AND bairro <> ''
+         ORDER BY bairro
+        """
+    )
+    bairros = [row["bairro"] for row in cur.fetchall()]
+
+    cur.execute(
+        """
+        SELECT DISTINCT finalidade
+          FROM contratos_aluguel
+         WHERE finalidade IS NOT NULL
+         ORDER BY finalidade
+        """
+    )
+    finalidades = [row["finalidade"] for row in cur.fetchall()]
+
+    imoveis = _consultar_imoveis_rentabilidade(cur, filtros)
+    imovel_ids = [row["id"] for row in imoveis]
+
+    finalidades_filtro = filtros.get("finalidades") or []
+
+    receitas = {}
+    despesas = {}
+    investimentos = {}
+    series_receita = {}
+    series_despesa = {}
+    vacancia = {
+        "total_imoveis": 0,
+        "total_alugados": 0,
+        "total_disponiveis": 0,
+        "vacancia_percent": 0.0,
+    }
+    investimento_fallback_count = 0
+
+    if imovel_ids:
+        cur.execute(
+            """
+            SELECT c.imovel_id,
+                   SUM(COALESCE(cr.valor_pago, 0)) AS receita
+              FROM contas_a_receber cr
+              JOIN contratos_aluguel c ON c.id = cr.contrato_id
+             WHERE cr.data_vencimento BETWEEN %s AND %s
+               AND c.imovel_id = ANY(%s)
+               AND (
+                   %s = 0
+                   OR c.finalidade = ANY(%s::finalidade_contrato_enum[])
+               )
+             GROUP BY c.imovel_id
+            """,
+            (data_inicio, data_fim, imovel_ids, len(finalidades_filtro), finalidades_filtro),
+        )
+        receitas = {row["imovel_id"]: row["receita"] for row in cur.fetchall()}
+
+        cur.execute(
+            """
+            SELECT imovel_id,
+                   SUM(COALESCE(valor_pago, 0)) AS despesas
+              FROM contas_a_pagar
+             WHERE data_vencimento BETWEEN %s AND %s
+               AND imovel_id = ANY(%s)
+             GROUP BY imovel_id
+            """,
+            (data_inicio, data_fim, imovel_ids),
+        )
+        despesas = {row["imovel_id"]: row["despesas"] for row in cur.fetchall()}
+
+        if base_investimento == "compra":
+            cur.execute(
+                """
+                SELECT imovel_id,
+                       SUM(valor_movimentacao) AS investimento
+                  FROM movimentacoes_imovel
+                 WHERE tipo_movimentacao = 'Compra'
+                   AND imovel_id = ANY(%s)
+                 GROUP BY imovel_id
+                """,
+                (imovel_ids,),
+            )
+            investimentos = {
+                row["imovel_id"]: row["investimento"] for row in cur.fetchall()
+            }
+        else:
+            cur.execute(
+                """
+                SELECT a.imovel_id, a.valor_avaliacao AS investimento
+                  FROM (
+                        SELECT DISTINCT ON (imovel_id)
+                               imovel_id,
+                               valor_avaliacao
+                          FROM avaliacoes_imovel
+                         WHERE data_avaliacao <= %s
+                           AND imovel_id = ANY(%s)
+                         ORDER BY imovel_id, data_avaliacao DESC
+                       ) a
+                """,
+                (data_fim, imovel_ids),
+            )
+            investimentos = {
+                row["imovel_id"]: row["investimento"] for row in cur.fetchall()
+            }
+
+        cur.execute(
+            """
+            SELECT date_trunc('month', cr.data_vencimento)::date AS mes,
+                   SUM(COALESCE(cr.valor_pago, 0)) AS receita
+              FROM contas_a_receber cr
+              JOIN contratos_aluguel c ON c.id = cr.contrato_id
+             WHERE cr.data_vencimento BETWEEN %s AND %s
+               AND c.imovel_id = ANY(%s)
+               AND (
+                   %s = 0
+                   OR c.finalidade = ANY(%s::finalidade_contrato_enum[])
+               )
+             GROUP BY mes
+             ORDER BY mes
+            """,
+            (data_inicio, data_fim, imovel_ids, len(finalidades_filtro), finalidades_filtro),
+        )
+        series_receita = {row["mes"]: row["receita"] for row in cur.fetchall()}
+
+        cur.execute(
+            """
+            SELECT date_trunc('month', data_vencimento)::date AS mes,
+                   SUM(COALESCE(valor_pago, 0)) AS despesas
+              FROM contas_a_pagar
+             WHERE data_vencimento BETWEEN %s AND %s
+               AND imovel_id = ANY(%s)
+             GROUP BY mes
+             ORDER BY mes
+            """,
+            (data_inicio, data_fim, imovel_ids),
+        )
+        series_despesa = {row["mes"]: row["despesas"] for row in cur.fetchall()}
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE i.status <> 'Vendido') AS total_imoveis,
+                COUNT(*) FILTER (
+                    WHERE i.status <> 'Vendido'
+                      AND c.imovel_id IS NOT NULL
+                ) AS total_alugados,
+                COUNT(*) FILTER (
+                    WHERE i.status <> 'Vendido'
+                      AND COALESCE(i.disponivel, TRUE)
+                      AND c.imovel_id IS NULL
+                ) AS total_disponiveis
+              FROM imoveis i
+              LEFT JOIN (
+                    SELECT DISTINCT imovel_id
+                      FROM contratos_aluguel
+                     WHERE status_contrato = 'Ativo'
+                       AND data_inicio <= %s
+                       AND data_fim >= %s
+                       AND (
+                           %s = 0
+                           OR finalidade = ANY(%s::finalidade_contrato_enum[])
+                       )
+                ) c ON c.imovel_id = i.id
+             WHERE i.id = ANY(%s)
+            """,
+            (data_fim, data_inicio, len(finalidades_filtro), finalidades_filtro, imovel_ids),
+        )
+        row = cur.fetchone()
+        total_imoveis = row["total_imoveis"] or 0
+        total_disponiveis = row["total_disponiveis"] or 0
+        vacancia_percent = (
+            (total_disponiveis / total_imoveis) * 100 if total_imoveis else 0
+        )
+        vacancia = {
+            "total_imoveis": total_imoveis,
+            "total_alugados": row["total_alugados"] or 0,
+            "total_disponiveis": total_disponiveis,
+            "vacancia_percent": vacancia_percent,
+        }
+
+    imoveis_metricas = []
+    receita_total = Decimal("0")
+    despesas_total = Decimal("0")
+    investimento_total = Decimal("0")
+    for imovel in imoveis:
+        imovel_id = imovel["id"]
+        receita = Decimal(str(receitas.get(imovel_id) or 0))
+        despesa = Decimal(str(despesas.get(imovel_id) or 0))
+        investimento = investimentos.get(imovel_id)
+        if investimento is None:
+            investimento = imovel.get("valor_imovel") or 0
+            investimento_fallback_count += 1
+        investimento = Decimal(str(investimento or 0))
+        noi = receita - despesa
+        roi = (noi / investimento) if investimento else None
+        aluguel_invest = (receita / investimento) if investimento else None
+        imoveis_metricas.append(
+            {
+                "id": imovel_id,
+                "endereco": imovel["endereco"],
+                "bairro": imovel["bairro"],
+                "cidade": imovel["cidade"],
+                "estado": imovel["estado"],
+                "tipo_imovel": imovel["tipo_imovel"],
+                "receita": receita,
+                "despesas": despesa,
+                "noi": noi,
+                "investimento": investimento,
+                "roi": roi,
+                "aluguel_invest": aluguel_invest,
+            }
+        )
+        receita_total += receita
+        despesas_total += despesa
+        investimento_total += investimento
+
+    noi_total = receita_total - despesas_total
+    meses_periodo = _month_count(data_inicio, data_fim)
+    roi_total = (noi_total / investimento_total) if investimento_total else Decimal("0")
+    aluguel_total_pct = (
+        (receita_total / investimento_total) if investimento_total else Decimal("0")
+    )
+    cap_rate = (
+        (noi_total * Decimal(str(12 / meses_periodo)) / investimento_total)
+        if investimento_total and meses_periodo
+        else Decimal("0")
+    )
+
+    series_mensal = []
+    for mes in _iter_months(data_inicio, data_fim):
+        receita_mes = Decimal(str(series_receita.get(mes) or 0))
+        despesa_mes = Decimal(str(series_despesa.get(mes) or 0))
+        series_mensal.append(
+            {
+                "mes": mes,
+                "receita": receita_mes,
+                "despesas": despesa_mes,
+                "noi": receita_mes - despesa_mes,
+            }
+        )
+
+    def roi_sort_key(item):
+        return (-1 if item["roi"] is None else float(item["roi"]))
+
+    imoveis_roi_validos = [i for i in imoveis_metricas if i["roi"] is not None]
+    top_imoveis = sorted(imoveis_roi_validos, key=roi_sort_key, reverse=True)[:10]
+    bottom_imoveis = sorted(imoveis_roi_validos, key=roi_sort_key)[:10]
+
+    cur.close()
+    conn.close()
+
+    data_inicio_fmt = data_inicio.strftime("%d/%m/%Y")
+    data_fim_fmt = data_fim.strftime("%d/%m/%Y")
+
+    return render_template(
+        "relatorios/gerencial/rentabilidade.html",
+        filtros={
+            "data_inicio": data_inicio.isoformat(),
+            "data_fim": data_fim.isoformat(),
+            "base_investimento": base_investimento,
+            "imovel_ids": filtros["imovel_ids"],
+            "tipo_imovel": filtros["tipo_imovel"],
+            "cidade": filtros["cidade"],
+            "bairro": filtros["bairro"],
+            "finalidades": finalidades_filtro,
+        },
+        periodo=f"{data_inicio_fmt} a {data_fim_fmt}",
+        imoveis_select=imoveis_select,
+        tipos_imovel=tipos_imovel,
+        cidades=cidades,
+        bairros=bairros,
+        finalidades=finalidades,
+        receita_total=receita_total,
+        despesas_total=despesas_total,
+        noi_total=noi_total,
+        investimento_total=investimento_total,
+        roi_total=float(roi_total),
+        aluguel_total_pct=float(aluguel_total_pct),
+        cap_rate=float(cap_rate),
+        vacancia=vacancia,
+        series_mensal=series_mensal,
+        top_imoveis=top_imoveis,
+        bottom_imoveis=bottom_imoveis,
+        imoveis_metricas=imoveis_metricas,
+        investimento_fallback_count=investimento_fallback_count,
+    )
+
+
 # ------------------ DRE (Máscara & Relatório) ------------------
 
 
@@ -13104,7 +13594,7 @@ def _montar_arvore_nos(nos):
 
 @app.route("/gerencial/dre/mascaras")
 @login_required
-@permission_required("Administracao Sistema", "Consultar")
+@permission_required("DRE (Mascara)", "Consultar")
 def dre_mascaras_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -13117,7 +13607,7 @@ def dre_mascaras_list():
 
 @app.route("/gerencial/dre/mascaras/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Incluir")
+@permission_required("DRE (Mascara)", "Incluir")
 def dre_mascaras_add():
     if request.method == "POST":
         nome = request.form.get("nome", "").strip()
@@ -13184,7 +13674,7 @@ def dre_mascaras_add():
 
 @app.route("/gerencial/dre/mascaras/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("DRE (Mascara)", "Editar")
 def dre_mascaras_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -13234,7 +13724,7 @@ def dre_mascaras_edit(id):
 
 @app.route("/gerencial/dre/mascaras/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Excluir")
+@permission_required("DRE (Mascara)", "Excluir")
 def dre_mascaras_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -13261,7 +13751,7 @@ def dre_mascaras_delete(id):
 
 @app.route("/gerencial/dre/mascaras/<int:id>/builder", methods=["GET"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("DRE (Mascara)", "Editar")
 def dre_mascaras_builder(id):
     """Tela de montagem da máscara: gerencia nós e mapeamentos."""
     conn = get_db_connection()
@@ -13325,7 +13815,7 @@ def dre_mascaras_builder(id):
 
 @app.route("/gerencial/dre/mascaras/<int:id>/estrutura/delete", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Excluir")
+@permission_required("DRE (Mascara)", "Excluir")
 def dre_mascaras_estrutura_delete(id):
     """Exclui toda a estrutura (nós) de uma máscara, mantendo a máscara."""
     conn = get_db_connection()
@@ -13353,7 +13843,7 @@ def dre_mascaras_estrutura_delete(id):
 
 @app.route("/gerencial/dre/nos/add", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("DRE (Mascara)", "Editar")
 def dre_nos_add():
     mascara_id = request.form.get("mascara_id", type=int)
     parent_id = request.form.get("parent_id", type=int)
@@ -13395,7 +13885,7 @@ def dre_nos_add():
 
 @app.route("/gerencial/dre/nos/<int:no_id>/delete", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Excluir")
+@permission_required("DRE (Mascara)", "Excluir")
 def dre_nos_delete(no_id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -13427,7 +13917,7 @@ def dre_nos_delete(no_id):
 
 @app.route("/gerencial/dre/nos/<int:no_id>/map", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("DRE (Mascara)", "Editar")
 def dre_nos_map(no_id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -13642,6 +14132,7 @@ def _prune_zero_nodes(nos):
 
 @app.route("/relatorios/gerencial/dre", methods=["GET", "POST"])
 @login_required
+@permission_required("Relatorios Gerencial", "Consultar")
 def relatorio_dre():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -13844,7 +14335,7 @@ def relatorio_dre():
 
 @app.route("/gerencial/dre/nos/reorder", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("DRE (Mascara)", "Editar")
 def dre_nos_reorder():
     """Atualiza ordem e pai de uma lista de nós após drag-and-drop."""
     data = request.get_json(silent=True) or {}
@@ -13896,6 +14387,7 @@ def dre_nos_reorder():
 
 @app.route("/relatorios/gerencial/dre/pdf", methods=["POST"])
 @login_required
+@permission_required("Relatorios Gerencial", "Consultar")
 def relatorio_dre_pdf():
     """Gera PDF do DRE com base nos parâmetros informados."""
     base = (request.form.get("base") or "caixa").lower()
@@ -14075,6 +14567,7 @@ def relatorio_dre_pdf():
 
 @app.route("/relatorios/gerencial/dre/pdf_full", methods=["POST"])
 @login_required
+@permission_required("Relatorios Gerencial", "Consultar")
 def relatorio_dre_pdf_full():
     """Gera PDF completo do DRE (todas as máscaras ativas) para um período."""
     base = (request.form.get("base") or "caixa").lower()
@@ -14247,7 +14740,7 @@ def relatorio_dre_pdf_full():
 # --- Módulo de Administração do Sistema ---
 @app.route("/admin/backup", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Incluir") # Permissão para gerar backup
+@permission_required("Backup", "Incluir") # Permissão para gerar backup
 def backup_db():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -14357,9 +14850,7 @@ def backup_db():
 
 @app.route("/admin/backup/restore", methods=["POST"])
 @login_required
-@permission_required(
-    "Administracao Sistema", "Bloquear"
-)  # Ação de restaurar é mais restritiva
+@permission_required("Backup", "Bloquear")  # Ação de restaurar é mais restritiva
 def restore_db():
     if request.method == "POST":
         backup_id = request.form.get("backup_id")
@@ -14433,7 +14924,7 @@ def restore_db():
 
 @app.route("/usuarios")
 @login_required
-@permission_required("Administracao Sistema", "Consultar")
+@permission_required("Cadastro Usuarios", "Consultar")
 def usuarios_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -14446,7 +14937,7 @@ def usuarios_list():
 
 @app.route("/usuarios/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Incluir")
+@permission_required("Cadastro Usuarios", "Incluir")
 def usuarios_add():
     if request.method == "POST":
         username = request.form["username"]
@@ -14499,7 +14990,7 @@ def usuarios_add():
 
 @app.route("/usuarios/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("Cadastro Usuarios", "Editar")
 def usuarios_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -14571,7 +15062,7 @@ def usuarios_edit(id):
 
 @app.route("/usuarios/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Excluir")
+@permission_required("Cadastro Usuarios", "Excluir")
 def usuarios_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -14594,7 +15085,7 @@ def usuarios_delete(id):
 
 @app.route("/usuarios/permissoes/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("Cadastro Usuarios", "Editar")
 def usuarios_permissoes(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -14631,7 +15122,7 @@ def usuarios_permissoes(id):
 
 @app.route("/empresa")
 @login_required
-@permission_required("Administracao Sistema", "Consultar")
+@permission_required("Cadastro Empresa", "Consultar")
 def empresa_list():
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -14657,7 +15148,7 @@ def empresa_list():
 
 @app.route("/empresa/add", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Incluir")
+@permission_required("Cadastro Empresa", "Incluir")
 def empresa_add():
     if request.method == "POST":
         try:
@@ -14726,7 +15217,7 @@ def empresa_add():
 
 @app.route("/empresa/edit/<int:id>", methods=["GET", "POST"])
 @login_required
-@permission_required("Administracao Sistema", "Editar")
+@permission_required("Cadastro Empresa", "Editar")
 def empresa_edit(id):
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -14816,7 +15307,7 @@ def empresa_edit(id):
 
 @app.route("/empresa/delete/<int:id>", methods=["POST"])
 @login_required
-@permission_required("Administracao Sistema", "Excluir")
+@permission_required("Cadastro Empresa", "Excluir")
 def empresa_delete(id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -14839,12 +15330,3 @@ if __name__ == "__main__":
     # rede, permitindo acesso por outras máquinas da rede local.
     # Altere debug para False em produção.
     app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-
-
-
-
-
-
-

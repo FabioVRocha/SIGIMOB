@@ -1,14 +1,25 @@
 <!-- templates/financeiro/caixas/lancamento.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}Novo Lançamento{% endblock %}
 {% block page_title %}Novo Lançamento{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <h2 class="text-xl font-semibold mb-4">{{ conta.nome }}</h2>
-    <form action="{{ url_for('movimento_novo', tipo=tipo, conta_id=conta.id) }}" method="POST">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+<div class="form-page">
+    <div class="main-header">
+        <h1>Novo Lançamento</h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('caixas_list') if tipo=='caixa' else url_for('bancos_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+    <div class="content-section">
+        <h2 class="text-xl font-semibold mb-4">{{ conta.nome }}</h2>
+        <form action="{{ url_for('movimento_novo', tipo=tipo, conta_id=conta.id) }}" method="POST" class="space-y-4 flex flex-col h-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div class="form-group">
                 <label for="tipo" class="form-label">Tipo:</label>
                 <select id="tipo" name="tipo" class="form-select" required>
@@ -72,11 +83,14 @@
                 <textarea id="historico" name="historico" class="form-input"></textarea>
             </div>
         </div>
-        <div class="flex justify-end space-x-4">
-            <a href="{{ url_for('caixas_list') if tipo=='caixa' else url_for('bancos_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">Salvar</button>
-        </div>
-    </form>
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">Salvar</button>
+                <a href="{{ url_for('caixas_list') if tipo=='caixa' else url_for('bancos_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Voltar
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 <script>
     const tipoSelect = document.getElementById('tipo');

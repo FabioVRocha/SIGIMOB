@@ -5,54 +5,100 @@
 
 {% block page_title %}Cadastro de Receitas{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Receitas</h2>
-        <a href="{{ url_for('receitas_add') }}" class="btn-primary flex items-center">
-            <i class="fas fa-plus mr-2"></i> Nova Receita
-        </a>
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="receitaasCount">0 receitas</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('receitas_add') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Nova Receita">
+                <i class="fas fa-plus mr-2"></i> Nova Receita
+            </a>
+        </div>
     </div>
 
     {# Busca geral removida. Usaremos filtros por coluna no cabeçalho. #}
 
     {% if receitas %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
-                <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Descrição</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data de Cadastro</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated" id="receitasTable">
+            <thead class="table-header-bg">
+                <tr >
+                    <th class="py-2 px-2 text-left">ID</th>
+                    <th class="py-2 px-2 text-left">Descrição</th>
+                    <th class="py-2 px-2 text-left">Data de Cadastro</th>
+                    <th class="py-2 px-2 text-left">Ações</th>
                 </tr>
-                <tr>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"></th>
+                <tr class="table-filters">
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"></th>
                 </tr>
             </thead>
             <tbody id="receitas-tbody">
                 {% for receita in receitas %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ receita.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ receita.descricao }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ receita.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') }}</td>
-                    <td class="py-3 px-4 text-sm">
-                        <a href="{{ url_for('receitas_edit', id=receita.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <form action="{{ url_for('receitas_delete', id=receita.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta receita?');">
-                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ receita.id }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ receita.descricao }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ receita.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('receitas_edit', id=receita.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <form action="{{ url_for('receitas_delete', id=receita.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta receita?');"><button type="submit" title="Excluir" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash-alt"></i></button></form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards" id="receitasCards">
+        {% for receita in receitas %}
+            <div
+                class="employee-card"
+                data-col-0="{{ receita.id }}"
+                data-col-1="{{ receita.descricao }}"
+                data-col-2="{{ receita.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title">{{ receita.descricao }}</div>
+                        <div class="employee-card-meta">Receita #{{ receita.id }}</div>
+                    </div>
+                </div>
+                <div class="employee-card-grid">
+                    <div>
+                        <span>Data de Cadastro</span>
+                        {{ receita.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') }}
+                    </div>
+                </div>
+                <div class="employee-card-actions">
+                    <a href="{{ url_for('receitas_edit', id=receita.id) }}" title="Editar" aria-label="Editar receita">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <form action="{{ url_for('receitas_delete', id=receita.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta receita?');">
+                        <button type="submit" title="Excluir" aria-label="Excluir receita">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
     </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhuma receita encontrada.</p>
@@ -65,7 +111,10 @@
 document.addEventListener('DOMContentLoaded', function(){
     const inputs = document.querySelectorAll('.column-search');
     const rows = document.querySelectorAll('#receitas-tbody tr');
+    const cards = document.querySelectorAll('#receitasCards .employee-card');
+    const countEl = document.getElementById('receitaasCount');
     function filterTable(){
+        let visibleCount = 0;
         rows.forEach(row => {
             let visible = true;
             inputs.forEach((input, index) => {
@@ -76,9 +125,25 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             });
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
         });
+        cards.forEach(card => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const value = (card.getAttribute(`data-col-${index}`) || '').toLowerCase();
+                if (filter && !value.includes(filter)) {
+                    visible = false;
+                }
+            });
+            card.style.display = visible ? '' : 'none';
+        });
+        if (countEl) {
+            countEl.textContent = visibleCount === 1 ? '1 receita' : `${visibleCount} receitas`;
+        }
     }
     inputs.forEach(input => input.addEventListener('input', filterTable));
+    filterTable();
 });
 </script>
 {% endblock %}

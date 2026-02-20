@@ -1,56 +1,70 @@
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}{% if modelo.id %}Editar Modelo{% else %}Novo Modelo{% endif %}{% endblock %}
 {% block page_title %}{% if modelo.id %}Editar Modelo{% else %}Novo Modelo{% endif %}{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl content-section">
-  <form method="post" onsubmit="syncEditor()">
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <div class="lg:col-span-3">
-        <div class="form-group mb-4">
-          <label class="form-label" for="nome">Nome do Modelo</label>
-          <input class="form-input" id="nome" name="nome" value="{{ modelo.nome | default('') }}" required>
-        </div>
-
-        <div class="form-group mb-2">
-          <label class="form-label">Editor do Contrato (use [Placeholders])</label>
-          <div class="border rounded-t p-2 bg-gray-50 flex space-x-2 text-sm">
-            <button type="button" class="btn-secondary" onclick="fmt('bold')"><i class="fas fa-bold"></i></button>
-            <button type="button" class="btn-secondary" onclick="fmt('italic')"><i class="fas fa-italic"></i></button>
-            <button type="button" class="btn-secondary" onclick="fmt('underline')"><i class="fas fa-underline"></i></button>
-            <button type="button" class="btn-secondary" onclick="fmt('insertUnorderedList')"><i class="fas fa-list-ul"></i></button>
-            <button type="button" class="btn-secondary" onclick="fmt('insertOrderedList')"><i class="fas fa-list-ol"></i></button>
-          </div>
-          <div id="editor" contenteditable="true" class="border rounded-b p-4 min-h-[320px]" style="min-height:320px;">
-            {{ modelo.conteudo_html | safe }}
-          </div>
-          <textarea id="conteudo_html" name="conteudo_html" class="hidden"></textarea>
-        </div>
-
-        <div class="flex justify-end mt-4">
-          <a href="{{ url_for('contrato_modelos_list') }}" class="btn-secondary mr-3">Voltar</a>
-          <button class="btn-primary" type="submit">Salvar</button>
-        </div>
-      </div>
-      <div>
-        <div class="border rounded p-3">
-          <div class="font-semibold mb-2">Placeholders disponíveis</div>
-          <div class="text-sm text-gray-700">
-            <div class="mb-1">Contratos: [ContratoId], [Finalidade], [DataInicio], [DataFim], [QuantidadeParcelas], [ValorParcela], [QuantidadeCalcao], [ValorCalcao], [StatusContrato], [Observacao], [DuracaoContratoMeses]</div>
-            <div class="mb-1">Cliente: [Cliente], [CPF], [CPF_CNPJ], [DocumentoCliente], [EnderecoCliente], [BairroCliente], [CidadeCliente], [EstadoCliente], [CEPCliente], [TelefoneCliente], [NacionalidadeCliente], [EstadoCivilCliente], [ProfissaoCliente], [RGCliente]</div>
-            <div class="mb-1">Responsavel: [ResponsavelNome], [ResponsavelCPF], [ResponsavelEndereco], [ResponsavelBairro], [ResponsavelCidade], [ResponsavelEstado], [ResponsavelUF], [ResponsavelEstadoCivil]</div>
-            <div class="mb-1">Imóvel: [EnderecoImovel], [BairroImovel], [CidadeImovel], [EstadoImovel], [CEPImovel], [MatriculaImovel], [InscricaoIPTU], [TipoImovel]</div>
-            <div>Empresa: [EmpresaNome], [EmpresaFantasia], [EmpresaDocumento], [EmpresaEndereco], [EmpresaBairro], [EmpresaCidade], [EmpresaEstado], [EmpresaCEP], [EmpresaTelefone]</div>
-            <hr class="my-2">
-            <div class="mb-1">Vencimentos: [MesEAnoInicioContrato], [DataInicioExtenso], [DiaVencimento], [DataPrimeiroVencimento]</div>
-            <hr class="my-2">
-            <div class="text-xs text-gray-500">Coloque o nome do campo entre colchetes. Ex: "de outro lado, [Cliente], inscrito no CPF nº [CPF]".</div>
-          </div>
-        </div>
-      </div>
+<div class="form-page">
+  <div class="main-header">
+    <h1>{% if modelo.id %}Editar Modelo{% else %}Novo Modelo{% endif %}</h1>
+    <div class="flex space-x-3">
+      <a href="{{ url_for('contrato_modelos_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+      </a>
     </div>
-  </form>
+  </div>
+  <div class="content-section">
+    <form method="post" onsubmit="syncEditor()" class="flex flex-col h-full">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div class="lg:col-span-3">
+          <div class="form-group mb-4">
+            <label class="form-label" for="nome">Nome do Modelo</label>
+            <input class="form-input" id="nome" name="nome" value="{{ modelo.nome | default('') }}" required>
+          </div>
+
+          <div class="form-group mb-2">
+            <label class="form-label">Editor do Contrato (use [Placeholders])</label>
+            <div class="border rounded-t p-2 bg-gray-50 flex space-x-2 text-sm">
+              <button type="button" class="btn-secondary" onclick="fmt('bold')"><i class="fas fa-bold"></i></button>
+              <button type="button" class="btn-secondary" onclick="fmt('italic')"><i class="fas fa-italic"></i></button>
+              <button type="button" class="btn-secondary" onclick="fmt('underline')"><i class="fas fa-underline"></i></button>
+              <button type="button" class="btn-secondary" onclick="fmt('insertUnorderedList')"><i class="fas fa-list-ul"></i></button>
+              <button type="button" class="btn-secondary" onclick="fmt('insertOrderedList')"><i class="fas fa-list-ol"></i></button>
+            </div>
+            <div id="editor" contenteditable="true" class="border rounded-b p-4 min-h-[320px]" style="min-height:320px;">
+              {{ modelo.conteudo_html | safe }}
+            </div>
+            <textarea id="conteudo_html" name="conteudo_html" class="hidden"></textarea>
+          </div>
+
+          <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+            <button class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm" type="submit">Salvar</button>
+            <a href="{{ url_for('contrato_modelos_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+              <i class="fas fa-arrow-left mr-2"></i> Voltar
+            </a>
+          </div>
+        </div>
+        <div>
+          <div class="border rounded p-3">
+            <div class="font-semibold mb-2">Placeholders disponíveis</div>
+            <div class="text-sm text-gray-700">
+              <div class="mb-1">Contratos: [ContratoId], [Finalidade], [DataInicio], [DataFim], [QuantidadeParcelas], [ValorParcela], [QuantidadeCalcao], [ValorCalcao], [StatusContrato], [Observacao], [DuracaoContratoMeses]</div>
+              <div class="mb-1">Cliente: [Cliente], [CPF], [CPF_CNPJ], [DocumentoCliente], [EnderecoCliente], [BairroCliente], [CidadeCliente], [EstadoCliente], [CEPCliente], [TelefoneCliente], [NacionalidadeCliente], [EstadoCivilCliente], [ProfissaoCliente], [RGCliente]</div>
+              <div class="mb-1">Responsavel: [ResponsavelNome], [ResponsavelCPF], [ResponsavelEndereco], [ResponsavelBairro], [ResponsavelCidade], [ResponsavelEstado], [ResponsavelUF], [ResponsavelEstadoCivil]</div>
+              <div class="mb-1">Imóvel: [EnderecoImovel], [BairroImovel], [CidadeImovel], [EstadoImovel], [CEPImovel], [MatriculaImovel], [InscricaoIPTU], [TipoImovel]</div>
+              <div>Empresa: [EmpresaNome], [EmpresaFantasia], [EmpresaDocumento], [EmpresaEndereco], [EmpresaBairro], [EmpresaCidade], [EmpresaEstado], [EmpresaCEP], [EmpresaTelefone]</div>
+              <hr class="my-2">
+              <div class="mb-1">Vencimentos: [MesEAnoInicioContrato], [DataInicioExtenso], [DiaVencimento], [DataPrimeiroVencimento]</div>
+              <hr class="my-2">
+              <div class="text-xs text-gray-500">Coloque o nome do campo entre colchetes. Ex: "de outro lado, [Cliente], inscrito no CPF nº [CPF]".</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
 </div>
 
 <script>

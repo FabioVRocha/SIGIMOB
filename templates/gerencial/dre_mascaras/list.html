@@ -3,14 +3,29 @@
 {% block title %}DRE - Máscaras{% endblock %}
 {% block page_title %}DRE - Máscaras{% endblock %}
 
+{% block body_class %}page-list-standard{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 shadow rounded">
+<div class="content-section bg-white p-6 shadow rounded">
   <div class="flex justify-between items-center mb-4">
     <h2 class="text-xl font-semibold text-gray-700">Máscaras de DRE</h2>
     <a href="{{ url_for('dre_mascaras_add') }}" class="btn btn-add"><i class="fas fa-plus mr-2"></i>Nova Máscara</a>
   </div>
-  <div class="overflow-x-auto">
-    <table class="min-w-full bg-white border border-gray-200 rounded">
+  <div class="table-overflow">
+    <table  class="min-w-full table-elevated">
       <thead class="table-header-bg">
         <tr>
           <th class="px-4 py-2 text-left">Nome</th>
@@ -20,25 +35,25 @@
         </tr>
       </thead>
       <tbody>
-        {% for m in mascaras %}
+                {% for m in mascaras %}
         <tr class="{{ 'table-row-even' if loop.index % 2 == 0 else 'table-row-odd' }}">
           <td class="px-4 py-2">{{ m.nome }}</td>
           <td class="px-4 py-2">{{ 'Sim' if m.ativo else 'Não' }}</td>
           <td class="px-4 py-2">{{ (m.data_cadastro or '') }}</td>
-          <td class="px-4 py-2 space-x-2">
-            <a class="btn btn-secondary" href="{{ url_for('dre_mascaras_edit', id=m.id) }}"><i class="fas fa-edit mr-1"></i>Editar</a>
-            <a class="btn btn-primary" href="{{ url_for('dre_mascaras_builder', id=m.id) }}"><i class="fas fa-project-diagram mr-1"></i>Builder</a>
-            <form action="{{ url_for('dre_mascaras_delete', id=m.id) }}" method="post" class="inline" onsubmit="return confirm('Excluir esta máscara? Esta ação removerá a estrutura vinculada.');">
-              <button type="submit" class="btn bg-red-600 text-white hover:bg-red-700"><i class="fas fa-trash mr-1"></i>Excluir</button>
-            </form>
-          </td>
+          <td class="px-4 py-2 space-x-2 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('dre_mascaras_edit', id=m.id) }}" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit mr-1"></i>Editar</a>
+                            <a href="{{ url_for('dre_mascaras_builder', id=m.id) }}" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-project-diagram mr-1"></i>Builder</a>
+                            <form action="{{ url_for('dre_mascaras_delete', id=m.id) }}" method="post" class="inline" onsubmit="return confirm('Excluir esta máscara? Esta ação removerá a estrutura vinculada.');"><button type="submit" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash mr-1"></i>Excluir</button></form>
+                        </div>
+                    </td>
         </tr>
         {% else %}
         <tr>
           <td colspan="4" class="px-4 py-4 text-center text-gray-500">Nenhuma máscara cadastrada.</td>
         </tr>
         {% endfor %}
-      </tbody>
+      ></tbody>
     </table>
   </div>
 </div>

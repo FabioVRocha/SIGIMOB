@@ -1,6 +1,8 @@
 <!-- templates/usuarios/add_edit.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}
     {% if usuario.id %}Editar Usuário{% else %}Adicionar Novo Usuário{% endif %}
 {% endblock %}
@@ -10,54 +12,68 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{% if usuario.id %}{{ url_for('usuarios_edit', id=usuario.id) }}{% else %}{{ url_for('usuarios_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="form-group">
-                <label for="username" class="form-label">Usuário:</label>
-                <input type="text" id="username" name="username" class="form-input" value="{{ usuario.nome_usuario | default('') }}" required>
-            </div>
-            <div class="form-group">
-                <label for="password" class="form-label">Senha{% if not usuario.id %}*{% endif %}:</label>
-                <input type="password" id="password" name="password" class="form-input" {% if not usuario.id %}required{% endif %}>
-            </div>
-            <div class="form-group">
-                <label for="tipo_usuario" class="form-label">Tipo de Usuário:</label>
-                <select id="tipo_usuario" name="tipo_usuario" class="form-select" required>
-                    <option value="Master" {% if usuario.tipo_usuario == 'Master' %}selected{% endif %}>Master</option>
-                    <option value="Operador" {% if usuario.tipo_usuario == 'Operador' %}selected{% endif %}>Operador</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="status" class="form-label">Status:</label>
-                <select id="status" name="status" class="form-select" required>
-                    <option value="Ativo" {% if usuario.status == 'Ativo' %}selected{% endif %}>Ativo</option>
-                    <option value="Inativo" {% if usuario.status == 'Inativo' %}selected{% endif %}>Inativo</option>
-                </select>
-            </div>
-            <div class="form-group md:col-span-2">
-                <label for="foto_perfil" class="form-label">Foto do Usuário:</label>
-                <div class="flex items-center gap-4">
-                    <div class="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-xl">
-                        {% if usuario.foto_perfil %}
-                            <img src="{{ url_for('uploaded_file', filename=usuario.foto_perfil) }}" alt="Foto atual do usuário" class="w-full h-full object-cover">
-                        {% else %}
-                            <span>Foto</span>
-                        {% endif %}
-                    </div>
-                    <div class="flex-1">
-                        <input type="file" id="foto_perfil" name="foto_perfil" accept="image/*" class="form-input">
-                        <p class="text-sm text-gray-600 mt-1">Formatos suportados: PNG, JPG, JPEG ou GIF.</p>
+<div class="form-page">
+    <div class="main-header">
+        <h1>
+            {% if usuario.id %}Editar Usuário{% else %}Adicionar Novo Usuário{% endif %}
+        </h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('usuarios_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+    <div class="content-section">
+        <form action="{% if usuario.id %}{{ url_for('usuarios_edit', id=usuario.id) }}{% else %}{{ url_for('usuarios_add') }}{% endif %}" method="POST" enctype="multipart/form-data" class="space-y-4 flex flex-col h-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="form-group">
+                    <label for="username" class="form-label">Usuário:</label>
+                    <input type="text" id="username" name="username" class="form-input" value="{{ usuario.nome_usuario | default('') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="form-label">Senha{% if not usuario.id %}*{% endif %}:</label>
+                    <input type="password" id="password" name="password" class="form-input" {% if not usuario.id %}required{% endif %}>
+                </div>
+                <div class="form-group">
+                    <label for="tipo_usuario" class="form-label">Tipo de Usuário:</label>
+                    <select id="tipo_usuario" name="tipo_usuario" class="form-select" required>
+                        <option value="Master" {% if usuario.tipo_usuario == 'Master' %}selected{% endif %}>Master</option>
+                        <option value="Operador" {% if usuario.tipo_usuario == 'Operador' %}selected{% endif %}>Operador</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status" class="form-label">Status:</label>
+                    <select id="status" name="status" class="form-select" required>
+                        <option value="Ativo" {% if usuario.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+                        <option value="Inativo" {% if usuario.status == 'Inativo' %}selected{% endif %}>Inativo</option>
+                    </select>
+                </div>
+                <div class="form-group md:col-span-2">
+                    <label for="foto_perfil" class="form-label">Foto do Usuário:</label>
+                    <div class="flex items-center gap-4">
+                        <div class="w-24 h-24 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-xl">
+                            {% if usuario.foto_perfil %}
+                                <img src="{{ url_for('uploaded_file', filename=usuario.foto_perfil) }}" alt="Foto atual do usuário" class="w-full h-full object-cover">
+                            {% else %}
+                                <span>Foto</span>
+                            {% endif %}
+                        </div>
+                        <div class="flex-1">
+                            <input type="file" id="foto_perfil" name="foto_perfil" accept="image/*" class="form-input">
+                            <p class="text-sm text-gray-600 mt-1">Formatos suportados: PNG, JPG, JPEG ou GIF.</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="flex justify-end space-x-4 mt-6">
-            <a href="{{ url_for('usuarios_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">
-                {% if usuario.id %}Atualizar Usuário{% else %}Cadastrar Usuário{% endif %}
-            </button>
-        </div>
-    </form>
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">
+                    {% if usuario.id %}Atualizar Usuário{% else %}Cadastrar Usuário{% endif %}
+                </button>
+                <a href="{{ url_for('usuarios_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Voltar
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

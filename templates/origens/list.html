@@ -5,13 +5,30 @@
 
 {% block page_title %}Cadastro de Origens{% endblock %}
 
+{% block body_class %}page-list-standard{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Origens</h2>
-        <a href="{{ url_for('origens_add') }}" class="btn-primary flex items-center">
-            <i class="fas fa-plus mr-2"></i> Nova Origem
-        </a>
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="origensCount">0 registros</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('origens_add') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Nova Origem">
+                <i class="fas fa-plus mr-2"></i> Nova Origem
+            </a>
+        </div>
     </div>
 
     <form action="{{ url_for('origens_list') }}" method="GET" class="mb-6">
@@ -24,35 +41,31 @@
     </form>
 
     {% if origens %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="bg-gray-200">
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated">
+            <thead class="table-header-bg">
                 <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Descrição</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Data de Cadastro</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-gray-700">Ações</th>
+                    <th class="py-2 px-2 text-left text-sm font-semibold text-gray-700">ID</th>
+                    <th class="py-2 px-2 text-left text-sm font-semibold text-gray-700">Descrição</th>
+                    <th class="py-2 px-2 text-left text-sm font-semibold text-gray-700">Data de Cadastro</th>
+                    <th class="py-2 px-2 text-left text-sm font-semibold text-gray-700">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 {% for origem in origens %}
                 <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ origem.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ origem.descricao }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ origem.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') }}</td>
-                    <td class="py-3 px-4 text-sm">
-                        <a href="{{ url_for('origens_edit', id=origem.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <form action="{{ url_for('origens_delete', id=origem.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta origem?');">
-                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ origem.id }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ origem.descricao }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ origem.data_cadastro.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('origens_edit', id=origem.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <form action="{{ url_for('origens_delete', id=origem.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta origem?');"><button type="submit" title="Excluir" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash-alt"></i></button></form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
-            </tbody>
+            ></tbody>
         </table>
     </div>
     {% else %}

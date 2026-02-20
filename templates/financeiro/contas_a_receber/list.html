@@ -5,31 +5,34 @@
 
 {% block page_title %}Contas a Receber{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Contas a Receber</h2>
-        <div class="flex items-center space-x-2">
-            <button type="button" class="btn-secondary flex items-center" onclick="openAjusteModal()">
-                <i class="fas fa-calendar-alt mr-2"></i> Ajustar vencimentos
-            </button>
-            <a href="{{ url_for('contas_a_receber_negociacao') }}" class="btn-secondary flex items-center">
-                <i class="fas fa-handshake mr-2"></i> Negociação
-            </a>
-            <button type="button" class="btn-secondary flex items-center" onclick="openFiltroModal()">
-                <i class="fas fa-filter mr-2"></i> Filtros
-            </button>
-            <button type="button" class="btn-primary flex items-center" onclick="openLoteModal()">
-                <i class="fas fa-layer-group mr-2"></i> Gerar Boletos
-            </button>
-            <a href="{{ url_for('contas_a_receber_add') }}" class="btn-primary flex items-center">
-                <i class="fas fa-plus mr-2"></i> Nova Conta
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="contas_a_receberCount">0 contas</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('contas_a_receber_negociacao') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Negociação">
+                <i class="fas fa-plus mr-2"></i> Negociação
             </a>
         </div>
     </div>
 
     {% if contas %}
-    <div class="overflow-x-auto relative">
+    <div class="table-overflow relative">
         <div class="absolute" style="top: 8px; right: 12px; z-index: 20;">
             <div class="relative inline-block text-left">
                 <button id="column-toggle-button" type="button" class="text-white text-sm" style="opacity: 0.85;" title="Colunas">
@@ -77,71 +80,150 @@
                 </div>
             </div>
         </div>
-        <table class="min-w-full bg-white rounded-lg">
-            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
-                <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="id">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="titulo">Título</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="cliente">Cliente</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="receita">Receita</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="vencimento">Vencimento</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="valor">Valor</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="valor-pendente">Valor Pendente</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="status">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white" data-col="acoes">Ações</th>
+        <table  class="min-w-full table-elevated" id="contasTable">
+            <thead class="table-header-bg">
+                <tr >
+                    <th class="py-2 px-2 text-left" data-col="id">ID</th>
+                    <th class="py-2 px-2 text-left" data-col="titulo">Título</th>
+                    <th class="py-2 px-2 text-left" data-col="cliente">Cliente</th>
+                    <th class="py-2 px-2 text-left" data-col="receita">Receita</th>
+                    <th class="py-2 px-2 text-left" data-col="vencimento">Vencimento</th>
+                    <th class="py-2 px-2 text-left" data-col="valor">Valor</th>
+                    <th class="py-2 px-2 text-left" data-col="valor-pendente">Valor Pendente</th>
+                    <th class="py-2 px-2 text-left" data-col="status">Status</th>
+                    <th class="py-2 px-2 text-left" data-col="acoes">Ações</th>
                 </tr>
-                <tr>
-                    <th class="py-2 px-4" data-col="id"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4" data-col="titulo"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4" data-col="cliente"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4" data-col="receita">
-                        <select class="form-select column-search w-full min-w-0" data-column="3"></select>
+                <tr class="table-filters">
+                    <th class="py-2 px-2" data-col="id"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2" data-col="titulo"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2" data-col="cliente"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2" data-col="receita">
+                        <select class="w-full px-2 py-1 border rounded text-sm filter-select column-search" data-column="3" data-options='{{ receitas|map(attribute="descricao")|list|tojson }}'></select>
                     </th>
-                    <th class="py-2 px-4" data-col="vencimento"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4" data-col="valor"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4" data-col="valor-pendente"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4" data-col="status">
-                        <select class="form-select column-search w-full min-w-0" data-column="7"></select>
+                    <th class="py-2 px-2" data-col="vencimento"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2" data-col="valor"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2" data-col="valor-pendente"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2" data-col="status">
+                        <select class="w-full px-2 py-1 border rounded text-sm filter-select column-search" data-column="7" data-options='{{ ["Aberta","Vencida","Parcial","Paga","Cancelada","Negociado"]|tojson }}' data-selected="{{ filtros.status_conta or '' }}" data-server-filter="status"></select>
                     </th>
-                    <th class="py-2 px-4" data-col="acoes"></th>
+                    <th class="py-2 px-2" data-col="acoes"></th>
                 </tr>
             </thead>
             <tbody id="contas-tbody">
                 {% for conta in contas %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="id">{{ conta.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="titulo">{{ conta.titulo or '' }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="cliente">{{ conta.cliente }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="receita">{{ conta.receita }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="vencimento">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="valor">{{ conta.valor_previsto | currency }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="valor-pendente">{{ conta.valor_pendente | currency }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700" data-col="status">{{ conta.status_conta }}</td>
-                    <td class="py-3 px-4 text-sm" data-col="acoes">
-                        {% if conta.status_conta in ['Aberta', 'Vencida', 'Parcial'] %}
-                        <button type="button" class="text-green-600 hover:text-green-800 mr-3" title="Pagar" onclick="openPagarModal({{ conta.id }})">
-                            <i class="fas fa-dollar-sign"></i>
-                        </button>
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="id">{{ conta.id }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="titulo">{{ conta.titulo or '' }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="cliente">{{ conta.cliente }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="receita">{{ conta.receita }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="vencimento">{{ conta.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="valor">{{ conta.valor_previsto | currency }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="valor-pendente">{{ conta.valor_pendente | currency }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700" data-col="status">
+                        {% set status_normalized = conta.status_conta|lower %}
+                        {% if status_normalized in ['paga', 'cancelada'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{{ conta.status_conta }}</span>
+                        {% elif status_normalized in ['vencida'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">{{ conta.status_conta }}</span>
+                        {% elif status_normalized in ['parcial'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">{{ conta.status_conta }}</span>
+                        {% elif status_normalized in ['negociado'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ conta.status_conta }}</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">{{ conta.status_conta }}</span>
                         {% endif %}
-                        <a href="{{ url_for('contas_a_receber_view', id=conta.id) }}" class="text-green-600 hover:text-green-800 mr-3" title="Consultar">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        <a href="{{ url_for('contas_a_receber_edit', id=conta.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <button type="button" class="text-purple-600 hover:text-purple-800 mr-3" title="Replicar" onclick="openReplicarModal({{ conta.id }})">
-                            <i class="fas fa-clone"></i>
-                        </button>
-                        <form action="{{ url_for('contas_a_receber_delete', id=conta.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta conta?');">
-                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+                    </td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap" data-col="acoes">
+                        <div class="flex items-center gap-2">
+                            {% if conta.status_conta in ['Aberta', 'Vencida', 'Parcial'] %}
+                            <button type="button" title="Pagar" onclick="openPagarModal({{ conta.id }})" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-dollar-sign"></i></button>
+                            {% endif %}
+                            <a href="{{ url_for('contas_a_receber_view', id=conta.id) }}" title="Consultar" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-eye"></i></a>
+                            <a href="{{ url_for('contas_a_receber_edit', id=conta.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <button type="button" title="Replicar" onclick="openReplicarModal({{ conta.id }})" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-clone"></i></button>
+                            <form action="{{ url_for('contas_a_receber_delete', id=conta.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta conta?');"><button type="submit" title="Excluir" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash-alt"></i></button></form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards" id="contasCards">
+        {% for conta in contas %}
+            {% set status_normalized = conta.status_conta|lower %}
+            <div
+                class="employee-card"
+                data-col-0="{{ conta.id }}"
+                data-col-1="{{ conta.titulo or '' }}"
+                data-col-2="{{ conta.cliente }}"
+                data-col-3="{{ conta.receita }}"
+                data-col-4="{{ conta.data_vencimento.strftime('%d/%m/%Y') }}"
+                data-col-5="{{ conta.valor_previsto | currency }}"
+                data-col-6="{{ conta.valor_pendente | currency }}"
+                data-col-7="{{ conta.status_conta }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title">{{ conta.cliente }}</div>
+                        <div class="employee-card-meta">{{ conta.titulo or 'Sem título' }}</div>
+                    </div>
+                </div>
+                <div class="employee-card-grid">
+                    <div>
+                        <span>Vencimento</span>
+                        {{ conta.data_vencimento.strftime('%d/%m/%Y') }}
+                    </div>
+                    <div>
+                        <span>Receita</span>
+                        {{ conta.receita }}
+                    </div>
+                    <div>
+                        <span>Valor</span>
+                        {{ conta.valor_previsto | currency }}
+                    </div>
+                    <div>
+                        <span>Valor Pendente</span>
+                        {{ conta.valor_pendente | currency }}
+                    </div>
+                    <div>
+                        <span>Status</span>
+                        {% if status_normalized in ['paga', 'cancelada'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">{{ conta.status_conta }}</span>
+                        {% elif status_normalized in ['vencida'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">{{ conta.status_conta }}</span>
+                        {% elif status_normalized in ['parcial'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">{{ conta.status_conta }}</span>
+                        {% elif status_normalized in ['negociado'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ conta.status_conta }}</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">{{ conta.status_conta }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="employee-card-actions">
+                    {% if conta.status_conta in ['Aberta', 'Vencida', 'Parcial'] %}
+                    <button type="button" title="Pagar" aria-label="Pagar" onclick="openPagarModal({{ conta.id }})">
+                        <i class="fas fa-dollar-sign"></i>
+                    </button>
+                    {% endif %}
+                    <a href="{{ url_for('contas_a_receber_view', id=conta.id) }}" title="Consultar" aria-label="Consultar conta">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="{{ url_for('contas_a_receber_edit', id=conta.id) }}" title="Editar" aria-label="Editar conta">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <button type="button" title="Replicar" aria-label="Replicar" onclick="openReplicarModal({{ conta.id }})">
+                        <i class="fas fa-clone"></i>
+                    </button>
+                    <form action="{{ url_for('contas_a_receber_delete', id=conta.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta conta?');">
+                        <button type="submit" title="Excluir" aria-label="Excluir conta">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
     </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhuma conta encontrada.</p>
@@ -341,8 +423,8 @@
                 <div id="lote-total" class="text-sm font-semibold text-dark-blue"></div>
             </div>
             <div class="overflow-y-auto max-h-80 border border-gray-200 rounded-lg">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-gray-100 text-gray-700">
+                <table  class="min-w-full table-elevated">
+                    <thead class="table-header-bg">
                         <tr>
                             <th class="px-3 py-2 text-left">Selecionar</th>
                             <th class="px-3 py-2 text-left">#</th>
@@ -453,7 +535,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
     const inputs = document.querySelectorAll('.column-search');
     const rows = document.querySelectorAll('#contas-tbody tr');
+    const cards = document.querySelectorAll('#contasCards .employee-card');
+    const countEl = document.getElementById('contas_a_receberCount');
+
+    function updateCount(visibleRows) {
+        if (!countEl) return;
+        const total = visibleRows;
+        countEl.textContent = total === 1 ? '1 conta' : `${total} contas`;
+    }
+
     function filterTable(){
+        let visibleCount = 0;
         rows.forEach(row => {
             let visible = true;
             inputs.forEach((input, index) => {
@@ -465,7 +557,21 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             });
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
         });
+        cards.forEach(card => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const columnIndex = input.dataset.column ? Number(input.dataset.column) : index;
+                const value = (card.getAttribute(`data-col-${columnIndex}`) || '').toLowerCase();
+                if (filter && !value.includes(filter)) {
+                    visible = false;
+                }
+            });
+            card.style.display = visible ? '' : 'none';
+        });
+        updateCount(visibleCount);
     }
     function setupColumnSelect(selectEl) {
         if (!selectEl) {
@@ -475,18 +581,36 @@ document.addEventListener('DOMContentLoaded', function(){
         if (columnIndex === null || Number.isNaN(columnIndex)) {
             return;
         }
-        const values = new Set();
-        rows.forEach(row => {
-            const cell = row.querySelectorAll('td')[columnIndex];
-            if (!cell) {
-                return;
+        const optionsSource = selectEl.dataset.options;
+        let options = [];
+        if (optionsSource) {
+            try {
+                const parsed = JSON.parse(optionsSource);
+                if (Array.isArray(parsed)) {
+                    options = parsed.filter(Boolean);
+                }
+            } catch (err) {
+                options = [];
             }
-            const text = cell.textContent.trim();
-            if (text) {
-                values.add(text);
-            }
-        });
-        const options = Array.from(values).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        }
+        if (options.length === 0) {
+            const values = new Set();
+            rows.forEach(row => {
+                const cell = row.querySelectorAll('td')[columnIndex];
+                if (!cell) {
+                    return;
+                }
+                const text = cell.textContent.trim();
+                if (text) {
+                    values.add(text);
+                }
+            });
+            options = Array.from(values);
+        }
+        if (options.length) {
+            options = Array.from(new Set(options.map(value => String(value).trim()).filter(Boolean)));
+        }
+        options.sort((a, b) => a.localeCompare(b, 'pt-BR'));
         selectEl.innerHTML = '';
         const allOption = document.createElement('option');
         allOption.value = '';
@@ -498,14 +622,32 @@ document.addEventListener('DOMContentLoaded', function(){
             option.textContent = value;
             selectEl.appendChild(option);
         });
+        const selectedValue = (selectEl.dataset.selected || '').trim();
+        if (selectedValue) {
+            selectEl.value = selectedValue;
+        }
     }
     inputs.forEach(input => {
         input.addEventListener('input', filterTable);
-        input.addEventListener('change', filterTable);
+        input.addEventListener('change', () => {
+            if (input.tagName === 'SELECT' && input.dataset.serverFilter === 'status') {
+                const params = new URLSearchParams(window.location.search);
+                const value = (input.value || '').trim();
+                if (value) {
+                    params.set('status_conta', value);
+                } else {
+                    params.delete('status_conta');
+                }
+                window.location.search = params.toString();
+                return;
+            }
+            filterTable();
+        });
         if (input.tagName === 'SELECT') {
             setupColumnSelect(input);
         }
     });
+    filterTable();
 
     const columnMenuButton = document.getElementById('column-toggle-button');
     const columnMenu = document.getElementById('column-toggle-menu');
@@ -592,9 +734,3 @@ function selecionarClienteAjuste(){
 }
 </script>
 {% endblock %}
-
-
-
-
-
-

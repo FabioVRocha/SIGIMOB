@@ -1,0 +1,725 @@
+<!-- templates/relatorios/gerencial/rentabilidade.html -->
+{% extends "base.html" %}
+
+{% block body_class %}page-form-standard{% endblock %}
+
+{% block title %}Relatório - Rentabilidade dos Imóveis{% endblock %}
+{% block page_title %}Rentabilidade dos Imóveis{% endblock %}
+{% block page_actions %}{% endblock %}
+
+{% block content %}
+<style>
+    @import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap");
+    .rent-page {
+        font-family: "Manrope", "Segoe UI", sans-serif;
+        background:
+            radial-gradient(1200px 600px at 10% -10%, rgba(56, 189, 248, 0.22), transparent 60%),
+            radial-gradient(900px 500px at 90% -20%, rgba(99, 102, 241, 0.18), transparent 55%),
+            linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+        border-radius: 18px;
+        padding: 18px;
+    }
+    .rent-hero {
+        background:
+            linear-gradient(120deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95)),
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'%3E%3Cpath d='M0 0h140v140H0z' fill='none'/%3E%3Cpath d='M0 20h140M0 70h140M0 120h140' stroke='%23334155' stroke-width='1' stroke-opacity='0.2'/%3E%3Cpath d='M20 0v140M70 0v140M120 0v140' stroke='%23334155' stroke-width='1' stroke-opacity='0.2'/%3E%3C/svg%3E");
+        color: #e2e8f0;
+        border-radius: 18px;
+        padding: 28px;
+        position: relative;
+        overflow: hidden;
+    }
+    .rent-hero::after {
+        content: "";
+        position: absolute;
+        right: -60px;
+        top: -60px;
+        width: 220px;
+        height: 220px;
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.2), transparent 65%);
+        filter: blur(2px);
+    }
+    .rent-title {
+        font-family: "Fraunces", "Georgia", serif;
+        font-size: 28px;
+        letter-spacing: 0.2px;
+    }
+    .rent-hero .chip {
+        background: rgba(255, 255, 255, 0.12);
+        color: #e2e8f0;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12px;
+        letter-spacing: 0.3px;
+    }
+    .hero-meta {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+    }
+    .meta-pill {
+        background: rgba(15, 23, 42, 0.35);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        color: #e2e8f0;
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+    .rent-panel {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(8px);
+        border-radius: 18px;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    .kpi-card {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 18px;
+        box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+        position: relative;
+        overflow: visible;
+    }
+    .kpi-card::after {
+        content: "";
+        position: absolute;
+        right: -40px;
+        top: -40px;
+        width: 120px;
+        height: 120px;
+        background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 60%);
+        pointer-events: none;
+    }
+    .kpi-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #64748b;
+    }
+    .kpi-value {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .kpi-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #0f172a;
+        color: #e2e8f0;
+        margin-bottom: 10px;
+        font-size: 16px;
+    }
+    .section-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .info-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #0f172a;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        border: none;
+        position: relative;
+        z-index: 2;
+    }
+    .info-wrap {
+        position: static;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .tooltip {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 9999;
+        min-width: 220px;
+        max-width: 280px;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-size: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.3);
+        display: none;
+    }
+    .tooltip.is-open {
+        display: block;
+    }
+    .rent-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    .rent-table thead th {
+        background: #0f172a;
+        color: #e2e8f0;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+    .rent-table tbody tr:nth-child(odd) {
+        background: #f8fafc;
+    }
+    .rent-table tbody tr:hover {
+        background: #eef2ff;
+    }
+</style>
+
+<div class="form-page">
+    <div class="main-header">
+        <h1 class="text-2xl font-bold text-dark-blue">Rentabilidade dos Imóveis</h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('relatorios_gerencial') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+
+<div class="rent-page">
+    <div class="flex items-center justify-end mb-6">
+        <button type="button" class="btn-primary" onclick="openFiltrosModal()">
+            <i class="fas fa-sliders-h mr-2"></i>Filtros
+        </button>
+    </div>
+    {% if investimento_fallback_count > 0 %}
+    <div class="text-xs text-gray-600 -mt-3 mb-6">
+        Observação: {{ investimento_fallback_count }} imóvel(is) sem base de investimento registrada usaram o valor do cadastro.
+    </div>
+    {% endif %}
+
+    <div id="rent-filtros-modal" class="modal">
+        <div class="modal-content max-w-4xl">
+            <span class="close-button" onclick="closeFiltrosModal()">&times;</span>
+            <h2 class="text-lg font-semibold mb-4">Filtros de Rentabilidade</h2>
+            <form action="{{ url_for('relatorio_gerencial_rentabilidade') }}" method="GET">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="form-group">
+                        <label for="data_inicio" class="form-label">
+                            <span class="info-wrap">Data Início
+                                <button type="button" class="info-icon" data-tooltip="tip-data-inicio">i</button>
+                                <span class="tooltip" id="tip-data-inicio">Define o começo do período analisado.</span>
+                            </span>
+                        </label>
+                        <input type="date" id="data_inicio" name="data_inicio" class="form-input" value="{{ filtros.data_inicio }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="data_fim" class="form-label">
+                            <span class="info-wrap">Data Fim
+                                <button type="button" class="info-icon" data-tooltip="tip-data-fim">i</button>
+                                <span class="tooltip" id="tip-data-fim">Define o final do período analisado.</span>
+                            </span>
+                        </label>
+                        <input type="date" id="data_fim" name="data_fim" class="form-input" value="{{ filtros.data_fim }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="base_investimento" class="form-label">
+                            <span class="info-wrap">Base de Investimento
+                                <button type="button" class="info-icon" data-tooltip="tip-base-invest">i</button>
+                                <span class="tooltip" id="tip-base-invest">Escolha entre a última avaliação registrada ou o valor de compra.</span>
+                            </span>
+                        </label>
+                        <div class="relative">
+                            <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('base_investimento')">
+                                <span id="combo-label-base_investimento">Selecione...</span>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                            </button>
+                            <div id="combo-panel-base_investimento" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden" data-multi="false">
+                                <div class="p-2">
+                                    <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('base_investimento', this.value)">
+                                </div>
+                                <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                    <input type="radio" class="mr-2 combo-item-base_investimento" name="base_investimento" value="avaliacao" onchange="updateComboLabel('base_investimento')" {% if filtros.base_investimento == 'avaliacao' %}checked{% endif %}>
+                                    <span class="combo-text">Avaliação Atualizada</span>
+                                </label>
+                                <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                    <input type="radio" class="mr-2 combo-item-base_investimento" name="base_investimento" value="compra" onchange="updateComboLabel('base_investimento')" {% if filtros.base_investimento == 'compra' %}checked{% endif %}>
+                                    <span class="combo-text">Valor de Compra</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="imovel_id" class="form-label">
+                            <span class="info-wrap">Imóvel
+                                <button type="button" class="info-icon" data-tooltip="tip-imovel">i</button>
+                                <span class="tooltip" id="tip-imovel">Filtra a análise para um imóvel específico.</span>
+                            </span>
+                        </label>
+                        <div class="relative">
+                            <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('imovel_id')">
+                                <span id="combo-label-imovel_id">Selecione...</span>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                            </button>
+                            <div id="combo-panel-imovel_id" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden" data-multi="true">
+                                <div class="p-2">
+                                    <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('imovel_id', this.value)">
+                                </div>
+                                {% for imovel in imoveis_select %}
+                                <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                    <input type="checkbox" class="mr-2 combo-item-imovel_id" name="imovel_id" value="{{ imovel.id }}" onchange="updateComboLabel('imovel_id')" {% if imovel.id in filtros.imovel_ids %}checked{% endif %}>
+                                    <span class="combo-text">{{ imovel.endereco }}{% if imovel.bairro %}, {{ imovel.bairro }}{% endif %}{% if imovel.cidade %} - {{ imovel.cidade }}{% endif %}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipo_imovel" class="form-label">
+                            <span class="info-wrap">Tipo
+                                <button type="button" class="info-icon" data-tooltip="tip-tipo">i</button>
+                                <span class="tooltip" id="tip-tipo">Filtra por tipo de imóvel (ex.: casa, apartamento).</span>
+                            </span>
+                        </label>
+                        <div class="relative">
+                            <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('tipo_imovel')">
+                                <span id="combo-label-tipo_imovel">Selecione...</span>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                            </button>
+                            <div id="combo-panel-tipo_imovel" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden" data-multi="true">
+                                <div class="p-2">
+                                    <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('tipo_imovel', this.value)">
+                                </div>
+                                {% for tipo in tipos_imovel %}
+                                <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                    <input type="checkbox" class="mr-2 combo-item-tipo_imovel" name="tipo_imovel" value="{{ tipo }}" onchange="updateComboLabel('tipo_imovel')" {% if tipo in filtros.tipo_imovel %}checked{% endif %}>
+                                    <span class="combo-text">{{ tipo }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cidade" class="form-label">
+                            <span class="info-wrap">Cidade
+                                <button type="button" class="info-icon" data-tooltip="tip-cidade">i</button>
+                                <span class="tooltip" id="tip-cidade">Filtra os imóveis pela cidade.</span>
+                            </span>
+                        </label>
+                        <div class="relative">
+                            <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('cidade')">
+                                <span id="combo-label-cidade">Selecione...</span>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                            </button>
+                            <div id="combo-panel-cidade" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden" data-multi="true">
+                                <div class="p-2">
+                                    <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('cidade', this.value)">
+                                </div>
+                                {% for cidade in cidades %}
+                                <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                    <input type="checkbox" class="mr-2 combo-item-cidade" name="cidade" value="{{ cidade }}" onchange="updateComboLabel('cidade')" {% if cidade in filtros.cidade %}checked{% endif %}>
+                                    <span class="combo-text">{{ cidade }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="bairro" class="form-label">
+                            <span class="info-wrap">Bairro
+                                <button type="button" class="info-icon" data-tooltip="tip-bairro">i</button>
+                                <span class="tooltip" id="tip-bairro">Filtra os imóveis pelo bairro.</span>
+                            </span>
+                        </label>
+                        <div class="relative">
+                            <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('bairro')">
+                                <span id="combo-label-bairro">Selecione...</span>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                            </button>
+                            <div id="combo-panel-bairro" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden" data-multi="true">
+                                <div class="p-2">
+                                    <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('bairro', this.value)">
+                                </div>
+                                {% for bairro in bairros %}
+                                <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                    <input type="checkbox" class="mr-2 combo-item-bairro" name="bairro" value="{{ bairro }}" onchange="updateComboLabel('bairro')" {% if bairro in filtros.bairro %}checked{% endif %}>
+                                    <span class="combo-text">{{ bairro }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group lg:col-span-2">
+                        <label class="form-label">
+                            <span class="info-wrap">Finalidade (Contrato)
+                                <button type="button" class="info-icon" data-tooltip="tip-finalidade">i</button>
+                                <span class="tooltip" id="tip-finalidade">Selecione uma ou mais finalidades para filtrar os contratos.</span>
+                            </span>
+                        </label>
+                        <div class="relative">
+                            <button type="button" class="form-input text-left pr-8" onclick="toggleCombo('finalidades')">
+                                <span id="combo-label-finalidades">Selecione...</span>
+                                <i class="fas fa-chevron-down absolute right-3 top-3 text-gray-500"></i>
+                            </button>
+                            <div id="combo-panel-finalidades" class="absolute z-50 w-full bg-white border rounded mt-1 max-h-60 overflow-y-auto hidden">
+                                <div class="p-2">
+                                    <input type="text" class="w-full border rounded p-1" placeholder="Filtrar..." oninput="filterCombo('finalidades', this.value)">
+                                </div>
+                                {% for finalidade in finalidades %}
+                                <label class="flex items-center px-3 py-2 hover:bg-gray-100 cursor-pointer">
+                                    <input type="checkbox" class="mr-2 combo-item-finalidades" name="finalidades" value="{{ finalidade }}" onchange="updateComboLabel('finalidades')" {% if finalidade in filtros.finalidades %}checked{% endif %}>
+                                    <span class="combo-text">{{ finalidade }}</span>
+                                </label>
+                                {% endfor %}
+                                {% if finalidades|length == 0 %}
+                                <div class="px-3 py-2 text-sm text-gray-500">Nenhuma finalidade cadastrada.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4 mt-4">
+                    <button type="button" class="btn-secondary" onclick="closeFiltrosModal()">Cancelar</button>
+                    <button type="submit" class="btn-primary">Aplicar Filtros</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+{% if imoveis_metricas|length == 0 %}
+<div class="bg-white p-6 rounded-lg shadow-xl text-center text-gray-600">
+    Nenhum imóvel encontrado com os filtros selecionados.
+</div>
+{% else %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
+        <div class="kpi-label">
+            Receita de Aluguel
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-receita">i</button>
+                <span class="tooltip" id="tip-kpi-receita">Soma do valor pago no período selecionado.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ receita_total|currency }}</div>
+    </div>
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-receipt"></i></div>
+        <div class="kpi-label">
+            Despesas Operacionais
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-despesa">i</button>
+                <span class="tooltip" id="tip-kpi-despesa">Soma das despesas pagas no período.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ despesas_total|currency }}</div>
+    </div>
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="kpi-label">
+            NOI
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-noi">i</button>
+                <span class="tooltip" id="tip-kpi-noi">Receita menos despesas operacionais.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ noi_total|currency }}</div>
+    </div>
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-landmark"></i></div>
+        <div class="kpi-label">
+            Investimento Base
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-invest">i</button>
+                <span class="tooltip" id="tip-kpi-invest">Base escolhida para calcular ROI e índices.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ investimento_total|currency }}</div>
+    </div>
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-percentage"></i></div>
+        <div class="kpi-label">
+            ROI do Período
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-roi">i</button>
+                <span class="tooltip" id="tip-kpi-roi">(Receita - Despesas) / Investimento.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ (roi_total * 100) | round(2) }}%</div>
+    </div>
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-coins"></i></div>
+        <div class="kpi-label">
+            % Aluguel / Invest.
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-aluguel">i</button>
+                <span class="tooltip" id="tip-kpi-aluguel">Receita / Investimento.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ (aluguel_total_pct * 100) | round(2) }}%</div>
+    </div>
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-bullseye"></i></div>
+        <div class="kpi-label">
+            Cap Rate (anualizado)
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-caprate">i</button>
+                <span class="tooltip" id="tip-kpi-caprate">NOI anualizado dividido pelo investimento.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ (cap_rate * 100) | round(2) }}%</div>
+    </div>
+    <div class="kpi-card p-4">
+        <div class="kpi-icon"><i class="fas fa-door-open"></i></div>
+        <div class="kpi-label">
+            Vacância
+            <span class="info-wrap">
+                <button type="button" class="info-icon" data-tooltip="tip-kpi-vac">i</button>
+                <span class="tooltip" id="tip-kpi-vac">Imóveis disponíveis sem contrato ativo no período.</span>
+            </span>
+        </div>
+        <div class="kpi-value">{{ vacancia.vacancia_percent | round(2) }}%</div>
+        <div class="text-xs text-gray-600">
+            {{ vacancia.total_disponiveis }} disponíveis de {{ vacancia.total_imoveis }} imóveis
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="rent-panel p-6">
+        <div class="section-title mb-4">
+            <span class="info-wrap">Top 10 Imóveis por ROI
+                <button type="button" class="info-icon" data-tooltip="tip-top-roi">i</button>
+                <span class="tooltip" id="tip-top-roi">Ranking dos 10 imóveis com maior ROI no período.</span>
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full rent-table">
+                <thead>
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Imóvel</th>
+                        <th class="py-2 px-3 text-right text-sm font-semibold">ROI</th>
+                        <th class="py-2 px-3 text-right text-sm font-semibold">NOI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for im in top_imoveis %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ im.endereco }}</td>
+                        <td class="py-2 px-3 text-sm text-right text-gray-700">{{ (im.roi * 100) | round(2) }}%</td>
+                        <td class="py-2 px-3 text-sm text-right text-gray-700">{{ im.noi|currency }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if top_imoveis|length == 0 %}
+                    <tr>
+                        <td colspan="3" class="py-3 px-4 text-sm text-center text-gray-600">Sem dados suficientes.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="rent-panel p-6">
+        <div class="section-title mb-4">
+            <span class="info-wrap">Bottom 10 Imóveis por ROI
+                <button type="button" class="info-icon" data-tooltip="tip-bottom-roi">i</button>
+                <span class="tooltip" id="tip-bottom-roi">Ranking dos 10 imóveis com menor ROI no período.</span>
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full rent-table">
+                <thead>
+                    <tr>
+                        <th class="py-2 px-3 text-left text-sm font-semibold">Imóvel</th>
+                        <th class="py-2 px-3 text-right text-sm font-semibold">ROI</th>
+                        <th class="py-2 px-3 text-right text-sm font-semibold">NOI</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for im in bottom_imoveis %}
+                    <tr class="border-b border-gray-200 hover:bg-gray-50">
+                        <td class="py-2 px-3 text-sm text-gray-700">{{ im.endereco }}</td>
+                        <td class="py-2 px-3 text-sm text-right text-gray-700">{{ (im.roi * 100) | round(2) }}%</td>
+                        <td class="py-2 px-3 text-sm text-right text-gray-700">{{ im.noi|currency }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% if bottom_imoveis|length == 0 %}
+                    <tr>
+                        <td colspan="3" class="py-3 px-4 text-sm text-center text-gray-600">Sem dados suficientes.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="rent-panel p-6">
+    <div class="section-title mb-4">
+        <span class="info-wrap">Detalhe por Imóvel
+            <button type="button" class="info-icon" data-tooltip="tip-detalhe-imovel">i</button>
+            <span class="tooltip" id="tip-detalhe-imovel">Resumo por imóvel com receita, despesas, NOI, investimento e ROI.</span>
+        </span>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full rent-table">
+            <thead>
+                <tr>
+                    <th class="py-2 px-3 text-left text-sm font-semibold">Imóvel</th>
+                    <th class="py-2 px-3 text-left text-sm font-semibold">Cidade</th>
+                    <th class="py-2 px-3 text-right text-sm font-semibold">Receita</th>
+                    <th class="py-2 px-3 text-right text-sm font-semibold">Despesas</th>
+                    <th class="py-2 px-3 text-right text-sm font-semibold">NOI</th>
+                    <th class="py-2 px-3 text-right text-sm font-semibold">Investimento</th>
+                    <th class="py-2 px-3 text-right text-sm font-semibold">ROI</th>
+                    <th class="py-2 px-3 text-right text-sm font-semibold">% Aluguel/Invest.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for im in imoveis_metricas %}
+                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                    <td class="py-2 px-3 text-sm text-gray-700">{{ im.endereco }}</td>
+                    <td class="py-2 px-3 text-sm text-gray-700">{{ im.cidade or '' }}{% if im.estado %}/{{ im.estado }}{% endif %}</td>
+                    <td class="py-2 px-3 text-sm text-right text-gray-700">{{ im.receita|currency }}</td>
+                    <td class="py-2 px-3 text-sm text-right text-gray-700">{{ im.despesas|currency }}</td>
+                    <td class="py-2 px-3 text-sm text-right text-gray-700">{{ im.noi|currency }}</td>
+                    <td class="py-2 px-3 text-sm text-right text-gray-700">{{ im.investimento|currency }}</td>
+                    <td class="py-2 px-3 text-sm text-right text-gray-700">
+                        {% if im.roi is not none %}{{ (im.roi * 100) | round(2) }}%{% else %}-{% endif %}
+                    </td>
+                    <td class="py-2 px-3 text-sm text-right text-gray-700">
+                        {% if im.aluguel_invest is not none %}{{ (im.aluguel_invest * 100) | round(2) }}%{% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+</div>
+{% endif %}
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openFiltrosModal() {
+        document.getElementById('rent-filtros-modal').style.display = 'flex';
+    }
+    function closeFiltrosModal() {
+        document.getElementById('rent-filtros-modal').style.display = 'none';
+    }
+    function toggleCombo(prefix) {
+        const panel = document.getElementById(`combo-panel-${prefix}`);
+        if (!panel) return;
+        panel.classList.toggle('hidden');
+    }
+    function isComboMulti(prefix) {
+        const panel = document.getElementById(`combo-panel-${prefix}`);
+        return panel && panel.getAttribute('data-multi') === 'true';
+    }
+    function filterCombo(prefix, value) {
+        const items = document.querySelectorAll(`.combo-item-${prefix}`);
+        const term = (value || '').toLowerCase();
+        items.forEach((item) => {
+            const label = item.closest('label');
+            const text = (label.querySelector('.combo-text')?.textContent || '').toLowerCase();
+            label.style.display = text.includes(term) ? '' : 'none';
+        });
+    }
+    function updateComboLabel(prefix) {
+        const items = document.querySelectorAll(`.combo-item-${prefix}`);
+        const selected = [];
+        let selectedCount = 0;
+        items.forEach((item) => {
+            if (item.checked) {
+                const label = item.closest('label');
+                const text = label.querySelector('.combo-text')?.textContent || '';
+                selected.push(text.trim());
+                selectedCount += 1;
+            }
+        });
+        const labelEl = document.getElementById(`combo-label-${prefix}`);
+        if (!labelEl) return;
+        labelEl.textContent = selected.length ? selected.join(', ') : 'Selecione...';
+        if (!isComboMulti(prefix) && selectedCount > 0) {
+            const panel = document.getElementById(`combo-panel-${prefix}`);
+            if (panel) {
+                panel.classList.add('hidden');
+            }
+        }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        updateComboLabel('finalidades');
+        updateComboLabel('base_investimento');
+        updateComboLabel('imovel_id');
+        updateComboLabel('tipo_imovel');
+        updateComboLabel('cidade');
+        updateComboLabel('bairro');
+    });
+    function closeAllTooltips() {
+        document.querySelectorAll('.tooltip.is-open').forEach((el) => {
+            el.classList.remove('is-open');
+        });
+    }
+    function positionTooltip(btn, tooltipEl) {
+        if (!btn || !tooltipEl) return;
+        const rect = btn.getBoundingClientRect();
+        const top = rect.bottom + 8;
+        const left = Math.min(rect.left, window.innerWidth - tooltipEl.offsetWidth - 12);
+        tooltipEl.style.top = `${Math.max(8, top)}px`;
+        tooltipEl.style.left = `${Math.max(8, left)}px`;
+    }
+    document.addEventListener('click', (event) => {
+        const btn = event.target.closest('.info-icon');
+        const comboPanel = event.target.closest('[id^="combo-panel-"]');
+        const comboButton = event.target.closest('[id^="combo-label-"]') || event.target.closest('.form-input');
+        const modalContent = event.target.closest('.modal-content');
+        if (!modalContent && !event.target.closest('.btn-primary') && !event.target.closest('.btn-secondary')) {
+            const modal = document.getElementById('rent-filtros-modal');
+            if (modal && modal.style.display === 'flex') {
+                closeFiltrosModal();
+            }
+        }
+        if (!btn && !comboPanel && !comboButton) {
+            document.querySelectorAll('[id^="combo-panel-"]').forEach((panel) => {
+                if (!panel.classList.contains('hidden')) {
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+        if (!btn) {
+            closeAllTooltips();
+            return;
+        }
+        const tooltipId = btn.getAttribute('data-tooltip');
+        const tooltipEl = tooltipId ? document.getElementById(tooltipId) : null;
+        if (!tooltipEl) {
+            return;
+        }
+        const isOpen = tooltipEl.classList.contains('is-open');
+        closeAllTooltips();
+        if (!isOpen) {
+            tooltipEl.classList.add('is-open');
+            positionTooltip(btn, tooltipEl);
+        }
+    });
+    window.addEventListener('resize', () => {
+        const openTooltip = document.querySelector('.tooltip.is-open');
+        if (openTooltip) {
+            const btn = document.querySelector(`.info-icon[data-tooltip="${openTooltip.id}"]`);
+            if (btn) {
+                positionTooltip(btn, openTooltip);
+            }
+        }
+    });
+</script>
+{% endblock %}

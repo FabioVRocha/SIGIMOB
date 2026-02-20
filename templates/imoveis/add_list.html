@@ -1,6 +1,8 @@
 <!-- templates/imoveis/add_edit.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}
     {% if imovel.id %}Editar Imóvel{% else %}Adicionar Novo Imóvel{% endif %}
 {% endblock %}
@@ -10,9 +12,20 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{% if imovel.id %}{{ url_for('imoveis_edit', id=imovel.id) }}{% else %}{{ url_for('imoveis_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+<div class="form-page">
+    <div class="main-header">
+        <h1>
+            {% if imovel.id %}Editar Imóvel{% else %}Adicionar Novo Imóvel{% endif %}
+        </h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('imoveis_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+    <div class="content-section">
+        <form action="{% if imovel.id %}{{ url_for('imoveis_edit', id=imovel.id) }}{% else %}{{ url_for('imoveis_add') }}{% endif %}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div class="form-group">
                 <label for="tipo_imovel" class="form-label">Tipo de Imóvel:</label>
                 <select id="tipo_imovel" name="tipo_imovel" class="form-select">
@@ -111,7 +124,7 @@
             </div>
             <div class="form-group lg:col-span-3">
                 <label for="observacao" class="form-label">Observação:</label>
-                <textarea id="observacao" name="observacao" rows="3" class="form-textarea">{{ imovel.observacao | default('') }}</textarea>
+                <textarea id="observacao" name="observacao" rows="3" class="form-input">{{ imovel.observacao | default('') }}</textarea>
             </div>
 
             <div class="form-group lg:col-span-3">
@@ -150,18 +163,21 @@
             </div>
         </div>
         
-        <div class="flex justify-end space-x-4 mt-6">
-            <a href="{{ url_for('imoveis_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">
-                {% if imovel.id %}Atualizar Imóvel{% else %}Cadastrar Imóvel{% endif %}
-            </button>
-        </div>
-    </form>
-    {% if anexos %}
-    {% for anexo in anexos %}
-    <form id="delete-anexo-{{ anexo.id }}" action="{{ url_for('imovel_anexo_delete', anexo_id=anexo.id) }}" method="POST"></form>
-    {% endfor %}
-    {% endif %}
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">
+                    {% if imovel.id %}Atualizar Imóvel{% else %}Cadastrar Imóvel{% endif %}
+                </button>
+                <a href="{{ url_for('imoveis_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Voltar
+                </a>
+            </div>
+        </form>
+        {% if anexos %}
+        {% for anexo in anexos %}
+        <form id="delete-anexo-{{ anexo.id }}" action="{{ url_for('imovel_anexo_delete', anexo_id=anexo.id) }}" method="POST"></form>
+        {% endfor %}
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 

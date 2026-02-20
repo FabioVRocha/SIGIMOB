@@ -3,54 +3,73 @@
 {% block title %}Logs do Sistema{% endblock %}
 {% block page_title %}Logs do Sistema{% endblock %}
 
-{% block content %}
-<div class="bg-white p-6 shadow rounded">
-  <div class="flex flex-col gap-6">
-    <form method="get" class="grid grid-cols-1 md:grid-cols-6 gap-4">
-      <div>
-        <label for="username" class="block text-sm font-medium text-gray-600 mb-1">Usuário</label>
-        <input type="text" id="username" name="username" class="form-input" value="{{ filter_values.username }}" placeholder="Nome de usuário">
-      </div>
-      <div>
-        <label for="modulo" class="block text-sm font-medium text-gray-600 mb-1">Módulo</label>
-        <select id="modulo" name="modulo" class="form-select">
-          <option value="">Todos</option>
-          {% for option in modulos %}
-            <option value="{{ option }}" {% if filter_values.modulo == option %}selected{% endif %}>{{ option }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label for="acao" class="block text-sm font-medium text-gray-600 mb-1">Ação</label>
-        <select id="acao" name="acao" class="form-select">
-          <option value="">Todas</option>
-          {% for option in acoes %}
-            <option value="{{ option }}" {% if filter_values.acao == option %}selected{% endif %}>{{ option }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label for="data_inicio" class="block text-sm font-medium text-gray-600 mb-1">Data inicial</label>
-        <input type="date" id="data_inicio" name="data_inicio" class="form-input" value="{{ filter_values.data_inicio }}">
-      </div>
-      <div>
-        <label for="data_fim" class="block text-sm font-medium text-gray-600 mb-1">Data final</label>
-        <input type="date" id="data_fim" name="data_fim" class="form-input" value="{{ filter_values.data_fim }}">
-      </div>
-      <div class="flex items-end gap-2">
-        <button type="submit" class="btn btn-primary flex items-center gap-2">
-          <i class="fas fa-search"></i>
-          <span>Filtrar</span>
-        </button>
-        <a href="{{ url_for('gerencial_logs') }}" class="btn btn-secondary flex items-center gap-2">
-          <i class="fas fa-undo"></i>
-          <span>Limpar</span>
-        </a>
-      </div>
-    </form>
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
 
-    <div class="overflow-x-auto">
-      <table class="min-w-full bg-white border border-gray-200 rounded">
+{% block page_actions %}
+<div class="flex space-x-3">
+  <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+    <i class="fas fa-arrow-left"></i>
+  </button>
+  <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+    <i class="fas fa-home"></i>
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+  .info-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      position: relative;
+      z-index: 2;
+  }
+  .info-wrap {
+      position: static;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+  }
+  .tooltip {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 9999;
+      min-width: 220px;
+      max-width: 280px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.3);
+      display: none;
+  }
+  .tooltip.is-open {
+      display: block;
+  }
+</style>
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+  <div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+      <div class="text-sm text-medium-gray" id="logsCount">{{ pagination.total }} logs</div>
+      <button type="button" id="open-logs-filtros" class="btn-primary">
+        <i class="fas fa-sliders-h mr-2"></i>Filtros
+      </button>
+    </div>
+
+    <div class="table-overflow">
+      <table class="min-w-full table-elevated" id="logsTable">
         <thead class="table-header-bg">
           <tr>
             <th class="px-4 py-2 text-left whitespace-nowrap">Data/Hora</th>
@@ -61,9 +80,9 @@
             <th class="px-4 py-2 text-left">IP</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="logs-tbody">
           {% for log in logs %}
-          <tr class="{{ 'table-row-even' if loop.index % 2 == 0 else 'table-row-odd' }}">
+          <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
             <td class="px-4 py-2 text-sm whitespace-nowrap">{{ log.criado_em.strftime('%d/%m/%Y %H:%M:%S') if log.criado_em else '' }}</td>
             <td class="px-4 py-2 text-sm">{{ log.username or '-' }}</td>
             <td class="px-4 py-2 text-sm">{{ log.modulo or '-' }}</td>
@@ -79,6 +98,38 @@
         </tbody>
       </table>
     </div>
+    <div class="mobile-cards" id="logsCards">
+      {% for log in logs %}
+      <div class="employee-card">
+        <div class="employee-card-header">
+          <div>
+            <div class="employee-card-title">{{ log.modulo or 'Sistema' }}</div>
+            <div class="employee-card-meta">{{ log.criado_em.strftime('%d/%m/%Y %H:%M:%S') if log.criado_em else '' }}</div>
+          </div>
+        </div>
+        <div class="employee-card-grid">
+          <div>
+            <span>Usuário</span>
+            {{ log.username or '-' }}
+          </div>
+          <div>
+            <span>Ação</span>
+            {{ log.acao or '-' }}
+          </div>
+          <div>
+            <span>Descrição</span>
+            {{ log.descricao or '-' }}
+          </div>
+          <div>
+            <span>IP</span>
+            {{ log.ip or '-' }}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-center text-gray-600">Nenhum log encontrado para os filtros informados.</p>
+      {% endfor %}
+    </div>
 
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-4">
       <div class="text-sm text-gray-600">
@@ -88,23 +139,23 @@
         <span>Página {{ pagination.page }} de {{ pagination.pages }}</span>
         <div class="flex items-center gap-2">
           {% if pagination.prev_url %}
-            <a href="{{ pagination.prev_url }}" class="btn btn-secondary flex items-center gap-2 px-3 py-1">
+            <a href="{{ pagination.prev_url }}" class="btn-secondary text-white flex items-center gap-2 px-3 py-1">
               <i class="fas fa-arrow-left"></i>
               <span>Anterior</span>
             </a>
           {% else %}
-            <span class="btn btn-secondary flex items-center gap-2 px-3 py-1 opacity-50 cursor-not-allowed">
+            <span class="btn-secondary text-white flex items-center gap-2 px-3 py-1 opacity-50 cursor-not-allowed">
               <i class="fas fa-arrow-left"></i>
               <span>Anterior</span>
             </span>
           {% endif %}
           {% if pagination.next_url %}
-            <a href="{{ pagination.next_url }}" class="btn btn-secondary flex items-center gap-2 px-3 py-1">
+            <a href="{{ pagination.next_url }}" class="btn-secondary text-white flex items-center gap-2 px-3 py-1">
               <span>Próxima</span>
               <i class="fas fa-arrow-right"></i>
             </a>
           {% else %}
-            <span class="btn btn-secondary flex items-center gap-2 px-3 py-1 opacity-50 cursor-not-allowed">
+            <span class="btn-secondary text-white flex items-center gap-2 px-3 py-1 opacity-50 cursor-not-allowed">
               <span>Próxima</span>
               <i class="fas fa-arrow-right"></i>
             </span>
@@ -114,4 +165,151 @@
     </div>
   </div>
 </div>
+
+<div id="logs-filtro-modal" class="modal">
+  <div class="modal-content max-w-4xl form-page">
+    <span class="close-button" onclick="closeLogsFiltroModal()">&times;</span>
+    <h2 class="text-lg font-semibold mb-4">Filtros de Logs</h2>
+    <form action="{{ url_for('gerencial_logs') }}" method="GET">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="form-group">
+          <label for="data_inicio" class="form-label">
+            <span class="info-wrap">Data Início
+              <button type="button" class="info-icon" data-tooltip="tip-data-inicio">i</button>
+              <span class="tooltip" id="tip-data-inicio">Define o início do período.</span>
+            </span>
+          </label>
+          <input type="date" id="data_inicio" name="data_inicio" class="form-input" value="{{ filter_values.data_inicio }}">
+        </div>
+        <div class="form-group">
+          <label for="data_fim" class="form-label">
+            <span class="info-wrap">Data Fim
+              <button type="button" class="info-icon" data-tooltip="tip-data-fim">i</button>
+              <span class="tooltip" id="tip-data-fim">Define o fim do período.</span>
+            </span>
+          </label>
+          <input type="date" id="data_fim" name="data_fim" class="form-input" value="{{ filter_values.data_fim }}">
+        </div>
+        <div class="form-group">
+          <label for="username" class="form-label">
+            <span class="info-wrap">Usuário
+              <button type="button" class="info-icon" data-tooltip="tip-usuario">i</button>
+              <span class="tooltip" id="tip-usuario">Filtra pelo nome do usuário.</span>
+            </span>
+          </label>
+          <input type="text" id="username" name="username" class="form-input" value="{{ filter_values.username }}" placeholder="Nome de usuário">
+        </div>
+        <div class="form-group">
+          <label for="modulo" class="form-label">
+            <span class="info-wrap">Módulo
+              <button type="button" class="info-icon" data-tooltip="tip-modulo">i</button>
+              <span class="tooltip" id="tip-modulo">Filtra por módulo do sistema.</span>
+            </span>
+          </label>
+          <select id="modulo" name="modulo" class="form-input">
+            <option value="">Todos</option>
+            {% for option in modulos %}
+              <option value="{{ option }}" {% if filter_values.modulo == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="acao" class="form-label">
+            <span class="info-wrap">Ação
+              <button type="button" class="info-icon" data-tooltip="tip-acao">i</button>
+              <span class="tooltip" id="tip-acao">Filtra pelo tipo de ação registrada.</span>
+            </span>
+          </label>
+          <select id="acao" name="acao" class="form-input">
+            <option value="">Todas</option>
+            {% for option in acoes %}
+              <option value="{{ option }}" {% if filter_values.acao == option %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-4 mt-4">
+        <button type="button" class="btn-secondary" onclick="closeLogsFiltroModal()">Cancelar</button>
+        <button type="submit" class="btn-primary">Aplicar Filtros</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.openLogsFiltroModal = function () {
+    const modal = document.getElementById('logs-filtro-modal');
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.closeLogsFiltroModal = function () {
+    const modal = document.getElementById('logs-filtro-modal');
+    if (modal) modal.style.display = 'none';
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('logs-filtro-modal');
+    const openBtn = document.getElementById('open-logs-filtros');
+
+    if (openBtn) {
+      openBtn.addEventListener('click', () => {
+        window.openLogsFiltroModal();
+      });
+    }
+
+    if (modal) {
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          window.closeLogsFiltroModal();
+        }
+      });
+    }
+  });
+
+  function closeAllTooltips() {
+    document.querySelectorAll('.tooltip.is-open').forEach((el) => {
+      el.classList.remove('is-open');
+    });
+  }
+
+  function positionTooltip(btn, tooltipEl) {
+    if (!btn || !tooltipEl) return;
+    const rect = btn.getBoundingClientRect();
+    const top = rect.bottom + 8;
+    const left = Math.min(rect.left, window.innerWidth - tooltipEl.offsetWidth - 12);
+    tooltipEl.style.top = `${Math.max(8, top)}px`;
+    tooltipEl.style.left = `${Math.max(8, left)}px`;
+  }
+
+  document.addEventListener('click', (event) => {
+    const btn = event.target.closest('.info-icon');
+    if (!btn) {
+      closeAllTooltips();
+      return;
+    }
+    const tooltipId = btn.getAttribute('data-tooltip');
+    const tooltipEl = tooltipId ? document.getElementById(tooltipId) : null;
+    if (!tooltipEl) {
+      return;
+    }
+    const isOpen = tooltipEl.classList.contains('is-open');
+    closeAllTooltips();
+    if (!isOpen) {
+      tooltipEl.classList.add('is-open');
+      positionTooltip(btn, tooltipEl);
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    const openTooltip = document.querySelector('.tooltip.is-open');
+    if (openTooltip) {
+      const btn = document.querySelector(`.info-icon[data-tooltip="${openTooltip.id}"]`);
+      if (btn) {
+        positionTooltip(btn, openTooltip);
+      }
+    }
+  });
+</script>
 {% endblock %}

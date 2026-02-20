@@ -3,54 +3,161 @@
 {% block title %}Modelos de Contrato{% endblock %}
 {% block page_title %}Modelos de Contrato{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl content-section">
-  <div class="flex justify-between items-center mb-4">
-    <form method="get" class="flex items-center">
-      <input type="text" name="search" value="{{ search_query }}" class="form-input filter-input mr-2" placeholder="Pesquisar modelo...">
-      <button class="btn-secondary" type="submit">Buscar</button>
-    </form>
-    <a href="{{ url_for('contrato_modelos_add') }}" class="btn-primary"><i class="fas fa-plus mr-2"></i>Novo Modelo</a>
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+  <div class="flex items-center justify-between mb-4">
+    <div class="text-sm text-medium-gray" id="modelosCount">0 modelos</div>
+    <div class="flex space-x-3">
+      <a href="{{ url_for('contrato_modelos_add') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Novo Modelo">
+        <i class="fas fa-plus mr-2"></i> Novo Modelo
+      </a>
+    </div>
   </div>
 
-  <div class="mb-4 text-sm text-gray-600">
-    Utilize placeholders entre colchetes para preencher dados automaticamente, por exemplo: [Cliente], [CPF], [EnderecoImovel], [EmpresaNome], [DataInicio], [DataInicioExtenso].
-  </div>
-
-  <table class="min-w-full bg-white rounded-lg overflow-hidden">
+  {% if modelos %}
+  <div class="table-overflow">
+  <table  class="min-w-full table-elevated" id="modelosTable">
     <thead class="table-header-bg">
       <tr>
-        <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-        <th class="py-3 px-4 text-left text-sm font-semibold text-white">Nome</th>
-        <th class="py-3 px-4 text-left text-sm font-semibold text-white">Atualizado em</th>
-        <th class="py-3 px-4 text-right text-sm font-semibold text-white">Ações</th>
+        <th class="py-2 px-2 text-left">ID</th>
+        <th class="py-2 px-2 text-left">Nome</th>
+        <th class="py-2 px-2 text-left">Atualizado em</th>
+        <th class="py-2 px-2 text-right">Ações</th>
+      </tr>
+      <tr class="table-filters">
+        <th class="py-2 px-2"><input type="text" class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+        <th class="py-2 px-2"><input type="text" class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+        <th class="py-2 px-2"><input type="text" class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+        <th class="py-2 px-2"></th>
       </tr>
     </thead>
-    <tbody>
-      {% for m in modelos %}
-      <tr class="border-b border-gray-200 {% if loop.index % 2 == 1 %}table-row-odd{% else %}table-row-even{% endif %}">
-        <td class="py-3 px-4 text-sm text-gray-700">{{ m.id }}</td>
-        <td class="py-3 px-4 text-sm text-gray-700">{{ m.nome }}</td>
-        <td class="py-3 px-4 text-sm text-gray-700">{{ m.data_atualizacao.strftime('%d/%m/%Y %H:%M') if m.data_atualizacao else '' }}</td>
-        <td class="py-3 px-4 text-sm text-gray-700 text-right">
-          {% if request.args.get('contrato_id') %}
-          <a href="{{ url_for('contrato_preview', contrato_id=request.args.get('contrato_id')) }}?modelo_id={{ m.id }}" class="text-green-600 hover:text-green-800 mr-3" title="Pré-visualizar"><i class="fas fa-file-signature"></i></a>
-          {% endif %}
-          <a href="{{ url_for('contrato_modelos_edit', id=m.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
-          <form method="post" action="{{ url_for('contrato_modelos_delete', id=m.id) }}" class="inline" onsubmit="return confirm('Excluir este modelo?');">
-            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash"></i></button>
-          </form>
-        </td>
+    <tbody id="modelos-tbody">
+                {% for m in modelos %}
+      <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+        <td class="py-2 px-2 text-sm text-gray-700">{{ m.id }}</td>
+        <td class="py-2 px-2 text-sm text-gray-700">{{ m.nome }}</td>
+        <td class="py-2 px-2 text-sm text-gray-700">{{ m.data_atualizacao.strftime('%d/%m/%Y %H:%M') if m.data_atualizacao else '' }}</td>
+        <td class="py-2 px-2 text-sm text-gray-700 text-right whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            {% if request.args.get('contrato_id') %}
+                            <a href="{{ url_for('contrato_preview', contrato_id=request.args.get('contrato_id')) }}?modelo_id={{ m.id }}" title="Pré-visualizar" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-file-signature"></i></a>
+                            {% endif %}
+                            <a href="{{ url_for('contrato_modelos_edit', id=m.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <form method="post" action="{{ url_for('contrato_modelos_delete', id=m.id) }}" class="inline" onsubmit="return confirm('Excluir este modelo?');"><button type="submit" title="Excluir" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash"></i></button></form>
+                        </div>
+                    </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
+  <div class="mobile-cards" id="modelosCards">
+    {% for m in modelos %}
+      <div
+        class="employee-card"
+        data-col-0="{{ m.id }}"
+        data-col-1="{{ m.nome }}"
+        data-col-2="{{ m.data_atualizacao.strftime('%d/%m/%Y %H:%M') if m.data_atualizacao else '' }}"
+      >
+        <div class="employee-card-header">
+          <div>
+            <div class="employee-card-title">{{ m.nome }}</div>
+            <div class="employee-card-meta">Modelo #{{ m.id }}</div>
+          </div>
+        </div>
+        <div class="employee-card-grid">
+          <div>
+            <span>Atualizado em</span>
+            {{ m.data_atualizacao.strftime('%d/%m/%Y %H:%M') if m.data_atualizacao else '-' }}
+          </div>
+        </div>
+        <div class="employee-card-actions">
+          {% if request.args.get('contrato_id') %}
+          <a href="{{ url_for('contrato_preview', contrato_id=request.args.get('contrato_id')) }}?modelo_id={{ m.id }}" title="Pré-visualizar" aria-label="Pré-visualizar">
+            <i class="fas fa-file-signature"></i>
+          </a>
+          {% endif %}
+          <a href="{{ url_for('contrato_modelos_edit', id=m.id) }}" title="Editar" aria-label="Editar modelo">
+            <i class="fas fa-edit"></i>
+          </a>
+          <form method="post" action="{{ url_for('contrato_modelos_delete', id=m.id) }}" class="inline" onsubmit="return confirm('Excluir este modelo?');">
+            <button type="submit" title="Excluir" aria-label="Excluir modelo">
+              <i class="fas fa-trash"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-center text-gray-600">Nenhum modelo encontrado.</p>
+  {% endif %}
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
   document.addEventListener('DOMContentLoaded', () => {
+    const inputs = document.querySelectorAll('.column-search');
+    const rows = document.querySelectorAll('#modelos-tbody tr');
+    const cards = document.querySelectorAll('#modelosCards .employee-card');
+    const countEl = document.getElementById('modelosCount');
+
+    function updateCount(visibleRows) {
+      if (!countEl) return;
+      countEl.textContent = visibleRows === 1 ? '1 modelo' : `${visibleRows} modelos`;
+    }
+
+    function filterTable(){
+      let visibleCount = 0;
+      rows.forEach(row => {
+        let visible = true;
+        inputs.forEach((input, index) => {
+          const filter = (input.value || '').toLowerCase();
+          const cell = row.querySelectorAll('td')[index];
+          if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
+            visible = false;
+          }
+        });
+        row.style.display = visible ? '' : 'none';
+        if (visible) visibleCount += 1;
+      });
+      cards.forEach(card => {
+        let visible = true;
+        inputs.forEach((input, index) => {
+          const filter = (input.value || '').toLowerCase();
+          const value = (card.getAttribute(`data-col-${index}`) || '').toLowerCase();
+          if (filter && !value.includes(filter)) {
+            visible = false;
+          }
+        });
+        card.style.display = visible ? '' : 'none';
+      });
+      updateCount(visibleCount);
+    }
+
+    if (inputs.length) {
+      inputs.forEach(input => input.addEventListener('input', filterTable));
+      filterTable();
+    } else if (countEl) {
+      countEl.textContent = rows.length === 1 ? '1 modelo' : `${rows.length} modelos`;
+    }
+
     const currentPath = window.location.pathname;
     if (currentPath.startsWith('/contratos/modelos')) {
       // Remover seleção incorreta do menu Imóveis > Contratos de Aluguel

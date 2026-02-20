@@ -1,6 +1,8 @@
 <!-- templates/contratos/add_edit.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}
     {% if contrato.id %}Editar Contrato{% else %}Novo Contrato{% endif %}
 {% endblock %}
@@ -10,18 +12,29 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl content-section">
-    <style>
-    /* Cabeçalho e listras das tabelas nos modais (modelo list) */
-    #imovel-modal thead, #cliente-modal thead { background-color: var(--clr-dark-blue); }
-    #imovel-modal thead th, #cliente-modal thead th { color: #FFFFFF; }
-    #imovel-modal tbody tr:nth-child(odd), #cliente-modal tbody tr:nth-child(odd) { background-color: var(--clr-white); }
-    #imovel-modal tbody tr:nth-child(even), #cliente-modal tbody tr:nth-child(even) { background-color: var(--clr-light-gray); }
-    </style>
-    <form id="contrato-form" action="{% if contrato.id %}{{ url_for('contratos_edit', id=contrato.id) }}{% else %}{{ url_for('contratos_add') }}{% endif %}" method="POST" enctype="multipart/form-data">
-        <input type="hidden" id="vencimento_mesmo_dia_field" name="vencimento_mesmo_dia">
-        <input type="hidden" id="dias_intervalo_field" name="dias_intervalo">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+<div class="form-page">
+    <div class="main-header">
+        <h1>
+            {% if contrato.id %}Editar Contrato{% else %}Novo Contrato{% endif %}
+        </h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('contratos_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+    <div class="content-section">
+        <style>
+        /* Cabeçalho e listras das tabelas nos modais (modelo list) */
+        #imovel-modal thead, #cliente-modal thead { background-color: var(--clr-dark-blue); }
+        #imovel-modal thead th, #cliente-modal thead th { color: #FFFFFF; }
+        #imovel-modal tbody tr:nth-child(odd), #cliente-modal tbody tr:nth-child(odd) { background-color: var(--clr-white); }
+        #imovel-modal tbody tr:nth-child(even), #cliente-modal tbody tr:nth-child(even) { background-color: var(--clr-light-gray); }
+        </style>
+        <form id="contrato-form" action="{% if contrato.id %}{{ url_for('contratos_edit', id=contrato.id) }}{% else %}{{ url_for('contratos_add') }}{% endif %}" method="POST" enctype="multipart/form-data" class="flex flex-col h-full">
+            <input type="hidden" id="vencimento_mesmo_dia_field" name="vencimento_mesmo_dia">
+            <input type="hidden" id="dias_intervalo_field" name="dias_intervalo">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
             <div class="form-group">
                 <label for="imovel_display" class="form-label">Imóvel:</label>
                 <div class="flex">
@@ -114,10 +127,10 @@
                     <option value="Pendente" {% if contrato.status_contrato == 'Pendente' %}selected{% endif %}>Pendente</option>
                 </select>
             </div>
-            <div class="form-group lg:col-span-3">
-                <label for="observacao" class="form-label">Observação:</label>
-                <textarea id="observacao" name="observacao" rows="3" class="form-textarea">{{ contrato.observacao | default('') }}</textarea>
-            </div>
+                <div class="form-group lg:col-span-3">
+                    <label for="observacao" class="form-label">Observação:</label>
+                    <textarea id="observacao" name="observacao" rows="3" class="form-input">{{ contrato.observacao | default('') }}</textarea>
+                </div>
             <div class="lg:col-span-3">
                 <h3 class="text-lg font-semibold text-dark-blue mb-4">Anexos</h3>
                 <div class="form-group">
@@ -142,16 +155,19 @@
                 {% endif %}
             </div>
         </div>
-        <div class="flex justify-end space-x-4 mt-6">
-            <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">{% if contrato.id %}Atualizar Contrato{% else %}Cadastrar Contrato{% endif %}</button>
-        </div>
-    </form>
-    {% if anexos %}
-    {% for anexo in anexos %}
-    <form id="delete-contrato-anexo-{{ anexo.id }}" action="{{ url_for('contrato_anexo_delete', anexo_id=anexo.id) }}" method="POST"></form>
-    {% endfor %}
-    {% endif %}
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">{% if contrato.id %}Atualizar Contrato{% else %}Cadastrar Contrato{% endif %}</button>
+                <a href="{{ url_for('contratos_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Voltar
+                </a>
+            </div>
+        </form>
+        {% if anexos %}
+        {% for anexo in anexos %}
+        <form id="delete-contrato-anexo-{{ anexo.id }}" action="{{ url_for('contrato_anexo_delete', anexo_id=anexo.id) }}" method="POST"></form>
+        {% endfor %}
+        {% endif %}
+    </div>
 </div>
 
 <div id="imovel-modal" class="modal">

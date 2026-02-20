@@ -5,79 +5,158 @@
 
 {% block page_title %}Cadastro de Pessoas{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Pessoas</h2>
-        <a href="{{ url_for('pessoas_add') }}" class="btn-primary flex items-center">
-            <i class="fas fa-plus mr-2"></i> Nova Pessoa
-        </a>
+
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="pessoasCount">0 pessoas</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('pessoas_add') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Adicionar Nova Pessoa">
+                <i class="fas fa-plus mr-2"></i> Adicionar
+            </a>
+        </div>
     </div>
 
-    {# Busca/filtragem geral removida. Usaremos filtros por coluna no cabeçalho. #}
-
     {% if pessoas %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
-                <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Documento</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Nome/Razão Social</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Tipo</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Telefone</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Contato</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated" id="pessoasTable">
+            <thead class="table-header-bg">
+                <tr >
+                    <th class="py-2 px-2 text-left rounded-tl-lg">ID</th>
+                    <th class="py-2 px-2 text-left">Documento</th>
+                    <th class="py-2 px-2 text-left">Nome/Razão Social</th>
+                    <th class="py-2 px-2 text-left">Tipo</th>
+                    <th class="py-2 px-2 text-left">Telefone</th>
+                    <th class="py-2 px-2 text-left">Contato</th>
+                    <th class="py-2 px-2 text-left">Status</th>
+                    <th class="py-2 px-2 text-left rounded-tr-lg">Ações</th>
                 </tr>
-                <tr>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4">
-                        <select class="form-select column-search w-full min-w-0">
+                <tr class="table-filters">
+                    <th class="px-2 py-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Pesquisar ID"></th>
+                    <th class="px-2 py-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Pesquisar Documento"></th>
+                    <th class="px-2 py-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Pesquisar Nome"></th>
+                    <th class="px-2 py-2">
+                        <select  class="w-full px-2 py-1 border rounded text-sm filter-select column-search">
                             <option value="">Todos</option>
                             <option value="Fornecedor">Fornecedor</option>
                             <option value="Cliente">Cliente</option>
                             <option value="Cliente/Fornecedor">Cliente/Fornecedor</option>
                         </select>
                     </th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4">
-                        <select class="form-select column-search w-full min-w-0">
+                    <th class="px-2 py-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Pesquisar Telefone"></th>
+                    <th class="px-2 py-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Pesquisar Contato"></th>
+                    <th class="px-2 py-2">
+                        <select  class="w-full px-2 py-1 border rounded text-sm filter-select column-search">
                             <option value="">Todos</option>
                             <option value="Ativo">Ativo</option>
                             <option value="Inativo">Inativo</option>
                         </select>
                     </th>
-                    <th class="py-2 px-4"></th>
+                    <th class="px-2 py-2"></th>
                 </tr>
             </thead>
             <tbody id="pessoas-tbody">
                 {% for pessoa in pessoas %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.documento }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.razao_social_nome }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.tipo }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.telefone | default('') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.contato | default('') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ pessoa.status }}</td>
-                    <td class="py-3 px-4 text-sm">
-                        <a href="{{ url_for('pessoas_edit', id=pessoa.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <form action="{{ url_for('pessoas_delete', id=pessoa.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta pessoa?');">
-                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm text-dark-blue">{{ pessoa.id }}</td>
+                    <td class="py-2 px-2 text-sm text-dark-blue">{{ pessoa.documento }}</td>
+                    <td class="py-2 px-2 text-sm text-dark-blue">{{ pessoa.razao_social_nome }}</td>
+                    <td class="py-2 px-2 text-sm text-dark-blue">{{ pessoa.tipo }}</td>
+                    <td class="py-2 px-2 text-sm text-dark-blue">{{ pessoa.telefone | default('') }}</td>
+                    <td class="py-2 px-2 text-sm text-dark-blue">{{ pessoa.contato | default('') }}</td>
+                    <td class="py-2 px-2 text-sm text-dark-blue">
+                        {% if pessoa.status %}
+                            {% set status_normalized = pessoa.status|lower %}
+                            {% if status_normalized == 'ativo' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                            {% elif status_normalized == 'inativo' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inativo</span>
+                            {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ pessoa.status }}</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('pessoas_edit', id=pessoa.id) }}" title="Editar" aria-label="Editar pessoa" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <form action="{{ url_for('pessoas_delete', id=pessoa.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta pessoa?');"><button type="submit" title="Excluir" aria-label="Excluir pessoa" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash-alt"></i></button></form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards" id="pessoasCards">
+        {% for pessoa in pessoas %}
+            <div
+                class="employee-card"
+                data-col-0="{{ pessoa.id }}"
+                data-col-1="{{ pessoa.documento }}"
+                data-col-2="{{ pessoa.razao_social_nome }}"
+                data-col-3="{{ pessoa.tipo }}"
+                data-col-4="{{ pessoa.telefone | default('') }}"
+                data-col-5="{{ pessoa.contato | default('') }}"
+                data-col-6="{{ pessoa.status }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title">{{ pessoa.razao_social_nome }}</div>
+                        <div class="employee-card-meta">{{ pessoa.documento }}</div>
+                    </div>
+                </div>
+                <div class="employee-card-grid">
+                    <div>
+                        <span>Tipo</span>
+                        {{ pessoa.tipo }}
+                    </div>
+                    <div>
+                        <span>Telefone</span>
+                        {{ pessoa.telefone | default('') }}
+                    </div>
+                    <div>
+                        <span>Contato</span>
+                        {{ pessoa.contato | default('') }}
+                    </div>
+                    <div>
+                        <span>Status</span>
+                        {% if pessoa.status %}
+                            {% set status_normalized = pessoa.status|lower %}
+                            {% if status_normalized == 'ativo' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                            {% elif status_normalized == 'inativo' %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inativo</span>
+                            {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ pessoa.status }}</span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="employee-card-actions">
+                    <a href="{{ url_for('pessoas_edit', id=pessoa.id) }}" title="Editar" aria-label="Editar pessoa">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <form action="{{ url_for('pessoas_delete', id=pessoa.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta pessoa?');">
+                        <button type="submit" title="Excluir" aria-label="Excluir pessoa">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
     </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhuma pessoa encontrada.</p>
@@ -90,7 +169,16 @@
 document.addEventListener('DOMContentLoaded', function(){
     const inputs = document.querySelectorAll('.column-search');
     const rows = document.querySelectorAll('#pessoas-tbody tr');
+    const cards = document.querySelectorAll('#pessoasCards .employee-card');
+    const countEl = document.getElementById('pessoasCount');
+
+    function updateCount(visibleRows) {
+        if (!countEl) return;
+        const total = visibleRows;
+        countEl.textContent = total === 1 ? '1 pessoa' : `${total} pessoas`;
+    }
     function filterTable(){
+        let visibleCount = 0;
         rows.forEach(row => {
             let visible = true;
             inputs.forEach((input, index) => {
@@ -101,9 +189,23 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             });
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
         });
+        cards.forEach(card => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const value = (card.getAttribute(`data-col-${index}`) || '').toLowerCase();
+                if (filter && !value.includes(filter)) {
+                    visible = false;
+                }
+            });
+            card.style.display = visible ? '' : 'none';
+        });
+        updateCount(visibleCount);
     }
     inputs.forEach(input => input.addEventListener('input', filterTable));
+    filterTable();
 });
 </script>
 {% endblock %}

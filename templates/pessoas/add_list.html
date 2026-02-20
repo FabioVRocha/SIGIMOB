@@ -1,6 +1,8 @@
 <!-- templates/pessoas/add_edit.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}
     {% if pessoa.id %}Editar Pessoa{% else %}Adicionar Nova Pessoa{% endif %}
 {% endblock %}
@@ -9,134 +11,158 @@
     {% if pessoa.id %}Editar Pessoa{% else %}Adicionar Nova Pessoa{% endif %}
 {% endblock %}
 
+{% block page_actions %}{% endblock %}
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{% if pessoa.id %}{{ url_for('pessoas_edit', id=pessoa.id) }}{% else %}{{ url_for('pessoas_add') }}{% endif %}" method="POST">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-            <div class="form-group">
-                <label for="documento" class="form-label">CPF/CNPJ:</label>
-                <input type="text" id="documento" name="documento" class="form-input" value="{{ pessoa.documento | default('') }}" required>
-            </div>
-            <div class="form-group md:col-span-2">
-                <label for="razao_social_nome" class="form-label">Razão Social/Nome:</label>
-                <input type="text" id="razao_social_nome" name="razao_social_nome" class="form-input" value="{{ pessoa.razao_social_nome | default('') }}" required>
-            </div>
-            <div class="form-group md:col-span-2">
-                <label for="nome_fantasia" class="form-label">Nome Fantasia:</label>
-                <input type="text" id="nome_fantasia" name="nome_fantasia" class="form-input" value="{{ pessoa.nome_fantasia | default('') }}">
-            </div>
-            <div class="form-group md:col-span-2">
-                <label for="endereco" class="form-label">Endereço:</label>
-                <input type="text" id="endereco" name="endereco" class="form-input" value="{{ pessoa.endereco | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="bairro" class="form-label">Bairro:</label>
-                <input type="text" id="bairro" name="bairro" class="form-input" value="{{ pessoa.bairro | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="cidade" class="form-label">Cidade:</label>
-                <input type="text" id="cidade" name="cidade" class="form-input" value="{{ pessoa.cidade | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="estado" class="form-label">Estado (UF):</label>
-                <input type="text" id="estado" name="estado" maxlength="2" class="form-input" value="{{ pessoa.estado | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="cep" class="form-label">CEP:</label>
-                <input type="text" id="cep" name="cep" class="form-input" value="{{ pessoa.cep | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="telefone" class="form-label">Telefone:</label>
-                <input type="text" id="telefone" name="telefone" class="form-input" value="{{ pessoa.telefone | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="contato" class="form-label">Contato:</label>
-                <input type="text" id="contato" name="contato" class="form-input" value="{{ pessoa.contato | default('') }}">
-            </div>
-            <div id="responsavel-section" class="md:col-span-2 lg:col-span-3 hidden">
-                <div class="border-t border-gray-200 pt-4">
-                    <h3 class="text-base font-semibold text-gray-700 mb-4">Responsavel pela Empresa</h3>
-                    <p class="text-sm text-gray-500 mb-4">Preencha os dados do responsavel legal quando o documento informado for um CNPJ.</p>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div class="form-group md:col-span-2 lg:col-span-2">
-                            <label for="responsavel_nome" class="form-label">Nome do Responsavel:</label>
-                            <input type="text" id="responsavel_nome" name="responsavel_nome" class="form-input" value="{{ pessoa.responsavel_nome | default('') }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="responsavel_cpf" class="form-label">CPF do Responsavel:</label>
-                            <input type="text" id="responsavel_cpf" name="responsavel_cpf" class="form-input" value="{{ pessoa.responsavel_cpf | default('') }}">
-                        </div>
-                        <div class="form-group md:col-span-2 lg:col-span-2">
-                            <label for="responsavel_endereco" class="form-label">Endereco do Responsavel:</label>
-                            <input type="text" id="responsavel_endereco" name="responsavel_endereco" class="form-input" value="{{ pessoa.responsavel_endereco | default('') }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="responsavel_bairro" class="form-label">Bairro do Responsavel:</label>
-                            <input type="text" id="responsavel_bairro" name="responsavel_bairro" class="form-input" value="{{ pessoa.responsavel_bairro | default('') }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="responsavel_cidade" class="form-label">Cidade do Responsavel:</label>
-                            <input type="text" id="responsavel_cidade" name="responsavel_cidade" class="form-input" value="{{ pessoa.responsavel_cidade | default('') }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="responsavel_estado" class="form-label">Estado do Responsavel:</label>
-                            <input type="text" id="responsavel_estado" name="responsavel_estado" class="form-input" value="{{ pessoa.responsavel_estado | default('') }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="responsavel_uf" class="form-label">UF do Responsavel:</label>
-                            <input type="text" id="responsavel_uf" name="responsavel_uf" maxlength="2" class="form-input" value="{{ pessoa.responsavel_uf | default('') }}">
-                        </div>
-                        <div class="form-group">
-                            <label for="responsavel_estado_civil" class="form-label">Estado Civil do Responsavel:</label>
-                            <input type="text" id="responsavel_estado_civil" name="responsavel_estado_civil" class="form-input" value="{{ pessoa.responsavel_estado_civil | default('') }}">
-                        </div>
+<div class="form-page">
+    <div class="main-header">
+        <h1 class="text-2xl font-bold text-dark-blue">
+            {% if pessoa.id %}
+                Editar Pessoa
+            {% else %}
+                Adicionar Nova Pessoa
+            {% endif %}
+        </h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('pessoas_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+    <div class="content-section">
+        <form action="{% if pessoa.id %}{{ url_for('pessoas_edit', id=pessoa.id) }}{% else %}{{ url_for('pessoas_add') }}{% endif %}" method="POST" class="space-y-4 flex flex-col h-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="form-group">
+                        <label for="documento" class="form-label">CPF/CNPJ:</label>
+                        <input type="text" id="documento" name="documento" class="form-input" value="{{ pessoa.documento | default('') }}" required>
+                    </div>
+                    <div class="form-group md:col-span-2">
+                        <label for="razao_social_nome" class="form-label">Razão Social/Nome:</label>
+                        <input type="text" id="razao_social_nome" name="razao_social_nome" class="form-input" value="{{ pessoa.razao_social_nome | default('') }}" required>
+                    </div>
+                    <div class="form-group md:col-span-2">
+                        <label for="nome_fantasia" class="form-label">Nome Fantasia:</label>
+                        <input type="text" id="nome_fantasia" name="nome_fantasia" class="form-input" value="{{ pessoa.nome_fantasia | default('') }}">
+                    </div>
+                    <div class="form-group md:col-span-2">
+                        <label for="endereco" class="form-label">Endereço:</label>
+                        <input type="text" id="endereco" name="endereco" class="form-input" value="{{ pessoa.endereco | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="bairro" class="form-label">Bairro:</label>
+                        <input type="text" id="bairro" name="bairro" class="form-input" value="{{ pessoa.bairro | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="cidade" class="form-label">Cidade:</label>
+                        <input type="text" id="cidade" name="cidade" class="form-input" value="{{ pessoa.cidade | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="estado" class="form-label">Estado (UF):</label>
+                        <input type="text" id="estado" name="estado" maxlength="2" class="form-input" value="{{ pessoa.estado | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="cep" class="form-label">CEP:</label>
+                        <input type="text" id="cep" name="cep" class="form-input" value="{{ pessoa.cep | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="telefone" class="form-label">Telefone:</label>
+                        <input type="text" id="telefone" name="telefone" class="form-input" value="{{ pessoa.telefone | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="contato" class="form-label">Contato:</label>
+                        <input type="text" id="contato" name="contato" class="form-input" value="{{ pessoa.contato | default('') }}">
+                    </div>
+                </div>
+            <div id="responsavel-section" class="hidden section-divider">
+                <h3 class="section-title">Responsável pela Empresa</h3>
+                <p class="section-help">Preencha os dados do responsável legal quando o documento informado for um CNPJ.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="form-group md:col-span-2 lg:col-span-2">
+                        <label for="responsavel_nome" class="form-label">Nome do Responsavel:</label>
+                        <input type="text" id="responsavel_nome" name="responsavel_nome" class="form-input" value="{{ pessoa.responsavel_nome | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="responsavel_cpf" class="form-label">CPF do Responsavel:</label>
+                        <input type="text" id="responsavel_cpf" name="responsavel_cpf" class="form-input" value="{{ pessoa.responsavel_cpf | default('') }}">
+                    </div>
+                    <div class="form-group md:col-span-2 lg:col-span-2">
+                        <label for="responsavel_endereco" class="form-label">Endereco do Responsavel:</label>
+                        <input type="text" id="responsavel_endereco" name="responsavel_endereco" class="form-input" value="{{ pessoa.responsavel_endereco | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="responsavel_bairro" class="form-label">Bairro do Responsavel:</label>
+                        <input type="text" id="responsavel_bairro" name="responsavel_bairro" class="form-input" value="{{ pessoa.responsavel_bairro | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="responsavel_cidade" class="form-label">Cidade do Responsavel:</label>
+                        <input type="text" id="responsavel_cidade" name="responsavel_cidade" class="form-input" value="{{ pessoa.responsavel_cidade | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="responsavel_estado" class="form-label">Estado do Responsavel:</label>
+                        <input type="text" id="responsavel_estado" name="responsavel_estado" class="form-input" value="{{ pessoa.responsavel_estado | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="responsavel_uf" class="form-label">UF do Responsavel:</label>
+                        <input type="text" id="responsavel_uf" name="responsavel_uf" maxlength="2" class="form-input" value="{{ pessoa.responsavel_uf | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="responsavel_estado_civil" class="form-label">Estado Civil do Responsavel:</label>
+                        <input type="text" id="responsavel_estado_civil" name="responsavel_estado_civil" class="form-input" value="{{ pessoa.responsavel_estado_civil | default('') }}">
                     </div>
                 </div>
             </div>
-            <div class="form-group">
-                <label for="nacionalidade" class="form-label">Nacionalidade:</label>
-                <input type="text" id="nacionalidade" name="nacionalidade" class="form-input" value="{{ pessoa.nacionalidade | default('') }}">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="form-group">
+                        <label for="nacionalidade" class="form-label">Nacionalidade:</label>
+                        <input type="text" id="nacionalidade" name="nacionalidade" class="form-input" value="{{ pessoa.nacionalidade | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="estado_civil" class="form-label">Estado Civil:</label>
+                        <input type="text" id="estado_civil" name="estado_civil" class="form-input" value="{{ pessoa.estado_civil | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="profissao" class="form-label">Profissão:</label>
+                        <input type="text" id="profissao" name="profissao" class="form-input" value="{{ pessoa.profissao | default('') }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="rg" class="form-label">RG:</label>
+                        <input type="text" id="rg" name="rg" class="form-input" value="{{ pessoa.rg | default('') }}">
+                    </div>
+                    <div class="form-group md:col-span-2">
+                        <label for="observacao" class="form-label">Observação:</label>
+                        <textarea id="observacao" name="observacao" rows="3" class="form-input">{{ pessoa.observacao | default('') }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="tipo" class="form-label">Tipo:</label>
+                        <select id="tipo" name="tipo" class="form-input form-select" required>
+                            <option value="">Selecione...</option>
+                            <option value="Fornecedor" {% if pessoa.tipo == 'Fornecedor' %}selected{% endif %}>Fornecedor</option>
+                            <option value="Cliente" {% if pessoa.tipo == 'Cliente' %}selected{% endif %}>Cliente</option>
+                            <option value="Cliente/Fornecedor" {% if pessoa.tipo == 'Cliente/Fornecedor' %}selected{% endif %}>Cliente/Fornecedor</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="status" class="form-label">Status:</label>
+                        <select id="status" name="status" class="form-input form-select" required>
+                            <option value="Ativo" {% if pessoa.status == 'Ativo' %}selected{% endif %}>Ativo</option>
+                            <option value="Inativo" {% if pessoa.status == 'Inativo' %}selected{% endif %}>Inativo</option>
+                        </select>
+                    </div>
+                </div>
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">
+                    {% if pessoa.id %}
+                        <i class="fas fa-save mr-2"></i> Atualizar Pessoa
+                    {% else %}
+                        <i class="fas fa-plus mr-2"></i> Adicionar Pessoa
+                    {% endif %}
+                </button>
+                <a href="{{ url_for('pessoas_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Cancelar
+                </a>
             </div>
-            <div class="form-group">
-                <label for="estado_civil" class="form-label">Estado Civil:</label>
-                <input type="text" id="estado_civil" name="estado_civil" class="form-input" value="{{ pessoa.estado_civil | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="profissao" class="form-label">Profissão:</label>
-                <input type="text" id="profissao" name="profissao" class="form-input" value="{{ pessoa.profissao | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="rg" class="form-label">RG:</label>
-                <input type="text" id="rg" name="rg" class="form-input" value="{{ pessoa.rg | default('') }}">
-            </div>
-            <div class="form-group md:col-span-2">
-                <label for="observacao" class="form-label">Observação:</label>
-                <textarea id="observacao" name="observacao" rows="3" class="form-textarea">{{ pessoa.observacao | default('') }}</textarea>
-            </div>
-            <div class="form-group">
-                <label for="tipo" class="form-label">Tipo:</label>
-                <select id="tipo" name="tipo" class="form-select" required>
-                    <option value="">Selecione...</option>
-                    <option value="Fornecedor" {% if pessoa.tipo == 'Fornecedor' %}selected{% endif %}>Fornecedor</option>
-                    <option value="Cliente" {% if pessoa.tipo == 'Cliente' %}selected{% endif %}>Cliente</option>
-                    <option value="Cliente/Fornecedor" {% if pessoa.tipo == 'Cliente/Fornecedor' %}selected{% endif %}>Cliente/Fornecedor</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="status" class="form-label">Status:</label>
-                <select id="status" name="status" class="form-select" required>
-                    <option value="Ativo" {% if pessoa.status == 'Ativo' %}selected{% endif %}>Ativo</option>
-                    <option value="Inativo" {% if pessoa.status == 'Inativo' %}selected{% endif %}>Inativo</option>
-                </select>
-            </div>
-        </div>
-        <div class="flex justify-end space-x-4 mt-6">
-            <a href="{{ url_for('pessoas_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">
-                {% if pessoa.id %}Atualizar Pessoa{% else %}Cadastrar Pessoa{% endif %}
-            </button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}

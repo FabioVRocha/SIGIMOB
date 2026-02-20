@@ -5,16 +5,31 @@
 
 {% block page_title %}Cadastro de Imóveis{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Imóveis</h2>
-        <div class="flex space-x-2">
-            <a href="{{ url_for('imoveis_mapa') }}" class="btn-primary flex items-center">
-                <i class="fas fa-map-marked-alt mr-2"></i> Ver Mapa
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="imoveisCount">0 imóveis</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('imoveis_add') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Adicionar Imóvel">
+                <i class="fas fa-plus mr-2"></i> Adicionar
             </a>
-            <a href="{{ url_for('imoveis_add') }}" class="btn-primary flex items-center">
-                <i class="fas fa-plus mr-2"></i> Novo Imóvel
+            <a href="{{ url_for('imoveis_mapa') }}" class="btn-secondary text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Ver Mapa">
+                <i class="fas fa-map-marked-alt mr-2"></i> Ver Mapa
             </a>
         </div>
     </div>
@@ -22,70 +37,149 @@
     {# Campo de busca removido conforme solicitação #}
 
     {% if imoveis %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
-                <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Tipo</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Endereço</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Cidade/Estado</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">IPTU</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Aluguel Previsto</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Disponível</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated" id="imoveisTable">
+            <thead class="table-header-bg">
+                <tr >
+                    <th class="py-2 px-2 text-left">ID</th>
+                    <th class="py-2 px-2 text-left">Tipo</th>
+                    <th class="py-2 px-2 text-left">Endereço</th>
+                    <th class="py-2 px-2 text-left">Cidade/Estado</th>
+                    <th class="py-2 px-2 text-left">IPTU</th>
+                    <th class="py-2 px-2 text-left">Valor Aluguel Previsto</th>
+                    <th class="py-2 px-2 text-left">Status</th>
+                    <th class="py-2 px-2 text-left">Disponível</th>
+                    <th class="py-2 px-2 text-left">Ações</th>
                 </tr>
-                <tr>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4">
-                        <select class="form-select column-search w-full min-w-0" data-column="1"></select>
+                <tr class="table-filters">
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2">
+                        <select  class="w-full px-2 py-1 border rounded text-sm filter-select column-search" data-column="1"></select>
                     </th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4">
-                        <select class="form-select column-search w-full min-w-0" data-column="6"></select>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2">
+                        <select  class="w-full px-2 py-1 border rounded text-sm filter-select column-search" data-column="6"></select>
                     </th>
-                    <th class="py-2 px-4">
-                        <select class="form-select column-search w-full min-w-0" data-column="7"></select>
+                    <th class="py-2 px-2">
+                        <select  class="w-full px-2 py-1 border rounded text-sm filter-select column-search" data-column="7"></select>
                     </th>
-                    <th class="py-2 px-4"></th>
+                    <th class="py-2 px-2"></th>
                 </tr>
             </thead>
             <tbody id="imoveis-tbody">
                 {% for imovel in imoveis %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm {% if not imovel.latitude or not imovel.longitude %}text-red-600 font-bold{% else %}text-gray-700{% endif %}">{{ imovel.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.tipo_imovel | default('N/A') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.cidade }}/{{ imovel.estado }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ imovel.inscricao_iptu | default('N/A') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f" | format(imovel.valor_previsto_aluguel | default(0.00)) }}</td>
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm {% if not imovel.latitude or not imovel.longitude %}text-red-600 font-bold{% else %}text-gray-700{% endif %}">{{ imovel.id }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ imovel.tipo_imovel | default('N/A') }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ imovel.cidade }}/{{ imovel.estado }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ imovel.inscricao_iptu | default('N/A') }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">R$ {{ "%.2f" | format(imovel.valor_previsto_aluguel | default(0.00)) }}</td>
                     {% set status_val = imovel.status or 'Ativo' %}
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ status_val }}</td>
-                    {% set disponivel = imovel.disponivel_para_locacao if imovel.disponivel_para_locacao is not none else (not imovel.contrato_ativo) %}
-                    <td class="py-3 px-4 text-sm {% if disponivel %}text-green-600{% else %}text-red-600{% endif %} font-semibold">
-                        {{ 'Sim' if disponivel else 'Não' }}
+                    <td class="py-2 px-2 text-sm text-gray-700">
+                        {% set status_normalized = status_val|lower %}
+                        {% if status_normalized == 'ativo' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                        {% elif status_normalized == 'inativo' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inativo</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ status_val }}</span>
+                        {% endif %}
                     </td>
-                    <td class="py-3 px-4 text-sm">
-                        <button type="button" class="text-green-600 hover:text-green-800 mr-3 view-photos-btn" data-id="{{ imovel.id }}" title="Ver Fotos">
-                            <i class="fas fa-images"></i>
-                        </button>
-                        <a href="{{ url_for('imoveis_edit', id=imovel.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        <form action="{{ url_for('imoveis_delete', id=imovel.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este imóvel e todos os seus anexos?');">
-                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
+                    {% set disponivel = imovel.disponivel_para_locacao if imovel.disponivel_para_locacao is not none else (not imovel.contrato_ativo) %}
+                    <td class="py-2 px-2 text-sm">
+                        {% if disponivel %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Sim</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Não</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <button type="button" data-id="{{ imovel.id }}" title="Ver Fotos" class="view-photos-btn btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-images"></i></button>
+                            <a href="{{ url_for('imoveis_edit', id=imovel.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <form action="{{ url_for('imoveis_delete', id=imovel.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este imóvel e todos os seus anexos?');"><button type="submit" title="Excluir" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash-alt"></i></button></form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards" id="imoveisCards">
+        {% for imovel in imoveis %}
+            {% set status_val = imovel.status or 'Ativo' %}
+            {% set status_normalized = status_val|lower %}
+            {% set disponivel = imovel.disponivel_para_locacao if imovel.disponivel_para_locacao is not none else (not imovel.contrato_ativo) %}
+            <div
+                class="employee-card"
+                data-col-0="{{ imovel.id }}"
+                data-col-1="{{ imovel.tipo_imovel | default('N/A') }}"
+                data-col-2="{{ imovel.endereco }}, {{ imovel.bairro }}"
+                data-col-3="{{ imovel.cidade }}/{{ imovel.estado }}"
+                data-col-4="{{ imovel.inscricao_iptu | default('N/A') }}"
+                data-col-5="R$ {{ '%.2f' | format(imovel.valor_previsto_aluguel | default(0.00)) }}"
+                data-col-6="{{ status_val }}"
+                data-col-7="{{ 'Sim' if disponivel else 'Não' }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title">{{ imovel.tipo_imovel | default('Imóvel') }}</div>
+                        <div class="employee-card-meta">
+                            {{ imovel.endereco }}, {{ imovel.bairro }} · {{ imovel.cidade }}/{{ imovel.estado }}
+                        </div>
+                    </div>
+                </div>
+                <div class="employee-card-grid">
+                    <div>
+                        <span>ID</span>
+                        <span class="{% if not imovel.latitude or not imovel.longitude %}text-red-600 font-semibold{% else %}text-gray-700{% endif %}">{{ imovel.id }}</span>
+                    </div>
+                    <div>
+                        <span>IPTU</span>
+                        {{ imovel.inscricao_iptu | default('N/A') }}
+                    </div>
+                    <div>
+                        <span>Valor Previsto</span>
+                        R$ {{ "%.2f" | format(imovel.valor_previsto_aluguel | default(0.00)) }}
+                    </div>
+                    <div>
+                        <span>Status</span>
+                        {% if status_normalized == 'ativo' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                        {% elif status_normalized == 'inativo' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Inativo</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ status_val }}</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <span>Disponível</span>
+                        {% if disponivel %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Sim</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Não</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="employee-card-actions">
+                    <button type="button" data-id="{{ imovel.id }}" title="Ver Fotos" aria-label="Ver fotos" class="view-photos-btn">
+                        <i class="fas fa-images"></i>
+                    </button>
+                    <a href="{{ url_for('imoveis_edit', id=imovel.id) }}" title="Editar" aria-label="Editar imóvel">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <form action="{{ url_for('imoveis_delete', id=imovel.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este imóvel e todos os seus anexos?');">
+                        <button type="submit" title="Excluir" aria-label="Excluir imóvel">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
     </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhum imóvel encontrado.</p>
@@ -286,7 +380,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Filtro por coluna (como em Contas a Receber)
     const inputs = document.querySelectorAll('.column-search');
     const rows = document.querySelectorAll('#imoveis-tbody tr');
+    const cards = document.querySelectorAll('#imoveisCards .employee-card');
+    const countEl = document.getElementById('imoveisCount');
+
+    function updateCount(visibleRows) {
+        if (!countEl) return;
+        countEl.textContent = visibleRows === 1 ? '1 imóvel' : `${visibleRows} imóveis`;
+    }
+
     function filterTable(){
+        let visibleCount = 0;
         rows.forEach(row => {
             let visible = true;
             inputs.forEach((input, index) => {
@@ -298,7 +401,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
         });
+        cards.forEach(card => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const columnIndex = input.dataset.column ? Number(input.dataset.column) : index;
+                const value = (card.getAttribute(`data-col-${columnIndex}`) || '').toLowerCase();
+                if (filter && !value.includes(filter)) {
+                    visible = false;
+                }
+            });
+            card.style.display = visible ? '' : 'none';
+        });
+        updateCount(visibleCount);
     }
     function setupColumnSelect(selectEl) {
         if (!selectEl) {
@@ -339,6 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setupColumnSelect(input);
         }
     });
+    filterTable();
 });
 function closePhotosModal(){
     document.getElementById('photos-modal').style.display='none';

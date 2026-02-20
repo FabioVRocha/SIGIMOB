@@ -5,47 +5,64 @@
 
 {% block page_title %}Contratos de Aluguel{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
 <div class="bg-white p-6 rounded-lg shadow-xl content-section">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Lista de Contratos</h2>
-        <a href="{{ url_for('contratos_add') }}" class="btn-primary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center">
-            <i class="fas fa-plus mr-2"></i> Novo Contrato
-        </a>
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="contratosCount">0 contratos</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('contratos_add') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Novo Contrato">
+                <i class="fas fa-plus mr-2"></i> Novo Contrato
+            </a>
+        </div>
     </div>
     {# Campo de busca geral removido. Usaremos busca por coluna no cabeçalho. #}
     {% if contratos %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
-                <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID Imovel</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Imóvel</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Inquilino</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Finalidade</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Período</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Valor Parcela</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Status</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated" id="contratosTable">
+            <thead class="table-header-bg">
+                <tr >
+                    <th class="py-2 px-2 text-left">ID</th>
+                    <th class="py-2 px-2 text-left">ID Imovel</th>
+                    <th class="py-2 px-2 text-left">Imóvel</th>
+                    <th class="py-2 px-2 text-left">Inquilino</th>
+                    <th class="py-2 px-2 text-left">Finalidade</th>
+                    <th class="py-2 px-2 text-left">Período</th>
+                    <th class="py-2 px-2 text-left">Valor Parcela</th>
+                    <th class="py-2 px-2 text-left">Status</th>
+                    <th class="py-2 px-2 text-left">Ações</th>
                 </tr>
-                <tr>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4">
-                        <select class="form-select column-search w-full min-w-0">
+                <tr class="table-filters">
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2">
+                        <select  class="w-full px-2 py-1 border rounded text-sm filter-select column-search">
                             <option value="">Todas</option>
                             <option value="Comercial">Comercial</option>
                             <option value="Residencial">Residencial</option>
                             <option value="Comodato">Comodato</option>
                         </select>
                     </th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                    <th class="py-2 px-4">
-                        <select class="form-select column-search w-full min-w-0">
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2">
+                        <select  class="w-full px-2 py-1 border rounded text-sm filter-select column-search">
                             <option value="">Todos</option>
                             <option value="Ativo">Ativo</option>
                             <option value="Encerrado">Encerrado</option>
@@ -54,37 +71,120 @@
                             <option value="Pendente">Pendente</option>
                         </select>
                     </th>
-                    <th class="py-2 px-4"></th>
+                    <th class="py-2 px-2"></th>
                 </tr>
             </thead>
             <tbody id="contratos-tbody">
                 {% for contrato in contratos %}
-                <tr class="{{ loop.cycle('table-row-odd','table-row-even') }} border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.imovel_id }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.endereco_imovel }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.nome_inquilino }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.finalidade }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.data_inicio.strftime('%d/%m/%Y') }} - {{ contrato.data_fim.strftime('%d/%m/%Y') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">R$ {{ "%.2f"|format(contrato.valor_parcela) }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ contrato.status_contrato }}</td>
-                    <td class="py-3 px-4 text-sm">
-                        <a href="#" onclick="openModeloModal({{ contrato.id }}); return false;" class="text-green-600 hover:text-green-800 mr-3" title="Gerar Contrato"><i class="fas fa-file-signature"></i></a>
-                        <a href="{{ url_for('contratos_renovar', contrato_id=contrato.id) }}" class="text-indigo-600 hover:text-indigo-800 mr-3" title="Renovar Contrato">
-                            <i class="fas fa-sync-alt"></i>
-                        </a>
-                        <a href="{{ url_for('contratos_edit', id=contrato.id) }}" class="text-blue-600 hover:text-blue-800 mr-3" title="Editar"><i class="fas fa-edit"></i></a>
-                        <a href="{{ url_for('contratos_prestacoes_list', contrato_id=contrato.id) }}" class="text-yellow-600 hover:text-yellow-800 mr-3" title="Prestação de contas / Encerrar">
-                            <i class="fas fa-file-invoice-dollar"></i>
-                        </a>
-                        <form action="{{ url_for('contratos_delete', id=contrato.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este contrato e todos os seus anexos?');">
-                            <button type="submit" class="text-red-600 hover:text-red-800" title="Excluir"><i class="fas fa-trash-alt"></i></button>
-                        </form>
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ contrato.id }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ contrato.imovel_id }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ contrato.endereco_imovel }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ contrato.nome_inquilino }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ contrato.finalidade }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ contrato.data_inicio.strftime('%d/%m/%Y') }} - {{ contrato.data_fim.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">R$ {{ "%.2f"|format(contrato.valor_parcela) }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">
+                        {% set status_normalized = contrato.status_contrato|lower %}
+                        {% if status_normalized == 'ativo' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                        {% elif status_normalized in ['encerrado', 'finalizado'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">{{ contrato.status_contrato }}</span>
+                        {% elif status_normalized == 'renovar' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Renovar</span>
+                        {% elif status_normalized == 'pendente' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">Pendente</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ contrato.status_contrato }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <a href="#" onclick="openModeloModal({{ contrato.id }}); return false;" title="Gerar Contrato" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-file-signature"></i></a>
+                            <a href="{{ url_for('contratos_renovar', contrato_id=contrato.id) }}" title="Renovar Contrato" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-sync-alt"></i></a>
+                            <a href="{{ url_for('contratos_edit', id=contrato.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                            <a href="{{ url_for('contratos_prestacoes_list', contrato_id=contrato.id) }}" title="Prestação de contas / Encerrar" class="btn-secondary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-file-invoice-dollar"></i></a>
+                            <form action="{{ url_for('contratos_delete', id=contrato.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este contrato e todos os seus anexos?');"><button type="submit" title="Excluir" class="btn-delete text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-trash-alt"></i></button></form>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+    <div class="mobile-cards" id="contratosCards">
+        {% for contrato in contratos %}
+            {% set status_normalized = contrato.status_contrato|lower %}
+            <div
+                class="employee-card"
+                data-col-0="{{ contrato.id }}"
+                data-col-1="{{ contrato.imovel_id }}"
+                data-col-2="{{ contrato.endereco_imovel }}"
+                data-col-3="{{ contrato.nome_inquilino }}"
+                data-col-4="{{ contrato.finalidade }}"
+                data-col-5="{{ contrato.data_inicio.strftime('%d/%m/%Y') }} - {{ contrato.data_fim.strftime('%d/%m/%Y') }}"
+                data-col-6="R$ {{ '%.2f'|format(contrato.valor_parcela) }}"
+                data-col-7="{{ contrato.status_contrato }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title">{{ contrato.endereco_imovel }}</div>
+                        <div class="employee-card-meta">Imóvel #{{ contrato.imovel_id }} · Contrato #{{ contrato.id }}</div>
+                    </div>
+                </div>
+                <div class="employee-card-grid">
+                    <div>
+                        <span>Inquilino</span>
+                        {{ contrato.nome_inquilino }}
+                    </div>
+                    <div>
+                        <span>Finalidade</span>
+                        {{ contrato.finalidade }}
+                    </div>
+                    <div>
+                        <span>Período</span>
+                        {{ contrato.data_inicio.strftime('%d/%m/%Y') }} - {{ contrato.data_fim.strftime('%d/%m/%Y') }}
+                    </div>
+                    <div>
+                        <span>Valor Parcela</span>
+                        R$ {{ "%.2f"|format(contrato.valor_parcela) }}
+                    </div>
+                    <div>
+                        <span>Status</span>
+                        {% if status_normalized == 'ativo' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Ativo</span>
+                        {% elif status_normalized in ['encerrado', 'finalizado'] %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">{{ contrato.status_contrato }}</span>
+                        {% elif status_normalized == 'renovar' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Renovar</span>
+                        {% elif status_normalized == 'pendente' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">Pendente</span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">{{ contrato.status_contrato }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="employee-card-actions">
+                    <a href="#" onclick="openModeloModal({{ contrato.id }}); return false;" title="Gerar Contrato" aria-label="Gerar contrato">
+                        <i class="fas fa-file-signature"></i>
+                    </a>
+                    <a href="{{ url_for('contratos_renovar', contrato_id=contrato.id) }}" title="Renovar Contrato" aria-label="Renovar contrato">
+                        <i class="fas fa-sync-alt"></i>
+                    </a>
+                    <a href="{{ url_for('contratos_edit', id=contrato.id) }}" title="Editar" aria-label="Editar contrato">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{{ url_for('contratos_prestacoes_list', contrato_id=contrato.id) }}" title="Prestação de contas / Encerrar" aria-label="Prestação de contas">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </a>
+                    <form action="{{ url_for('contratos_delete', id=contrato.id) }}" method="POST" class="inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este contrato e todos os seus anexos?');">
+                        <button type="submit" title="Excluir" aria-label="Excluir contrato">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        {% endfor %}
     </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhum contrato encontrado.</p>
@@ -97,7 +197,14 @@
 document.addEventListener('DOMContentLoaded', function(){
     const inputs = document.querySelectorAll('.column-search');
     const rows = document.querySelectorAll('#contratos-tbody tr');
+    const cards = document.querySelectorAll('#contratosCards .employee-card');
+    const countEl = document.getElementById('contratosCount');
+    function updateCount(visibleRows) {
+        if (!countEl) return;
+        countEl.textContent = visibleRows === 1 ? '1 contrato' : `${visibleRows} contratos`;
+    }
     function filterTable(){
+        let visibleCount = 0;
         rows.forEach(row => {
             let visible = true;
             inputs.forEach((input, index) => {
@@ -108,12 +215,26 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             });
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
         });
+        cards.forEach(card => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const value = (card.getAttribute(`data-col-${index}`) || '').toLowerCase();
+                if (filter && !value.includes(filter)) {
+                    visible = false;
+                }
+            });
+            card.style.display = visible ? '' : 'none';
+        });
+        updateCount(visibleCount);
     }
     inputs.forEach(input => {
         input.addEventListener('input', filterTable);
         input.addEventListener('change', filterTable);
     });
+    filterTable();
 });
 </script>
 <script>

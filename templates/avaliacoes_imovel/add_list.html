@@ -1,6 +1,8 @@
 <!-- templates/avaliacoes_imovel/add_edit.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}
     {% if avaliacao.id %}Editar Avaliação{% else %}Nova Avaliação{% endif %}
 {% endblock %}
@@ -10,58 +12,74 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{% if avaliacao.id %}{{ url_for('avaliacoes_imovel_edit', id=avaliacao.id) }}{% else %}{{ url_for('avaliacoes_imovel_add') }}{% endif %}" method="POST">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="form-group">
-                <label for="imovel_display" class="form-label">Imóvel:</label>
-                <div class="flex">
-                    <input type="text" id="imovel_display" class="form-input flex-grow" readonly value="{{ avaliacao.endereco_imovel | default('') }}">
-                    <button type="button" class="btn-secondary ml-2" onclick="openModal()">Selecionar</button>
+<div class="form-page">
+    <div class="main-header">
+        <h1>
+            {% if avaliacao.id %}Editar Avaliação{% else %}Nova Avaliação{% endif %}
+        </h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('avaliacoes_imovel_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+        </div>
+    </div>
+    <div class="content-section">
+        <form action="{% if avaliacao.id %}{{ url_for('avaliacoes_imovel_edit', id=avaliacao.id) }}{% else %}{{ url_for('avaliacoes_imovel_add') }}{% endif %}" method="POST" class="space-y-4 flex flex-col h-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="form-group">
+                    <label for="imovel_display" class="form-label">Imóvel:</label>
+                    <div class="flex">
+                        <input type="text" id="imovel_display" class="form-input flex-grow" readonly value="{{ avaliacao.endereco_imovel | default('') }}">
+                        <button type="button" class="btn-secondary ml-2" onclick="openModal()">Selecionar</button>
+                    </div>
+                    <input type="hidden" id="imovel_id" name="imovel_id" value="{{ avaliacao.imovel_id | default('') }}">
                 </div>
-                <input type="hidden" id="imovel_id" name="imovel_id" value="{{ avaliacao.imovel_id | default('') }}">
+                <div class="form-group">
+                    <label for="data_avaliacao" class="form-label">Data (Mês/Ano):</label>
+                    <input type="month" id="data_avaliacao" name="data_avaliacao" class="form-input" value="{{ avaliacao.data_avaliacao.strftime('%Y-%m') if avaliacao.data_avaliacao else '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="valor_avaliacao" class="form-label">Valor Avaliado:</label>
+                    <input type="number" step="0.01" id="valor_avaliacao" name="valor_avaliacao" class="form-input" value="{{ avaliacao.valor_avaliacao | default('') }}" required>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="data_avaliacao" class="form-label">Data (Mês/Ano):</label>
-                <input type="month" id="data_avaliacao" name="data_avaliacao" class="form-input" value="{{ avaliacao.data_avaliacao.strftime('%Y-%m') if avaliacao.data_avaliacao else '' }}" required>
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">
+                    {% if avaliacao.id %}Atualizar Avaliação{% else %}Cadastrar Avaliação{% endif %}
+                </button>
+                <a href="{{ url_for('avaliacoes_imovel_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Voltar
+                </a>
             </div>
-            <div class="form-group">
-                <label for="valor_avaliacao" class="form-label">Valor Avaliado:</label>
-                <input type="number" step="0.01" id="valor_avaliacao" name="valor_avaliacao" class="form-input" value="{{ avaliacao.valor_avaliacao | default('') }}" required>
-            </div>
-        </div>
-        <div class="flex justify-end space-x-4 mt-6">
-            <a href="{{ url_for('avaliacoes_imovel_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">{% if avaliacao.id %}Atualizar Avaliação{% else %}Cadastrar Avaliação{% endif %}</button>
-        </div>
-    </form>
-</div>
+        </form>
+    </div>
 
-<div id="imovel-modal" class="modal">
-    <div class="modal-content">
-        <span class="close-button" onclick="closeModal()">&times;</span>
-        <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
-        <div class="overflow-y-auto" style="max-height:400px;">
-            <table class="min-w-full bg-white rounded-lg overflow-hidden">
-                <thead class="bg-gray-200">
-                    <tr>
-                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">ID</th>
-                        <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Endereço</th>
-                        <th class="py-2 px-3"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for imovel in imoveis %}
-                    <tr class="border-b border-gray-200 hover:bg-gray-50">
-                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.id }}</td>
-                        <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
-                        <td class="py-2 px-3 text-right">
-                            <button type="button" class="btn-primary select-imovel-btn" data-id="{{ imovel.id }}" data-text="{{ imovel.endereco }}, {{ imovel.bairro }}">Escolher</button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div id="imovel-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h2 class="text-lg font-semibold mb-4">Selecionar Imóvel</h2>
+            <div class="overflow-y-auto" style="max-height:400px;">
+                <table class="min-w-full bg-white rounded-lg overflow-hidden">
+                    <thead class="bg-gray-200">
+                        <tr>
+                            <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">ID</th>
+                            <th class="py-2 px-3 text-left text-sm font-semibold text-gray-700">Endereço</th>
+                            <th class="py-2 px-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for imovel in imoveis %}
+                        <tr class="border-b border-gray-200 hover:bg-gray-50">
+                            <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.id }}</td>
+                            <td class="py-2 px-3 text-sm text-gray-700">{{ imovel.endereco }}, {{ imovel.bairro }}</td>
+                            <td class="py-2 px-3 text-right">
+                                <button type="button" class="btn-primary select-imovel-btn" data-id="{{ imovel.id }}" data-text="{{ imovel.endereco }}, {{ imovel.bairro }}">Escolher</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

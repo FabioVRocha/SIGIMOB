@@ -1,52 +1,66 @@
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}{{ 'Editar' if mascara and mascara.get('id') else 'Nova' }} Máscara DRE{% endblock %}
 {% block page_title %}{{ 'Editar' if mascara and mascara.get('id') else 'Nova' }} Máscara DRE{% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 shadow rounded max-w-2xl">
-  <form method="post">
-    <div class="form-group">
-      <label class="form-label">Nome</label>
-      <input type="text" name="nome" class="form-input" required value="{{ mascara.nome if mascara else '' }}">
+<div class="form-page">
+  <div class="main-header">
+    <h1>{{ 'Editar' if mascara and mascara.get('id') else 'Nova' }} Máscara DRE</h1>
+    <div class="flex space-x-3">
+      <a href="{{ url_for('dre_mascaras_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+      </a>
     </div>
-    <div class="form-group">
-      <label class="form-label">Descrição</label>
-      <textarea name="descricao" rows="3" class="form-input">{{ mascara.descricao if mascara else '' }}</textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Ordem</label>
-      <input type="number" name="ordem" class="form-input" min="0" step="1" value="{{ mascara.ordem if mascara and mascara.ordem is not none else 0 }}">
-      <small class="text-gray-500">Menores primeiro. Não aparece na exibição.</small>
-    </div>
-    <div class="form-group flex items-center space-x-2">
-      <input type="checkbox" name="eh_formula" id="eh_formula" class="" {% if mascara and mascara.eh_formula %}checked{% endif %}>
-      <label for="eh_formula">Máscara de resultado (por fórmula)</label>
-    </div>
-    <div id="formula_container" class="form-group" {% if not (mascara and mascara.eh_formula) %}style="display:none"{% endif %}>
-      <label class="form-label">Fórmula</label>
-      <input type="text" name="formula" class="form-input" placeholder="Ex.: Receitas - Despesas ou #1 - #2" value="{{ mascara.formula if mascara else '' }}">
-      <small class="text-gray-500">Use +, -, *, /. Referencie por nome da máscara ou por id com #ID. Ex.: #3 - #4</small>
-      {% if mascaras_tokens %}
-      <div class="mt-2 p-2 bg-gray-50 rounded border border-gray-200 text-sm">
-        <div class="font-semibold mb-1">Máscaras disponíveis:</div>
-        <ul class="grid grid-cols-1 md:grid-cols-2 gap-1">
-          {% for m in mascaras_tokens %}
-            <li><span class="text-gray-700">{{ m.nome }}</span> <span class="text-gray-500">(id: #{{ m.id }})</span></li>
-          {% endfor %}
-        </ul>
+  </div>
+  <div class="content-section">
+    <form method="post" class="space-y-4 flex flex-col h-full">
+      <div class="form-group">
+        <label class="form-label">Nome</label>
+        <input type="text" name="nome" class="form-input" required value="{{ mascara.nome if mascara else '' }}">
       </div>
-      {% endif %}
-    </div>
-    <div class="form-group flex items-center space-x-2">
-      <input type="checkbox" name="ativo" id="ativo" class="" {% if not mascara or mascara.ativo %}checked{% endif %}>
-      <label for="ativo">Ativa</label>
-    </div>
-    <div class="flex space-x-2">
-      <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-2"></i>Salvar</button>
-      <a href="{{ url_for('dre_mascaras_list') }}" class="btn btn-secondary">Cancelar</a>
-    </div>
-  </form>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <textarea name="descricao" rows="3" class="form-input">{{ mascara.descricao if mascara else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ordem</label>
+        <input type="number" name="ordem" class="form-input" min="0" step="1" value="{{ mascara.ordem if mascara and mascara.ordem is not none else 0 }}">
+        <small class="text-gray-500">Menores primeiro. Não aparece na exibição.</small>
+      </div>
+      <div class="form-group flex items-center space-x-2">
+        <input type="checkbox" name="eh_formula" id="eh_formula" class="" {% if mascara and mascara.eh_formula %}checked{% endif %}>
+        <label for="eh_formula">Máscara de resultado (por fórmula)</label>
+      </div>
+      <div id="formula_container" class="form-group" {% if not (mascara and mascara.eh_formula) %}style="display:none"{% endif %}>
+        <label class="form-label">Fórmula</label>
+        <input type="text" name="formula" class="form-input" placeholder="Ex.: Receitas - Despesas ou #1 - #2" value="{{ mascara.formula if mascara else '' }}">
+        <small class="text-gray-500">Use +, -, *, /. Referencie por nome da máscara ou por id com #ID. Ex.: #3 - #4</small>
+        {% if mascaras_tokens %}
+        <div class="mt-2 p-2 bg-gray-50 rounded border border-gray-200 text-sm">
+          <div class="font-semibold mb-1">Máscaras disponíveis:</div>
+          <ul class="grid grid-cols-1 md:grid-cols-2 gap-1">
+            {% for m in mascaras_tokens %}
+              <li><span class="text-gray-700">{{ m.nome }}</span> <span class="text-gray-500">(id: #{{ m.id }})</span></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+      <div class="form-group flex items-center space-x-2">
+        <input type="checkbox" name="ativo" id="ativo" class="" {% if not mascara or mascara.ativo %}checked{% endif %}>
+        <label for="ativo">Ativa</label>
+      </div>
+      <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+        <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm"><i class="fas fa-save mr-2"></i>Salvar</button>
+        <a href="{{ url_for('dre_mascaras_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+          <i class="fas fa-arrow-left mr-2"></i> Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}
 

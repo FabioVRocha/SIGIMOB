@@ -1,36 +1,44 @@
 ﻿{% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}PrestaÃ§Ã£o de Contas do Contrato{% endblock %}
 
 {% block page_title %}PrestaÃ§Ã£o de Contas do Contrato{% endblock %}
 
 {% block content %}
-<div class="content-section bg-white p-6 rounded-lg shadow-xl space-y-6">
-    <div class="flex justify-between items-start flex-wrap gap-4">
-        <div>
-            <h2 class="text-2xl font-semibold text-dark-blue mb-2">Contrato #{{ contrato.id }}</h2>
-            <p class="text-sm text-gray-700"><strong>Cliente:</strong> {{ contrato.cliente_nome }} ({{ contrato.cliente_documento }})</p>
-            <p class="text-sm text-gray-700"><strong>ImÃ³vel:</strong> {{ contrato.imovel_endereco }} - {{ contrato.imovel_cidade }}/{{ contrato.imovel_estado }}</p>
-            <p class="text-sm text-gray-700"><strong>PerÃ­odo:</strong> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} atÃ© {{ contrato.data_fim.strftime('%d/%m/%Y') }}</p>
-            {% if prestacao %}
-            <div class="mt-2">
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if prestacao.status == "Aprovada" %}bg-green-100 text-green-700{% elif prestacao.status == "Pendente" %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-700{% endif %}">
-                    Status: {{ prestacao.status or 'Pendente' }}
-                </span>
-                {% if prestacao.status == "Pendente" %}
-                <p class="text-xs text-gray-600 mt-1">Ap?s salvar, aprove a presta??o para gerar as contas financeiras.</p>
-                {% else %}
-                <p class="text-xs text-gray-600 mt-1">Ao salvar altera??es, a presta??o voltar? para pendente e precisar? ser aprovada novamente.</p>
-                {% endif %}
-            </div>
-            {% endif %}
-        </div>
-        <div class="text-right">
-            <a href="{{ url_for('contratos_prestacoes_list', contrato_id=contrato.id) }}" class="btn-secondary inline-flex items-center"><i class="fas fa-arrow-left mr-2"></i>Voltar para prestacoes</a>
+<div class="form-page">
+    <div class="main-header">
+        <h1>PrestaÃ§Ã£o de Contas do Contrato</h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('contratos_prestacoes_list', contrato_id=contrato.id) }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
         </div>
     </div>
+    <div class="content-section space-y-6">
+        <div class="flex justify-between items-start flex-wrap gap-4">
+            <div>
+                <h2 class="text-2xl font-semibold text-dark-blue mb-2">Contrato #{{ contrato.id }}</h2>
+                <p class="text-sm text-gray-700"><strong>Cliente:</strong> {{ contrato.cliente_nome }} ({{ contrato.cliente_documento }})</p>
+                <p class="text-sm text-gray-700"><strong>ImÃ³vel:</strong> {{ contrato.imovel_endereco }} - {{ contrato.imovel_cidade }}/{{ contrato.imovel_estado }}</p>
+                <p class="text-sm text-gray-700"><strong>PerÃ­odo:</strong> {{ contrato.data_inicio.strftime('%d/%m/%Y') }} atÃ© {{ contrato.data_fim.strftime('%d/%m/%Y') }}</p>
+                {% if prestacao %}
+                <div class="mt-2">
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if prestacao.status == "Aprovada" %}bg-green-100 text-green-700{% elif prestacao.status == "Pendente" %}bg-yellow-100 text-yellow-800{% else %}bg-gray-100 text-gray-700{% endif %}">
+                        Status: {{ prestacao.status or 'Pendente' }}
+                    </span>
+                    {% if prestacao.status == "Pendente" %}
+                    <p class="text-xs text-gray-600 mt-1">Ap?s salvar, aprove a presta??o para gerar as contas financeiras.</p>
+                    {% else %}
+                    <p class="text-xs text-gray-600 mt-1">Ao salvar altera??es, a presta??o voltar? para pendente e precisar? ser aprovada novamente.</p>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
 
-    <form id="prestacao-form" method="POST" action="{{ form_action }}" class="space-y-6">
+        <form id="prestacao-form" method="POST" action="{{ form_action }}" class="space-y-6 flex flex-col h-full">
         <input type="hidden" name="prestacao_payload" id="prestacao-payload">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -105,13 +113,16 @@
             <p id="saldo-feedback" class="text-sm mt-3 text-gray-600"></p>
         </div>
 
-        <div class="flex items-center justify-end gap-3">
-            <a href="{{ url_for('contratos_list') }}" class="btn-secondary">Cancelar</a>
-            <button type="submit" class="btn-primary text-white">
-                {% if is_edit %}Atualizar prestaÃ§Ã£o de contas{% else %}Gerar prestaÃ§Ã£o de contas{% endif %}
-            </button>
-        </div>
-    </form>
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm text-white">
+                    {% if is_edit %}Atualizar prestaÃ§Ã£o de contas{% else %}Gerar prestaÃ§Ã£o de contas{% endif %}
+                </button>
+                <a href="{{ url_for('contratos_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Cancelar
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
 

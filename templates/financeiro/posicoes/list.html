@@ -4,44 +4,137 @@
 {% block title %}Posições Diárias{% endblock %}
 {% block page_title %}Posições Diárias{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Posições</h2>
-        <form action="{{ url_for('posicoes_recalcular') }}" method="POST" class="flex items-center space-x-2">
-            <input type="date" name="inicio" class="form-input" />
-            <button type="submit" class="btn-primary flex items-center">
-                <i class="fas fa-sync-alt mr-2"></i> Recalcular
-            </button>
-        </form>
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="posicoesCount">0 posições</div>
+        <div class="flex space-x-3">
+            
+        </div>
     </div>
     {% if posicoes %}
-    <div class="overflow-x-auto">
-        <table class="min-w-full bg-white rounded-lg overflow-hidden">
-            <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated" id="posicoesTable">
+            <thead class="table-header-bg">
                 <tr>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Data</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Conta</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Tipo</th>
-                    <th class="py-3 px-4 text-left text-sm font-semibold text-white">Saldo</th>
+                    <th class="py-2 px-2 text-left">Data</th>
+                    <th class="py-2 px-2 text-left">Conta</th>
+                    <th class="py-2 px-2 text-left">Tipo</th>
+                    <th class="py-2 px-2 text-left">Saldo</th>
+                </tr>
+                <tr class="table-filters">
+                    <th class="py-2 px-2"><input type="text" class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text" class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text" class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text" class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="posicoes-tbody">
                 {% for p in posicoes %}
-                <tr class="border-b border-gray-200 hover:bg-gray-50">
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ p.data.strftime('%d/%m/%Y') }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ p.data.strftime('%d/%m/%Y') }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">
                         {{ contas_caixa.get(p.conta_id) if p.conta_tipo == 'caixa' else contas_banco.get(p.conta_id) }}
                     </td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ p.conta_tipo|capitalize }}</td>
-                    <td class="py-3 px-4 text-sm text-gray-700">{{ (p.saldo or 0) | currency }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ p.conta_tipo|capitalize }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ (p.saldo or 0) | currency }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    <div class="mobile-cards" id="posicoesCards">
+        {% for p in posicoes %}
+            <div
+                class="employee-card"
+                data-col-0="{{ p.data.strftime('%d/%m/%Y') }}"
+                data-col-1="{{ contas_caixa.get(p.conta_id) if p.conta_tipo == 'caixa' else contas_banco.get(p.conta_id) }}"
+                data-col-2="{{ p.conta_tipo|capitalize }}"
+                data-col-3="{{ (p.saldo or 0) | currency }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title">{{ contas_caixa.get(p.conta_id) if p.conta_tipo == 'caixa' else contas_banco.get(p.conta_id) }}</div>
+                        <div class="employee-card-meta">{{ p.data.strftime('%d/%m/%Y') }}</div>
+                    </div>
+                </div>
+                <div class="employee-card-grid">
+                    <div>
+                        <span>Tipo</span>
+                        {{ p.conta_tipo|capitalize }}
+                    </div>
+                    <div>
+                        <span>Saldo</span>
+                        {{ (p.saldo or 0) | currency }}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhuma posição encontrada.</p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    const inputs = document.querySelectorAll('.column-search');
+    const rows = document.querySelectorAll('#posicoes-tbody tr');
+    const cards = document.querySelectorAll('#posicoesCards .employee-card');
+    const countEl = document.getElementById('posicoesCount');
+
+    function updateCount(visibleRows) {
+        if (!countEl) return;
+        countEl.textContent = visibleRows === 1 ? '1 posição' : `${visibleRows} posições`;
+    }
+
+    function filterTable(){
+        let visibleCount = 0;
+        rows.forEach(row => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const cell = row.querySelectorAll('td')[index];
+                if(filter && cell && !cell.textContent.toLowerCase().includes(filter)){
+                    visible = false;
+                }
+            });
+            row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
+        });
+        cards.forEach(card => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const value = (card.getAttribute(`data-col-${index}`) || '').toLowerCase();
+                if (filter && !value.includes(filter)) {
+                    visible = false;
+                }
+            });
+            card.style.display = visible ? '' : 'none';
+        });
+        updateCount(visibleCount);
+    }
+
+    inputs.forEach(input => input.addEventListener('input', filterTable));
+    filterTable();
+});
+</script>
 {% endblock %}

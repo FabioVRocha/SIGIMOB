@@ -1,6 +1,8 @@
 <!-- templates/financeiro/bancos/add_list.html -->
 {% extends "base.html" %}
 
+{% block body_class %}page-form-standard{% endblock %}
+
 {% block title %}
     {% if conta.id %}Editar Conta Bancária{% else %}Nova Conta Bancária{% endif %}
 {% endblock %}
@@ -9,76 +11,91 @@
 {% endblock %}
 
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <form action="{% if conta.id %}{{ url_for('bancos_edit', id=conta.id) }}{% else %}{{ action_url }}{% endif %}" method="POST">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-            <div class="form-group">
-                <label for="banco" class="form-label">Código do Banco:</label>
-                <input type="text" id="banco" name="banco" class="form-input" value="{{ conta.banco | default('') }}" required>
-            </div>
-            <div class="form-group">
-                <label for="nome_banco" class="form-label">Nome do Banco:</label>
-                <input type="text" id="nome_banco" name="nome_banco" class="form-input" value="{{ conta.nome_banco | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="agencia" class="form-label">Agência:</label>
-                <input type="text" id="agencia" name="agencia" class="form-input" value="{{ conta.agencia | default('') }}" required>
-            </div>
-            <div class="form-group">
-                <label for="conta" class="form-label">Conta:</label>
-                <input type="text" id="conta" name="conta" class="form-input" value="{{ conta.conta | default('') }}" required>
-            </div>
-            <div class="form-group">
-                <label for="tipo" class="form-label">Tipo:</label>
-                <input type="text" id="tipo" name="tipo" class="form-input" value="{{ conta.tipo | default('') }}">
-            </div>
-             <div class="form-group">
-                <label for="convenio" class="form-label">Convênio:</label>
-                <input type="text" id="convenio" name="convenio" class="form-input" value="{{ conta.convenio | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="carteira" class="form-label">Carteira:</label>
-                <input type="text" id="carteira" name="carteira" class="form-input" value="{{ conta.carteira | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="variacao" class="form-label">Variação:</label>
-                <input type="text" id="variacao" name="variacao" class="form-input" value="{{ conta.variacao | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="contrato" class="form-label">Contrato:</label>
-                <input type="text" id="contrato" name="contrato" class="form-input" value="{{ conta.contrato | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="juros_mora" class="form-label">Juros de Mora (%):</label>
-                <input type="number" step="0.01" id="juros_mora" name="juros_mora" class="form-input" value="{{ conta.juros_mora | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="multa" class="form-label">Multa (%):</label>
-                <input type="number" step="0.01" id="multa" name="multa" class="form-input" value="{{ conta.multa | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="dias_protesto" class="form-label">Dias para Protesto:</label>
-                <input type="number" id="dias_protesto" name="dias_protesto" class="form-input" value="{{ conta.dias_protesto | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="especie_documento" class="form-label">Espécie do Documento:</label>
-                <input type="text" id="especie_documento" name="especie_documento" class="form-input" value="{{ conta.especie_documento | default('') }}">
-            </div>
-            <div class="form-group">
-                <label for="saldo_inicial" class="form-label">Saldo Inicial:</label>
-                <input type="number" step="0.01" id="saldo_inicial" name="saldo_inicial" class="form-input" value="{{ conta.saldo_inicial | default('0.00') }}">
-            </div>
-            <div class="form-group">
-                <label for="data_saldo_inicial" class="form-label">Data Inicial do Saldo:</label>
-                <input type="date" id="data_saldo_inicial" name="data_saldo_inicial" class="form-input" value="{{ conta.data_saldo_inicial | default('') }}">
-            </div>
+<div class="form-page">
+    <div class="main-header">
+        <h1>
+            {% if conta.id %}Editar Conta Bancária{% else %}Nova Conta Bancária{% endif %}
+        </h1>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('bancos_list') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
         </div>
-        <div class="flex justify-end space-x-4">
-            <a href="{{ url_for('bancos_list') }}" class="btn-secondary">Voltar</a>
-            <button type="submit" class="btn-primary">
-                {% if conta.id %}Atualizar{% else %}Cadastrar{% endif %}
-            </button>
-        </div>
-    </form>
+    </div>
+    <div class="content-section">
+        <form action="{% if conta.id %}{{ url_for('bancos_edit', id=conta.id) }}{% else %}{{ action_url }}{% endif %}" method="POST" class="space-y-4 flex flex-col h-full">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <div class="form-group">
+                    <label for="banco" class="form-label">Código do Banco:</label>
+                    <input type="text" id="banco" name="banco" class="form-input" value="{{ conta.banco | default('') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="nome_banco" class="form-label">Nome do Banco:</label>
+                    <input type="text" id="nome_banco" name="nome_banco" class="form-input" value="{{ conta.nome_banco | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="agencia" class="form-label">Agência:</label>
+                    <input type="text" id="agencia" name="agencia" class="form-input" value="{{ conta.agencia | default('') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="conta" class="form-label">Conta:</label>
+                    <input type="text" id="conta" name="conta" class="form-input" value="{{ conta.conta | default('') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="tipo" class="form-label">Tipo:</label>
+                    <input type="text" id="tipo" name="tipo" class="form-input" value="{{ conta.tipo | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="convenio" class="form-label">Convênio:</label>
+                    <input type="text" id="convenio" name="convenio" class="form-input" value="{{ conta.convenio | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="carteira" class="form-label">Carteira:</label>
+                    <input type="text" id="carteira" name="carteira" class="form-input" value="{{ conta.carteira | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="variacao" class="form-label">Variação:</label>
+                    <input type="text" id="variacao" name="variacao" class="form-input" value="{{ conta.variacao | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="contrato" class="form-label">Contrato:</label>
+                    <input type="text" id="contrato" name="contrato" class="form-input" value="{{ conta.contrato | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="juros_mora" class="form-label">Juros de Mora (%):</label>
+                    <input type="number" step="0.01" id="juros_mora" name="juros_mora" class="form-input" value="{{ conta.juros_mora | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="multa" class="form-label">Multa (%):</label>
+                    <input type="number" step="0.01" id="multa" name="multa" class="form-input" value="{{ conta.multa | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="dias_protesto" class="form-label">Dias para Protesto:</label>
+                    <input type="number" id="dias_protesto" name="dias_protesto" class="form-input" value="{{ conta.dias_protesto | default('') }}">
+                    <small class="text-gray-500">Deixe em branco para não protestar automaticamente.</small>
+                </div>
+                <div class="form-group">
+                    <label for="especie_documento" class="form-label">Espécie do Documento:</label>
+                    <input type="text" id="especie_documento" name="especie_documento" class="form-input" value="{{ conta.especie_documento | default('') }}">
+                </div>
+                <div class="form-group">
+                    <label for="saldo_inicial" class="form-label">Saldo Inicial:</label>
+                    <input type="number" step="0.01" id="saldo_inicial" name="saldo_inicial" class="form-input" value="{{ conta.saldo_inicial | default('0.00') }}">
+                </div>
+                <div class="form-group">
+                    <label for="data_saldo_inicial" class="form-label">Data Inicial do Saldo:</label>
+                    <input type="date" id="data_saldo_inicial" name="data_saldo_inicial" class="form-input" value="{{ conta.data_saldo_inicial | default('') }}">
+                </div>
+            </div>
+            <div class="form-footer flex flex-wrap items-center gap-3 justify-end mt-auto">
+                <button type="submit" class="btn-primary px-5 py-2 rounded-lg shadow-md text-sm">
+                    {% if conta.id %}Atualizar{% else %}Cadastrar{% endif %}
+                </button>
+                <a href="{{ url_for('bancos_list') }}" class="btn-secondary px-5 py-2 rounded-lg shadow-md text-sm">
+                    <i class="fas fa-arrow-left mr-2"></i> Voltar
+                </a>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}

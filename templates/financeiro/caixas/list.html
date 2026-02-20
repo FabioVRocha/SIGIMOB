@@ -4,45 +4,92 @@
 {% block title %}Caixas{% endblock %}
 {% block page_title %}Contas de Caixa{% endblock %}
 
+{% block body_class %}page-list-standard page-list-has-cards{% endblock %}
+
+{% block page_actions %}
+<div class="flex space-x-3">
+    <button type="button" onclick="window.history.back()" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar">
+        <i class="fas fa-arrow-left"></i>
+    </button>
+    <a href="{{ url_for('dashboard') }}" class="btn-secondary text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex items-center justify-center" title="Voltar ao Início">
+        <i class="fas fa-home"></i>
+    </a>
+</div>
+{% endblock %}
+
+
+
 {% block content %}
-<div class="bg-white p-6 rounded-lg shadow-xl">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl font-semibold text-dark-blue">Caixas</h2>
-        <a href="{{ url_for('caixas_add') }}" class="btn-primary flex items-center">
-            <i class="fas fa-plus mr-2"></i> Novo Caixa
-        </a>
+<div class="content-section bg-white p-6 rounded-lg shadow-xl">
+    <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-medium-gray" id="caixasCount">0 contas</div>
+        <div class="flex space-x-3">
+            <a href="{{ url_for('caixas_add') }}" class="btn-add text-white font-semibold text-sm py-2 px-5 rounded-lg transition duration-300 ease-in-out flex items-center justify-center" title="Novo Caixa">
+                <i class="fas fa-plus mr-2"></i> Novo Caixa
+            </a>
+        </div>
     </div>
     {% if contas %}
-    <table class="min-w-full bg-white rounded-lg overflow-hidden">
-        <thead class="text-white" style="background-color: var(--clr-sidebar-bg);">
-            <tr>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-white">ID</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Nome</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Saldo Atual</th>
-                <th class="py-3 px-4 text-left text-sm font-semibold text-white">Ações</th>
-            </tr>
-            <tr>
-                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                <th class="py-2 px-4"><input type="text" class="form-input column-search w-full min-w-0" placeholder="Buscar"></th>
-                <th class="py-2 px-4"></th>
-            </tr>
-        </thead>
-        <tbody id="caixas-tbody">
-            {% for c in contas %}
-            <tr class="border-b border-gray-200 hover:bg-gray-50">
-                <td class="py-3 px-4 text-sm text-gray-700">{{ c.id }}</td>
-                <td class="py-3 px-4 text-sm text-gray-700">{{ c.nome }}</td>
-                <td class="py-3 px-4 text-sm text-gray-700">{{ (c.saldo_calculado or 0) | currency }}</td>
-                <td class="py-3 px-4 text-sm">
-                    <a href="{{ url_for('caixas_edit', id=c.id) }}" class="text-blue-600 hover:text-blue-800">
-                        <i class="fas fa-edit"></i> Editar
+    <div class="table-overflow">
+        <table  class="min-w-full table-elevated" id="caixasTable">
+            <thead class="table-header-bg">
+                <tr >
+                    <th class="py-2 px-2 text-left">ID</th>
+                    <th class="py-2 px-2 text-left">Nome</th>
+                    <th class="py-2 px-2 text-left">Saldo Atual</th>
+                    <th class="py-2 px-2 text-left">Ações</th>
+                </tr>
+                <tr class="table-filters">
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"><input type="text"  class="w-full px-2 py-1 border rounded text-sm filter-input column-search" placeholder="Buscar"></th>
+                    <th class="py-2 px-2"></th>
+                </tr>
+            </thead>
+            <tbody id="caixas-tbody">
+                {% for c in contas %}
+                <tr class="hover:bg-gray-50 {% if loop.index is odd %}table-row-odd{% else %}table-row-even{% endif %}">
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ c.id }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ c.nome }}</td>
+                    <td class="py-2 px-2 text-sm text-gray-700">{{ (c.saldo_calculado or 0) | currency }}</td>
+                    <td class="py-2 px-2 text-sm whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <a href="{{ url_for('caixas_edit', id=c.id) }}" title="Editar" class="btn-primary text-white px-2 py-1 rounded-lg text-xs flex items-center justify-center"><i class="fas fa-edit"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="mobile-cards" id="caixasCards">
+        {% for c in contas %}
+            <div
+                class="employee-card"
+                data-col-0="{{ c.id }}"
+                data-col-1="{{ c.nome }}"
+                data-col-2="{{ (c.saldo_calculado or 0) | currency }}"
+            >
+                <div class="employee-card-header">
+                    <div>
+                        <div class="employee-card-title">{{ c.nome }}</div>
+                        <div class="employee-card-meta">Caixa #{{ c.id }}</div>
+                    </div>
+                </div>
+                <div class="employee-card-grid">
+                    <div>
+                        <span>Saldo Atual</span>
+                        {{ (c.saldo_calculado or 0) | currency }}
+                    </div>
+                </div>
+                <div class="employee-card-actions">
+                    <a href="{{ url_for('caixas_edit', id=c.id) }}" title="Editar" aria-label="Editar caixa">
+                        <i class="fas fa-edit"></i>
                     </a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
     {% else %}
     <p class="text-center text-gray-600">Nenhuma conta de caixa cadastrada.</p>
     {% endif %}
@@ -53,7 +100,16 @@
 document.addEventListener('DOMContentLoaded', function(){
     const inputs = document.querySelectorAll('.column-search');
     const rows = document.querySelectorAll('#caixas-tbody tr');
+    const cards = document.querySelectorAll('#caixasCards .employee-card');
+    const countEl = document.getElementById('caixasCount');
+
+    function updateCount(visibleRows) {
+        if (!countEl) return;
+        const total = visibleRows;
+        countEl.textContent = total === 1 ? '1 conta' : `${total} contas`;
+    }
     function filterTable(){
+        let visibleCount = 0;
         rows.forEach(row => {
             let visible = true;
             inputs.forEach((input, index) => {
@@ -64,9 +120,23 @@ document.addEventListener('DOMContentLoaded', function(){
                 }
             });
             row.style.display = visible ? '' : 'none';
+            if (visible) visibleCount += 1;
         });
+        cards.forEach(card => {
+            let visible = true;
+            inputs.forEach((input, index) => {
+                const filter = (input.value || '').toLowerCase();
+                const value = (card.getAttribute(`data-col-${index}`) || '').toLowerCase();
+                if (filter && !value.includes(filter)) {
+                    visible = false;
+                }
+            });
+            card.style.display = visible ? '' : 'none';
+        });
+        updateCount(visibleCount);
     }
     inputs.forEach(input => input.addEventListener('input', filterTable));
+    filterTable();
 });
 </script>
 {% endblock %}

@@ -71,6 +71,8 @@ def criar_banco():
     data_saldo_inicial = data.get('data_saldo_inicial')
     if data_saldo_inicial:
         data_saldo_inicial = date.fromisoformat(data_saldo_inicial)
+    dias_protesto_raw = str(data.get('dias_protesto') or '').strip()
+    dias_protesto = int(dias_protesto_raw) if dias_protesto_raw else None
     conta = ContaBanco(
         banco=data.get('banco'),
         nome_banco=data.get('nome_banco'),
@@ -83,7 +85,7 @@ def criar_banco():
         contrato=data.get('contrato'),
         juros_mora=data.get('juros_mora'),
         multa=data.get('multa'),
-        dias_protesto=data.get('dias_protesto'),
+        dias_protesto=dias_protesto,
         especie_documento=data.get('especie_documento'),
         saldo_inicial=data.get('saldo_inicial', 0),
         saldo_atual=data.get('saldo_inicial', 0),
